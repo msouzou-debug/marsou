@@ -4,7 +4,7 @@
  * page loaded inside an attacker's frame still carries the viewer's session,
  * so `frame-ancestors 'none'` refuses every frame, and `X-Frame-Options:
  * DENY` says the same to browsers that predate it. eCapital frames nothing
- * of its own — the document preview is an <img> and «Άνοιγμα» is a new tab.
+ * of its own — the document preview is an <img> and «Προβολή» is a new tab.
  *
  * The proxy route forwards the API's own Content-Security-Policy for a filed
  * file (the sandbox), which carries the framing rule itself; the API's

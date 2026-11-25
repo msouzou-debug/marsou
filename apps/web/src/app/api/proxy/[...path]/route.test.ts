@@ -258,4 +258,53 @@ describe("proxy route — document content passthrough", () => {
     expect(res.headers.get("cache-control")).toBe("private, max-age=300");
     expect(new TextDecoder().decode(await res.arrayBuffer())).toBe(html);
   });
+
+  // UAT 25/11/2026, «Άνοιγμα downloads»: the route must not turn the API's
+  // `inline` into a download, nor lose the type the browser needs to show it.
+  it("keeps a PDF inline, with its own type, so «Προβολή» shows it in the tab", async () => {
+    vi.mocked(getSession).mockResolvedValue({ token: "tok-1", me: {} as Me, matrix: ROLE_MATRIX });
+    const pdf = new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d]); // "%PDF-"
+    const disposition = "inline; filename*=UTF-8''%CE%95%CE%B3%CF%87%CE%B5%CE%B9%CF%81%CE%AF%CE%B4%CE%B9%CE%BF.pdf";
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(pdf, {
+        status: 200,
+        headers: {
+          "content-type": "application/pdf",
+          "content-disposition": disposition,
+          "x-content-type-options": "nosniff",
+          "content-security-policy": "frame-ancestors 'none'",
+        },
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const req = new NextRequest(new URL("http://localhost:3000/api/proxy/documents/d-2/content"));
+    const res = await GET(req, context(["documents", "d-2", "content"]));
+
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toBe("application/pdf");
+    expect(res.headers.get("content-disposition")).toBe(disposition);
+    expect(Array.from(new Uint8Array(await res.arrayBuffer()))).toEqual(Array.from(pdf));
+    expect(String(fetchMock.mock.calls[0][0])).toMatch(/\/documents\/d-2\/content$/);
+  });
+
+  it("carries «Λήψη»'s `?download=1` to the API and its attachment back", async () => {
+    vi.mocked(getSession).mockResolvedValue({ token: "tok-1", me: {} as Me, matrix: ROLE_MATRIX });
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(new Uint8Array([1, 2, 3]), {
+        status: 200,
+        headers: {
+          "content-type": "application/pdf",
+          "content-disposition": "attachment; filename*=UTF-8''report.pdf",
+        },
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const req = new NextRequest(new URL("http://localhost:3000/api/proxy/documents/d-3/content?download=1"));
+    const res = await GET(req, context(["documents", "d-3", "content"]));
+
+    expect(String(fetchMock.mock.calls[0][0])).toMatch(/\/documents\/d-3\/content\?download=1$/);
+    expect(res.headers.get("content-disposition")).toBe("attachment; filename*=UTF-8''report.pdf");
+  });
 });

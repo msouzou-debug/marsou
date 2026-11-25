@@ -32,6 +32,8 @@ import {
   type Condition,
   type QrLabel,
   type ReplacementForecastRow,
+  assetDateIssues,
+  nicosiaToday,
 } from "@ecapital/shared";
 import { and, asc, desc, eq, inArray, isNotNull, sql, type SQL } from "drizzle-orm";
 import { UUID, callerUserId } from "../common/actor";
@@ -41,6 +43,7 @@ import {
   INSUFFICIENT_PRIVILEGE,
   RESTRICT_VIOLATION,
   UNIQUE_VIOLATION,
+  constraintName,
   sqlState,
 } from "../common/sql-error";
 import { CONFIG, type AppConfig } from "../config";
@@ -55,6 +58,7 @@ import {
   type AuditFact,
   type HistoryParts,
 } from "./asset-rows";
+import { assetDateError, checkViolationKey } from "./asset-rules";
 
 /** How far back the history reads. The same ceiling the permit trail uses. */
 const HISTORY_LINES = 200;
@@ -253,6 +257,23 @@ export class AssetsService {
         ? existing.sourceContractId
         : (patch.sourceContractId ?? null),
     );
+    // UAT 25/11/2026: the dates in order, the ones sent read against the
+    // ones stored — a commissioning date alone can still land before the
+    // installation already on file. Checked only when a date is in the
+    // change, so an old record out of order does not block a new name.
+    const dateKeys = ["installedDate", "commissionedDate", "warrantyEnd", "replacementYear"] as const;
+    if (dateKeys.some((key) => patch[key] !== undefined)) {
+      const merged = {
+        installedDate: patch.installedDate === undefined ? existing.installedDate : patch.installedDate,
+        commissionedDate:
+          patch.commissionedDate === undefined ? existing.commissionedDate : patch.commissionedDate,
+        warrantyEnd: patch.warrantyEnd === undefined ? existing.warrantyEnd : patch.warrantyEnd,
+        replacementYear:
+          patch.replacementYear === undefined ? existing.replacementYear : patch.replacementYear,
+      };
+      const [issue] = assetDateIssues(merged, nicosiaToday());
+      if (issue) throw assetDateError(issue);
+    }
 
     // Loosely typed on purpose: `updatedAt` takes the database's own clock
     // and not this process's, which drizzle's insert type does not describe.
@@ -340,7 +361,7 @@ export class AssetsService {
       if (!row?.id) throw AppError.notFound("errors.assetNotFound");
       return toAsset(fromSnakeCase(row));
     } catch (error) {
-      throw this.writeError(error);
+      throw this.writeError(error, "errors.assetConditionNotValid");
     }
   }
 
@@ -373,7 +394,7 @@ export class AssetsService {
         .limit(1);
       return toReading(row, person?.name ?? "");
     } catch (error) {
-      throw this.writeError(error);
+      throw this.writeError(error, "errors.assetReadingNotValid");
     }
   }
 
@@ -918,13 +939,21 @@ export class AssetsService {
     return this.config.corsOrigins[0] ?? "http://127.0.0.1:3000";
   }
 
-  private writeError(error: unknown): never {
+  /**
+   * A CHECK the database refused names its constraint, and each constraint
+   * has its own sentence (asset-rules.ts). One raised by a function, with no
+   * constraint behind it, gets the route's own: the condition's band check
+   * in `record_asset_condition` is the case.
+   */
+  private writeError(error: unknown, checkFallback = "errors.assetNotValid"): never {
     if (error instanceof AppError) throw error;
     const code = sqlState(error);
     if (code === INSUFFICIENT_PRIVILEGE) throw AppError.forbidden("errors.readOnlyAccount");
     if (code === RESTRICT_VIOLATION) throw AppError.unprocessable("errors.assetTagFixed");
     if (code === UNIQUE_VIOLATION) throw AppError.conflict("errors.assetDocumentAlreadyLinked");
-    if (code === CHECK_VIOLATION) throw AppError.badRequest("errors.assetNotValid");
+    if (code === CHECK_VIOLATION) {
+      throw AppError.badRequest(checkViolationKey(constraintName(error), checkFallback));
+    }
     throw error;
   }
 }

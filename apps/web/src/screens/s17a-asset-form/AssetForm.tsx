@@ -21,6 +21,13 @@
  * remains the only place that calls `apiMutate` — but not in the stricter
  * sense of holding zero query hooks. Worth a line in the hand-back summary.
  *
+ * RULE (UAT 25/11/2026): «Έργο προέλευσης» and «Σύμβαση προέλευσης» list
+ * the projects and contracts of the asset's own unit — all of them, every
+ * phase, never one page — as a plain select by code/reference, with a line
+ * under each saying so. Every field the rules can refuse shows its message
+ * under itself (`schema.ts`), and the installed/commissioned date pickers
+ * stop at today.
+ *
  * | Prop           | Type                    | Notes                                                                 |
  * |----------------|-------------------------|----------------------------------------------------------------------|
  * | mode           | "create" \| "edit"      | Hides the Μονάδα field in "edit" — the org unit never changes after the asset exists (ADR-0014's precedent). |
@@ -42,7 +49,7 @@ import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useLocale, useTranslations } from "next-intl";
 import { LoaderCircle } from "lucide-react";
-import { AssetClass, PermitSystem, type OrgUnit } from "@ecapital/shared";
+import { AssetClass, PermitSystem, nicosiaToday, type OrgUnit } from "@ecapital/shared";
 import { AreaPicker } from "@/components/area-picker";
 import { PageTitle } from "@/components/app-shell";
 import { useAreaTree, useAssets, useContractsForUnit, useProjectsForUnit } from "@/data/queries";
@@ -93,6 +100,11 @@ export function blankToNullNumber(value: string | number | null | undefined): nu
   if (value === "" || value === null || value === undefined) return null;
   const n = typeof value === "number" ? value : Number(value);
   return Number.isNaN(n) ? null : n;
+}
+
+/** A field's message, under the field, in the form's own red. */
+function FieldError({ message }: { message?: string }) {
+  return message ? <p role="alert" className="text-fs-14 text-k-red">{message}</p> : null;
 }
 
 export interface AssetFormProps {
@@ -182,6 +194,9 @@ export function AssetForm({
     ? (parentResults?.items.find((a) => a.id === parentAssetId)?.tag ?? initialParentTag ?? parentAssetId)
     : null;
 
+  // The day the date fields stop at: installation and commissioning are not after today (UAT 25/11/2026).
+  const today = nicosiaToday();
+
   const fieldset = "flex flex-col gap-s-1";
   const input = "h-11 rounded-k border border-k-grey bg-k-white px-s-3 text-fs-16 text-k-ink disabled:bg-k-surface disabled:text-k-text";
 
@@ -212,7 +227,7 @@ export function AssetForm({
           <div className={fieldset}>
             <label htmlFor="af-name" className="text-fs-14 text-k-text">{tf("nameEl")}</label>
             <input id="af-name" type="text" {...register("nameEl")} aria-invalid={errors.nameEl ? "true" : undefined} className={input} />
-            {fieldError("nameEl") && <p role="alert" className="text-fs-14 text-k-red">{fieldError("nameEl")}</p>}
+            <FieldError message={fieldError("nameEl")} />
           </div>
 
           <div className="grid grid-cols-1 gap-s-4 tablet:grid-cols-2">
@@ -335,15 +350,18 @@ export function AssetForm({
           </div>
           <div className={fieldset}>
             <label htmlFor="af-installed" className="text-fs-14 text-k-text">{tf("installedDate")}</label>
-            <input id="af-installed" type="date" {...register("installedDate", { setValueAs: blankToNull })} className={`num ${input}`} />
+            <input id="af-installed" type="date" max={today} {...register("installedDate", { setValueAs: blankToNull })} aria-invalid={errors.installedDate ? "true" : undefined} className={`num ${input}`} />
+            <FieldError message={fieldError("installedDate")} />
           </div>
           <div className={fieldset}>
             <label htmlFor="af-commissioned" className="text-fs-14 text-k-text">{tf("commissionedDate")}</label>
-            <input id="af-commissioned" type="date" {...register("commissionedDate", { setValueAs: blankToNull })} className={`num ${input}`} />
+            <input id="af-commissioned" type="date" max={today} {...register("commissionedDate", { setValueAs: blankToNull })} aria-invalid={errors.commissionedDate ? "true" : undefined} className={`num ${input}`} />
+            <FieldError message={fieldError("commissionedDate")} />
           </div>
           <div className={fieldset}>
             <label htmlFor="af-warranty" className="text-fs-14 text-k-text">{tf("warrantyEnd")}</label>
-            <input id="af-warranty" type="date" {...register("warrantyEnd", { setValueAs: blankToNull })} className={`num ${input}`} />
+            <input id="af-warranty" type="date" {...register("warrantyEnd", { setValueAs: blankToNull })} aria-invalid={errors.warrantyEnd ? "true" : undefined} className={`num ${input}`} />
+            <FieldError message={fieldError("warrantyEnd")} />
           </div>
           <div className={fieldset}>
             <label htmlFor="af-project" className="text-fs-14 text-k-text">{tf("sourceProjectId")}</label>
@@ -362,6 +380,7 @@ export function AssetForm({
                 <option key={p.id} value={p.id}>{p.code} — {p.titleEl}</option>
               ))}
             </select>
+            <p className="text-fs-12 text-k-text">{tf("sourceProjectHint")}</p>
           </div>
           <div className={fieldset}>
             <label htmlFor="af-contract" className="text-fs-14 text-k-text">{tf("sourceContractId")}</label>
@@ -380,6 +399,7 @@ export function AssetForm({
                 <option key={c.id} value={c.id}>{c.ref} — {c.contractorName}</option>
               ))}
             </select>
+            <p className="text-fs-12 text-k-text">{tf("sourceContractHint")}</p>
           </div>
           <div className={fieldset}>
             <label htmlFor="af-capital-cost" className="text-fs-14 text-k-text">{tf("capitalCost")}</label>
@@ -398,6 +418,7 @@ export function AssetForm({
               />
               <span className="num text-fs-14 text-k-text">{capitalCostDraft === "" ? "—" : formatEUR(Number(capitalCostDraft))}</span>
             </div>
+            <FieldError message={fieldError("capitalCost")} />
           </div>
         </fieldset>
 
@@ -405,11 +426,13 @@ export function AssetForm({
           <legend className="mb-s-2 text-fs-20 text-k-blue-deep">{t("screens.s17a.sections.life")}</legend>
           <div className={fieldset}>
             <label htmlFor="af-life" className="text-fs-14 text-k-text">{tf("expectedLifeYears")}</label>
-            <input id="af-life" type="number" inputMode="numeric" {...register("expectedLifeYears", { setValueAs: blankToNullNumber })} className={`num ${input}`} />
+            <input id="af-life" type="number" min="1" max="120" inputMode="numeric" {...register("expectedLifeYears", { setValueAs: blankToNullNumber })} aria-invalid={errors.expectedLifeYears ? "true" : undefined} className={`num ${input}`} />
+            <FieldError message={fieldError("expectedLifeYears")} />
           </div>
           <div className={fieldset}>
             <label htmlFor="af-replacement-year" className="text-fs-14 text-k-text">{tf("replacementYear")}</label>
-            <input id="af-replacement-year" type="number" inputMode="numeric" {...register("replacementYear", { setValueAs: blankToNullNumber })} className={`num ${input}`} />
+            <input id="af-replacement-year" type="number" min="1900" max="2200" inputMode="numeric" {...register("replacementYear", { setValueAs: blankToNullNumber })} aria-invalid={errors.replacementYear ? "true" : undefined} className={`num ${input}`} />
+            <FieldError message={fieldError("replacementYear")} />
           </div>
           <div className={fieldset}>
             <label htmlFor="af-replacement-cost" className="text-fs-14 text-k-text">{tf("replacementCostEst")}</label>
@@ -428,6 +451,7 @@ export function AssetForm({
               />
               <span className="num text-fs-14 text-k-text">{replacementCostDraft === "" ? "—" : formatEUR(Number(replacementCostDraft))}</span>
             </div>
+            <FieldError message={fieldError("replacementCostEst")} />
           </div>
           <div className={fieldset}>
             <label htmlFor="af-criticality" className="text-fs-14 text-k-text">{tf("criticality")}</label>

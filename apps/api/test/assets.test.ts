@@ -2,7 +2,15 @@ import type { INestApplication } from "@nestjs/common";
 import { Client } from "pg";
 import request from "supertest";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { nicosiaToday } from "@ecapital/shared";
 import { USERS, bearer, createTestApp, listAll, tokenFor } from "./app";
+
+/** A calendar day `days` away from `day`, both `YYYY-MM-DD`. */
+function shiftDay(day: string, days: number): string {
+  const at = new Date(`${day}T12:00:00Z`);
+  at.setUTCDate(at.getUTCDate() + days);
+  return at.toISOString().slice(0, 10);
+}
 
 /**
  * M4 — the asset register (R26–R30, R45).
@@ -185,6 +193,114 @@ describe("the asset register", () => {
       .send({ condition: "F" });
     expect(response.status).toBe(400);
     expect(response.body.key).toBe("errors.assetConditionNotValid");
+  });
+
+  // UAT 25/11/2026: the form's date field sends a calendar day, and the
+  // route took only a timestamp, so every dated assessment was refused as a
+  // bad band.
+  it("takes the day the form's date field sends, and says so when the date is wrong", async () => {
+    const created = await makeAsset();
+    const token = await tokenFor(app, USERS.technicianNicosia);
+    const today = nicosiaToday();
+    const earlier = shiftDay(today, -3);
+
+    const dated = await request(app.getHttpServer())
+      .post(`/assets/${created.body.id}/condition`)
+      .set(bearer(token))
+      .send({ condition: "B", assessedAt: earlier });
+    expect(dated.status).toBe(201);
+    expect(dated.body.condition).toBe("B");
+    expect(dated.body.conditionAssessedAt.slice(0, 10)).toBe(earlier);
+
+    const onToday = await request(app.getHttpServer())
+      .post(`/assets/${created.body.id}/condition`)
+      .set(bearer(token))
+      .send({ condition: "C", assessedAt: today });
+    expect(onToday.status).toBe(201);
+
+    const future = await request(app.getHttpServer())
+      .post(`/assets/${created.body.id}/condition`)
+      .set(bearer(token))
+      .send({ condition: "C", assessedAt: shiftDay(today, 2) });
+    expect(future.status).toBe(400);
+    expect(future.body.key).toBe("errors.assetConditionDateInFuture");
+
+    const nonsense = await request(app.getHttpServer())
+      .post(`/assets/${created.body.id}/condition`)
+      .set(bearer(token))
+      .send({ condition: "C", assessedAt: "25/11/2026" });
+    expect(nonsense.status).toBe(400);
+    expect(nonsense.body.key).toBe("errors.assetConditionDateNotValid");
+  });
+
+  // -------------------------------------------------- what is refused, why --
+
+  it("names what is wrong with a new asset instead of calling it incomplete", async () => {
+    const short = await makeAsset({ nameEl: "Α" });
+    expect(short.status).toBe(400);
+    expect(short.body.key).toBe("errors.assetNameLength");
+
+    const life = await makeAsset({ expectedLifeYears: 0 });
+    expect(life.body.key).toBe("errors.assetExpectedLifeRange");
+
+    const year = await makeAsset({ replacementYear: 1800 });
+    expect(year.body.key).toBe("errors.assetReplacementYearRange");
+
+    const system = await makeAsset({ system: "NOT_A_SYSTEM" });
+    expect(system.status).toBe(400);
+    expect(system.body.key).toBe("errors.assetFieldNotValid");
+    expect(system.body.message).toContain("«Σύστημα»");
+  });
+
+  it("keeps an asset's dates in order on the way in", async () => {
+    const today = nicosiaToday();
+    const backwards = await makeAsset({ installedDate: "2024-03-10", commissionedDate: "2024-03-01" });
+    expect(backwards.status).toBe(400);
+    expect(backwards.body.key).toBe("errors.assetCommissionedBeforeInstalled");
+
+    const warranty = await makeAsset({ installedDate: "2024-03-10", warrantyEnd: "2024-01-01" });
+    expect(warranty.body.key).toBe("errors.assetWarrantyBeforeInstalled");
+
+    const future = await makeAsset({ installedDate: shiftDay(today, 1) });
+    expect(future.body.key).toBe("errors.assetInstalledInFuture");
+
+    const replacement = await makeAsset({ installedDate: "2024-03-10", replacementYear: 2023 });
+    expect(replacement.body.key).toBe("errors.assetReplacementBeforeInstalled");
+
+    const fine = await makeAsset({
+      installedDate: "2024-03-01",
+      commissionedDate: "2024-03-10",
+      warrantyEnd: "2026-03-10",
+      replacementYear: 2044,
+    });
+    expect(fine.status).toBe(201);
+  });
+
+  it("reads a changed date against the ones already stored", async () => {
+    const created = await makeAsset({ installedDate: "2024-03-10" });
+    expect(created.status).toBe(201);
+    const token = await tokenFor(app, USERS.estatesNicosia);
+
+    const backwards = await request(app.getHttpServer())
+      .patch(`/assets/${created.body.id}`)
+      .set(bearer(token))
+      .send({ commissionedDate: "2024-03-01" });
+    expect(backwards.status).toBe(400);
+    expect(backwards.body.key).toBe("errors.assetCommissionedBeforeInstalled");
+
+    const forwards = await request(app.getHttpServer())
+      .patch(`/assets/${created.body.id}`)
+      .set(bearer(token))
+      .send({ commissionedDate: "2024-03-12" });
+    expect(forwards.status).toBe(200);
+    expect(forwards.body.commissionedDate).toBe("2024-03-12");
+
+    // Moving the installation past the stored commissioning is the same fault.
+    const moved = await request(app.getHttpServer())
+      .patch(`/assets/${created.body.id}`)
+      .set(bearer(token))
+      .send({ installedDate: "2024-04-01" });
+    expect(moved.body.key).toBe("errors.assetCommissionedBeforeInstalled");
   });
 
   it("takes a reading from the technician and stamps who took it", async () => {

@@ -4,6 +4,7 @@ import {
   HttpCode,
   Param,
   Post,
+  Query,
   Res,
   StreamableFile,
   UploadedFile,
@@ -18,6 +19,7 @@ import {
   ApiConsumes,
   ApiOperation,
   ApiParam,
+  ApiQuery,
   ApiResponse,
   ApiTags,
 } from "@nestjs/swagger";
@@ -181,10 +183,20 @@ export class DocumentsController {
    * the app's proxy serves this from the app's own origin, so an HTML file
    * goes out as an attachment and sandboxed: it is saved, never rendered as
    * part of eCapital.
+   *
+   * `?download=1` is the «Λήψη» beside «Προβολή» (UAT 25/11/2026): the same
+   * bytes as an attachment, so the browser saves the file whatever its type.
+   * Nothing makes an HTML file inline; the parameter can only add a download.
    */
   @Get("documents/:id/content")
-  @ApiOperation({ summary: "The bytes of a filed document, for a preview" })
+  @ApiOperation({ summary: "The bytes of a filed document, for a preview or a download" })
   @ApiParam({ name: "id", schema: { type: "string", format: "uuid" } })
+  @ApiQuery({
+    name: "download",
+    required: false,
+    schema: { type: "string", enum: ["1"] },
+    description: "1 sends the file as an attachment, to be saved rather than shown",
+  })
   // The types go on the 200 alone, not through `@ApiProduces`, which would
   // stamp them on the 401 and the 404 too; those are the JSON error body.
   @ApiResponse({
@@ -198,14 +210,16 @@ export class DocumentsController {
   @ApiZodError(404, "No such document, none the caller may see, or none left in the store")
   async content(
     @Param("id") id: string,
+    @Query("download") download: string | undefined,
     @Res({ passthrough: true }) response: Response,
   ): Promise<StreamableFile> {
     const file = await this.documents.content(id);
     const html = file.mime === "text/html";
+    const attachment = html || download === "1";
     response.setHeader("Content-Type", contentType(file.mime));
     response.setHeader(
       "Content-Disposition",
-      `${html ? "attachment" : "inline"}; filename*=UTF-8''${rfc5987(file.filename)}`,
+      `${attachment ? "attachment" : "inline"}; filename*=UTF-8''${rfc5987(file.filename)}`,
     );
     response.setHeader("Content-Length", String(file.bytes.length));
     response.setHeader("Cache-Control", "private, max-age=300");

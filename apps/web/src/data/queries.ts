@@ -231,26 +231,46 @@ export function useAreaTree(orgUnitId: string) {
   });
 }
 
-// S07d's «target project» select (funded defects) and link: the caller's
-// visible projects in one unit, unpaged (a unit's own project list is short).
+/**
+ * Every project the caller may see in one unit, every phase, sorted by code.
+ * RULE (UAT 25/11/2026, «only 2 options»): the list is never cut at a page.
+ * The API's page is at most 200 (`ProjectListQuery.pageSize`), so this asks
+ * for page after page until it holds `total`. Exported for its test.
+ */
+export async function allProjectsForUnit(
+  orgUnitId: string,
+  fetchPage: (path: string) => Promise<ProjectList> = (path) => proxyFetch(path, ProjectList),
+): Promise<ProjectList> {
+  const pageSize = 200;
+  const items: ProjectList["items"] = [];
+  for (let page = 1; ; page += 1) {
+    const result = await fetchPage(
+      projectsApiPath({
+        unit: [orgUnitId],
+        phase: [],
+        category: [],
+        rag: [],
+        q: "",
+        sort: "code",
+        dir: "asc",
+        page,
+        pageSize,
+      }),
+    );
+    items.push(...result.items);
+    if (result.items.length < pageSize || items.length >= result.total) {
+      return { ...result, items, page: 1, pageSize: items.length };
+    }
+  }
+}
+
+// S07d's «target project» select (funded defects) and link, S11a's project
+// and S17a's «Έργο προέλευσης»: the caller's visible projects in one unit,
+// all of them, by code.
 export function useProjectsForUnit(orgUnitId: string) {
   return useQuery({
     queryKey: ["projects-for-unit", orgUnitId],
-    queryFn: () =>
-      proxyFetch(
-        projectsApiPath({
-          unit: [orgUnitId],
-          phase: [],
-          category: [],
-          rag: [],
-          q: "",
-          sort: "approvedBudget",
-          dir: "desc",
-          page: 1,
-          pageSize: 200,
-        }),
-        ProjectList,
-      ),
+    queryFn: () => allProjectsForUnit(orgUnitId),
     retry: false,
     enabled: orgUnitId.length > 0,
   });
@@ -655,12 +675,19 @@ export function useAssetLabels(ids: string[]) {
   });
 }
 
+/** A select's options in reference order, whatever order the API sent them in. */
+export function byRef<T extends { ref: string }>(items: readonly T[]): T[] {
+  return [...items].sort((a, b) => a.ref.localeCompare(b.ref, "el", { numeric: true }));
+}
+
 // S17a's «Σύμβαση» select, filtered to the asset's unit — `ContractListQuery.unit`.
+// `GET /contracts` is not paged (contracts.service.ts `listAll`): every
+// contract of the unit comes back, and the select lists them by reference.
 export function useContractsForUnit(orgUnitId: string) {
   return useQuery({
     queryKey: ["contracts-for-unit", orgUnitId],
     queryFn: () => proxyFetch(`/contracts?unit=${encodeURIComponent(orgUnitId)}`, ContractList),
-    select: (page) => page.items,
+    select: (page) => byRef(page.items),
     retry: false,
     enabled: orgUnitId.length > 0,
   });
@@ -948,11 +975,33 @@ export function reportExportHref(key: ReportKey, query: ReportQuery): string {
 
 /**
  * A filed document's bytes (`GET /documents/:id/content`), for an `<img>` or
- * an «Άνοιγμα» link: a navigation through the proxy like the xlsx downloads,
- * so the token stays on the server and the row policy decides what opens.
+ * a «Προβολή» / «Λήψη» link: a navigation through the proxy like the xlsx
+ * downloads, so the token stays on the server and the row policy decides
+ * what opens. `download` asks the API for an attachment (`?download=1`).
  */
-export function documentContentHref(id: string): string {
-  return `/api/proxy/documents/${encodeURIComponent(id)}/content`;
+export function documentContentHref(id: string, options: { download?: boolean } = {}): string {
+  const href = `/api/proxy/documents/${encodeURIComponent(id)}/content`;
+  return options.download ? `${href}?download=1` : href;
+}
+
+/**
+ * RULE (UAT 25/11/2026): what a browser shows in a tab of its own — a PDF
+ * and the image types every current browser draws. TIFF, office files, zips
+ * and HTML are not on it (HTML is always an attachment, by the API).
+ */
+const VIEWABLE_MIMES = new Set(["application/pdf", "image/png", "image/jpeg", "image/gif", "image/webp"]);
+
+export function isViewableMime(mime: string | null | undefined): boolean {
+  return VIEWABLE_MIMES.has((mime ?? "").toLowerCase());
+}
+
+/**
+ * «Προβολή»: inline in a new tab for a type the browser shows; for any
+ * other type it falls back to the download, so the link never opens an
+ * empty tab that saves a file behind the person's back.
+ */
+export function documentViewHref(id: string, mime: string | null | undefined): string {
+  return documentContentHref(id, { download: !isViewableMime(mime) });
 }
 
 // S23 index.

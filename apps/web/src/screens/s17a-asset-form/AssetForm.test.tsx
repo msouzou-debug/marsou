@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import type { OrgUnit } from "@ecapital/shared";
@@ -72,5 +73,65 @@ describe("AssetForm", () => {
       ),
     );
     expect(screen.getByText("1 σημαίνει ζωτικής σημασίας για τη λειτουργία, 5 σημαίνει διακοσμητικό ή χωρίς κλινική επίπτωση.")).toBeInTheDocument();
+  });
+
+  // UAT 25/11/2026: say whose projects and contracts the two selects list.
+  it("says under each source select that it lists the asset's own unit", () => {
+    renderWithIntl(
+      withQuery(
+        <AssetForm mode="create" orgUnits={ORG_UNITS} readOnly={false} submitting={false} onSubmit={vi.fn()} onCancel={vi.fn()} />,
+      ),
+    );
+    expect(screen.getByText("Έργα της μονάδας του παγίου")).toBeInTheDocument();
+    expect(screen.getByText("Συμβάσεις της μονάδας του παγίου")).toBeInTheDocument();
+  });
+
+  // UAT 25/11/2026, reported twice: a commissioning before the installation was saved.
+  it("refuses dates out of order and a one-letter name, with the message under each field", async () => {
+    const onSubmit = vi.fn();
+    renderWithIntl(
+      withQuery(
+        <AssetForm
+          mode="edit"
+          orgUnits={ORG_UNITS}
+          editOrgUnitId="unit-1"
+          initialValues={{
+            nameEl: "Α",
+            assetClass: "HVAC",
+            areaId: null,
+            parentAssetId: null,
+            manufacturer: null,
+            model: null,
+            serialNo: null,
+            installedDate: "2024-03-10",
+            commissionedDate: "2024-03-01",
+            sourceProjectId: null,
+            sourceContractId: null,
+            capitalCost: null,
+            warrantyEnd: null,
+            expectedLifeYears: null,
+            replacementYear: null,
+            replacementCostEst: null,
+            criticality: 3,
+            system: null,
+            servesAreaIds: [],
+          }}
+          readOnly={false}
+          submitting={false}
+          onSubmit={onSubmit}
+          onCancel={vi.fn()}
+        />,
+      ),
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Αποθήκευση" }));
+    expect(await screen.findByText("Το όνομα έχει από 2 έως 200 χαρακτήρες.")).toBeInTheDocument();
+    expect(onSubmit).not.toHaveBeenCalled();
+
+    await userEvent.type(screen.getByLabelText("Όνομα"), "ντλία");
+    await userEvent.click(screen.getByRole("button", { name: "Αποθήκευση" }));
+    expect(
+      await screen.findByText("Η θέση σε λειτουργία δεν μπορεί να είναι πριν από την ημερομηνία εγκατάστασης."),
+    ).toBeInTheDocument();
+    expect(onSubmit).not.toHaveBeenCalled();
   });
 });
