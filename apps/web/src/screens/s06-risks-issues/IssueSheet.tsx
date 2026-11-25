@@ -20,10 +20,11 @@
  */
 import { useForm } from "react-hook-form";
 import { useTranslations } from "next-intl";
-import { LoaderCircle, X } from "lucide-react";
+import { LoaderCircle } from "lucide-react";
 import { IssueStatus, type Issue } from "@ecapital/shared";
 import { zodResolver } from "@/lib/zod-resolver";
 import { IssueFormSchema, type IssueFormValues } from "./schema";
+import { SideSheet } from "@/components/side-sheet";
 
 export interface IssueSheetProps {
   open: boolean;
@@ -63,19 +64,8 @@ export function IssueSheet({ open, issue, saving = false, apiError, onClose, onS
   }
 
   return (
-    <div
-      role="dialog"
-      aria-label={issue ? t("screens.s06.editIssueTitle") : t("screens.s06.addIssueTitle")}
-      className="fixed inset-0 z-40 flex flex-col bg-k-white shadow-k desktop:inset-y-0 desktop:left-auto desktop:right-0 desktop:w-[480px]"
-    >
-      <header className="flex items-start justify-between border-b border-k-grey p-s-5">
-        <h2 className="text-fs-20">{issue ? t("screens.s06.editIssueTitle") : t("screens.s06.addIssueTitle")}</h2>
-        <button type="button" onClick={onClose} aria-label={t("common.close")} className="rounded-k p-s-2 text-k-text hover:bg-k-surface">
-          <X size={20} strokeWidth={1.5} aria-hidden="true" />
-        </button>
-      </header>
-
-      <div className="flex-1 overflow-auto p-s-5">
+    <SideSheet title={issue ? t("screens.s06.editIssueTitle") : t("screens.s06.addIssueTitle")} onClose={onClose}>
+      <div>
         {issue && (
           <p className="mb-s-4 text-fs-14 text-k-text">
             {t("screens.s06.issueColumns.raisedBy")}: {issue.raisedByName}
@@ -146,6 +136,6 @@ export function IssueSheet({ open, issue, saving = false, apiError, onClose, onS
           </div>
         </form>
       </div>
-    </div>
+    </SideSheet>
   );
 }

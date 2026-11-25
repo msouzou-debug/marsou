@@ -23,7 +23,7 @@ const jar = {
 
 vi.mock("next/headers", () => ({ cookies: async () => jar }));
 
-const { getSession, startSession, startSessionWithPassword, endSession, SESSION_COOKIE } =
+const { getSession, getSessionState, cookieMaxAgeFor, startSession, startSessionWithPassword, endSession, SESSION_COOKIE } =
   await import("./session");
 
 const me = {
@@ -96,6 +96,52 @@ describe("getSession", () => {
       jsonResponse({ key: "errors.notSignedIn" }, 401),
     );
     expect(await getSession()).toBeNull();
+  });
+
+  // OWNER UAT 25/11/2026: a release restarts the API. A good token must not
+  // be taken for a dead one while it does.
+  it("tells a rejected token apart from an API that did not answer", async () => {
+    jar.values.set(SESSION_COOKIE, "an-expired-token");
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(jsonResponse({ key: "errors.notSignedIn" }, 401));
+    expect(await getSessionState()).toEqual({ status: "rejected" });
+
+    vi.restoreAllMocks();
+    vi.spyOn(globalThis, "fetch").mockRejectedValue(new TypeError("fetch failed"));
+    expect(await getSessionState()).toEqual({ status: "unreachable" });
+
+    vi.restoreAllMocks();
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("", { status: 502 }));
+    expect(await getSessionState()).toEqual({ status: "unreachable" });
+  });
+
+  it("says there is none when there is no cookie", async () => {
+    expect(await getSessionState()).toEqual({ status: "none" });
+  });
+});
+
+/** A token shaped like the API's: only the payload matters to the cookie. */
+function tokenWith(payload: Record<string, unknown>): string {
+  const part = (value: unknown) => Buffer.from(JSON.stringify(value)).toString("base64url");
+  return `${part({ alg: "HS256", typ: "JWT" })}.${part(payload)}.signature`;
+}
+
+describe("cookieMaxAgeFor", () => {
+  const now = Date.parse("2026-11-25T08:00:00Z");
+
+  it("ends the cookie when the token ends, never later", () => {
+    expect(cookieMaxAgeFor(tokenWith({ exp: now / 1000 + 8 * 3600 }), now)).toBe(8 * 3600);
+    // An Entra ID token that lives an hour: an hour of cookie.
+    expect(cookieMaxAgeFor(tokenWith({ exp: now / 1000 + 3600 }), now)).toBe(3600);
+  });
+
+  it("never outlives eight hours, and is zero for a token already expired", () => {
+    expect(cookieMaxAgeFor(tokenWith({ exp: now / 1000 + 48 * 3600 }), now)).toBe(8 * 3600);
+    expect(cookieMaxAgeFor(tokenWith({ exp: now / 1000 - 60 }), now)).toBe(0);
+  });
+
+  it("falls back to eight hours for a token it cannot read", () => {
+    expect(cookieMaxAgeFor("not-a-jwt", now)).toBe(8 * 3600);
+    expect(cookieMaxAgeFor(tokenWith({ sub: "x" }), now)).toBe(8 * 3600);
   });
 });
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { NextRequest } from "next/server";
-import { SESSION_COOKIE } from "@/auth/cookies";
+import { PATH_HEADER, SESSION_COOKIE } from "@/auth/cookies";
 import { proxy } from "./proxy";
 
 function request(path: string, cookie?: string): NextRequest {
@@ -21,6 +21,17 @@ describe("proxy", () => {
   it("lets a request with a session cookie through without asking the API", () => {
     const response = proxy(request("/", "a-token"));
     expect(response.headers.get("location")).toBeNull();
+  });
+
+  // OWNER UAT 25/11/2026: the layout sends an expired session to sign-in
+  // and back to this page, so it needs to know which page this is.
+  it("tells the layout which page is being rendered, over anything the browser sent", () => {
+    const req = new NextRequest(new URL("/contracts/c-1/rfis?tab=open", "http://localhost:3000"), {
+      headers: { [PATH_HEADER]: "//evil.example" },
+    });
+    req.cookies.set(SESSION_COOKIE, "a-token");
+    const response = proxy(req);
+    expect(response.headers.get(`x-middleware-request-${PATH_HEADER}`)).toBe("/contracts/c-1/rfis?tab=open");
   });
 
   it.each(["/sign-in", "/preview", "/preview/app-shell", "/api/proxy/portfolio"])(

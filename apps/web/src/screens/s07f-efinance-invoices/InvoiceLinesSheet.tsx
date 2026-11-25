@@ -20,12 +20,11 @@
  * Lines are cards, not a table: seven facts a line is too wide for a 480px
  * sheet as columns and read the same at any width as a list.
  */
-import { useEffect, useRef } from "react";
 import { useTranslations } from "next-intl";
-import { X } from "lucide-react";
 import type { EFinanceInvoice, EFinanceInvoiceLine } from "@ecapital/shared";
 import { formatDate, formatDateTime, formatEURorDash } from "@/lib/format";
 import { EFinanceLedgerChip, LEDGER_LABEL_KEY } from "@/screens/s07-contract/EFinanceLedgerChip";
+import { SideSheet } from "@/components/side-sheet";
 
 export interface InvoiceLinesSheetProps {
   invoice: EFinanceInvoice;
@@ -67,38 +66,11 @@ function LineCard({ line }: { line: EFinanceInvoiceLine }) {
 
 export function InvoiceLinesSheet({ invoice, onClose }: InvoiceLinesSheetProps) {
   const t = useTranslations("screens.s07f");
-  const tc = useTranslations("common");
-  const closeRef = useRef<HTMLButtonElement>(null);
-
-  useEffect(() => {
-    closeRef.current?.focus();
-  }, []);
-
   const title = t("sheetTitle", { number: invoice.invoiceNo ?? invoice.id });
 
   return (
-    <div
-      role="dialog"
-      aria-label={title}
-      onKeyDown={(event) => {
-        if (event.key === "Escape") onClose();
-      }}
-      className="fixed inset-0 z-20 flex flex-col bg-k-white shadow-k desktop:inset-y-0 desktop:left-auto desktop:right-0 desktop:w-[480px]"
-    >
-      <header className="flex items-start justify-between border-b border-k-grey p-s-5">
-        <h2 className="text-fs-20">{title}</h2>
-        <button
-          ref={closeRef}
-          type="button"
-          onClick={onClose}
-          aria-label={tc("close")}
-          className="rounded-k p-s-2 text-k-text hover:bg-k-surface"
-        >
-          <X size={20} strokeWidth={1.5} aria-hidden="true" />
-        </button>
-      </header>
-
-      <div className="flex-1 overflow-auto p-s-5">
+    <SideSheet title={title} onClose={onClose} focusClose>
+      <div>
         <div className="grid gap-s-2">
           <div className="flex flex-wrap items-center gap-s-2">
             <EFinanceLedgerChip ledger={invoice.ledger} />
@@ -131,6 +103,6 @@ export function InvoiceLinesSheet({ invoice, onClose }: InvoiceLinesSheetProps) 
           </ul>
         )}
       </div>
-    </div>
+    </SideSheet>
   );
 }

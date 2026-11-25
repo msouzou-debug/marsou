@@ -29,7 +29,8 @@
     "allOkypy": "ΟΚΥπΥ — all units",
     "pagination": "{from}–{to} of {total}",
     "prevPage": "Previous page",
-    "nextPage": "Next page"
+    "nextPage": "Next page",
+    "backToList": "Back to the list"
   },
   "buttons": {
     "save": "Save",
@@ -381,7 +382,8 @@
       "ldapHint": "Sign in with your ΟΚΥπΥ account.",
       "oidcHint": "Sign-in goes through your ΟΚΥπΥ account in Microsoft Entra ID.",
       "oidcButton": "Sign in with your ΟΚΥπΥ account",
-      "localHint": "Sign in with the account name and the password the system administrator gave you."
+      "localHint": "Sign in with the account name and the password the system administrator gave you.",
+      "expired": "Your session has expired. Sign in again and you will return to the page you were on."
     },
     "s01": {
       "title": "Project portfolio",
@@ -842,7 +844,22 @@
       "closeConsequence": "The RFI closes and can no longer be changed. You can still attach correspondence after it is closed.",
       "closeConsequenceUnanswered": "This RFI has no answer. It can be closed without one if you write why. Once closed it can no longer be changed.",
       "closeSaved": "The RFI has been closed.",
-      "recipientFromContractor": "The recipient comes from the contractor's contact details. You can change it."
+      "recipientFromContractor": "The recipient comes from the contractor's contact details. You can change it.",
+      "email": {
+        "button": "Send by e-mail",
+        "hint": "Opens your mail program (Outlook) with a message ready for the recipient. eCapital does not send e-mail itself.",
+        "noRecipient": "No recipient e-mail has been recorded. Add it with «Edit».",
+        "afterOpen": "Once you have sent the message from Outlook, record the day it was sent and attach the sent message under «Correspondence».",
+        "setSentToday": "Sent today, {date}",
+        "sentSaved": "The day it was sent has been recorded.",
+        "subject": "Request for information {number} — {contract} — {question}",
+        "rfiLine": "Request for information {number}",
+        "contractLine": "Contract: {contract}",
+        "projectLine": "Project: {project}",
+        "dueLine": "Reply due by: {date}",
+        "questionLine": "Question:",
+        "quoteLine": "In your reply, quote «Request for information {number}» and contract {contract}."
+      }
     },
     "s07c": {
       "title": "Site instructions",
@@ -938,7 +955,8 @@
       "contactTitle": "Contact details",
       "contactHint": "They fill in the recipient of a new RFI. No bank details are recorded here.",
       "contactFromEfinance": "These details came from eFinance. If you change them, eFinance no longer replaces them.",
-      "contactFromEfinanceOn": "These details came from eFinance on {date}. If you change them, eFinance no longer replaces them."
+      "contactFromEfinanceOn": "These details came from eFinance on {date}. If you change them, eFinance no longer replaces them.",
+      "contactFromVendor": "The empty e-mail and telephone fields were filled from the vendor's details in eFinance. You can change them."
     },
     "s07e": {
       "eyebrow": "CONTRACTS",
@@ -1507,8 +1525,8 @@
       "startWork": {
         "button": "Start work",
         "notApproved": "The permit must be approved before starting.",
-        "beforeWindow": "The planned window has not started yet.",
-        "afterWindow": "The planned window has ended."
+        "beforeWindow": "The work window starts on {start} and ends on {end}. Work can only be started inside it.",
+        "afterWindow": "The work window ended on {end}. The permit can no longer be started. For the work, raise a new request with new dates."
       },
       "closeout": {
         "button": "Close out",
@@ -2673,7 +2691,9 @@
     },
     "error": {
       "generic": "Something went wrong. Try again in a moment.",
-      "loadFailed": "The data did not load. Try again."
+      "loadFailed": "The data did not load. Try again.",
+      "sessionExpired": "Your session has expired. Sign in again.",
+      "unreachable": "eCapital is not answering right now. Try again in a moment."
     }
   },
   "help": {
@@ -3162,5 +3182,14 @@
     "REDUCED_5": "5%",
     "ZERO": "0%",
     "EXEMPT": "Exempt"
+  },
+  "session": {
+    "expired": {
+      "title": "Your session has expired. Sign in again.",
+      "unsaved": "Anything you typed on this page and did not save is lost if you sign in from here. To keep it, sign in in a new tab, come back to this page and press the same button again.",
+      "signIn": "Sign in",
+      "signInNewTab": "Sign in in a new tab",
+      "stay": "Stay on this page"
+    }
   }
 }

@@ -35,3 +35,11 @@ export const PUBLIC_PATHS = ["/sign-in", "/preview", "/api"] as const;
 export function isPublicPath(pathname: string): boolean {
   return PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));
 }
+
+/**
+ * OWNER UAT 25/11/2026: the path (and query) of the page being rendered, set
+ * by `src/proxy.ts` on every gated request, so the `(app)` layout can send a
+ * user whose session ended to sign-in and back to the same page. The proxy
+ * sets it over anything a browser sent under the same name.
+ */
+export const PATH_HEADER = "x-ecapital-path";

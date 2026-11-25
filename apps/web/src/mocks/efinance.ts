@@ -215,7 +215,16 @@ export function buildProjectBudgetPosition(overrides: Partial<ProjectBudgetPosit
 }
 
 export function buildEFinanceVendor(overrides: Partial<EFinanceVendor> = {}): EFinanceVendor {
-  return { vendorCode: "V-100101", name: "Κυριάκου Τεχνικές Κατασκευές Λτδ", vat: "CY10231455X", blocked: false, active: true, ...overrides };
+  return {
+    vendorCode: "V-100101",
+    name: "Κυριάκου Τεχνικές Κατασκευές Λτδ",
+    vat: "CY10231455X",
+    blocked: false,
+    active: true,
+    email: "info@kyriakou.example.cy",
+    phone: "+357 24 100101",
+    ...overrides,
+  };
 }
 
 /** GET /efinance/vendors?q= */

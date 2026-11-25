@@ -165,4 +165,16 @@ describe("Instructions — detail and edit (UAT 25/11/2026)", () => {
     expect(onUpdate).toHaveBeenCalledWith({ textEl: "Δύο σειρές ηχομονωτικών πάνελ.", costImpactFlag: true, issuedOn: "2026-07-01" });
     expect(await screen.findByRole("dialog", { name: `Οδηγία εργοταξίου ${unlinked.number}` })).toBeInTheDocument();
   });
+
+  // Owner UAT 25/11/2026 (RFIs, same sheet): a visible way out, above the table.
+  it("goes back to the list from «Πίσω στη λίστα», Escape or the backdrop, and covers the table", async () => {
+    const user = userEvent.setup();
+    const onSelect = vi.fn();
+    renderSelected(unlinked.id, { onSelect });
+    expect(screen.getByRole("dialog", { name: `Οδηγία εργοταξίου ${unlinked.number}` }).className).toMatch(/\bz-40\b/);
+    await user.click(screen.getByRole("button", { name: "Πίσω στη λίστα" }));
+    fireEvent.keyDown(document, { key: "Escape" });
+    await user.click(screen.getByTestId("side-sheet-backdrop"));
+    expect(onSelect.mock.calls).toEqual([[null], [null], [null]]);
+  });
 });

@@ -57,6 +57,8 @@ export interface RfisProps {
   onCloseRfi: (closingNote: string) => Promise<boolean> | void;
   /** UAT 25/11/2026: `PATCH .../rfis/:rid`; resolves true once saved. Omitted (or offline), no «Επεξεργασία». */
   onUpdate?: (values: RfiEditFormValues) => Promise<boolean>;
+  /** Owner UAT 25/11/2026: «sent today» after «Αποστολή με e-mail»; `PATCH .../rfis/:rid` `{ sentOn }`. */
+  onMarkSent?: (sentOn: string) => Promise<boolean>;
   /** The open RFI's correspondence; undefined while it loads. */
   documents?: RfiDocument[];
   /** `POST .../rfis/:rid/documents`; resolves true once filed. Omitted (or offline), no upload form. */
@@ -80,6 +82,7 @@ export function Rfis({
   onAnswer,
   onCloseRfi,
   onUpdate,
+  onMarkSent,
   documents,
   onUpload,
   uploading = false,
@@ -215,6 +218,17 @@ export function Rfis({
           onAnswer={onAnswer}
           onCloseRfi={onCloseRfi}
           onUpdate={state === "offline" ? undefined : onUpdate}
+          onMarkSent={state === "offline" ? undefined : onMarkSent}
+          contractFacts={
+            contract
+              ? {
+                  contractNo: contract.contractNo,
+                  contractorName: contract.contractorName,
+                  projectCode: contract.project?.code,
+                  projectTitle: contract.project?.titleEl,
+                }
+              : undefined
+          }
           documents={documents}
           onUpload={state === "offline" ? undefined : onUpload}
           uploading={uploading}

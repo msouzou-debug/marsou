@@ -97,6 +97,21 @@ describe("Defects — detail and edit (UAT 25/11/2026)", () => {
     expect(onSelect).toHaveBeenCalledWith(defects[1].id);
   });
 
+  // Owner UAT 25/11/2026 (RFIs, same sheet): a visible way out, above the table.
+  it("goes back to the list from «Πίσω στη λίστα», Escape or the backdrop, and covers the table", async () => {
+    const user = userEvent.setup();
+    const onSelect = vi.fn();
+    const defects = buildDefects();
+    renderWithIntl(
+      <Defects contract={contract} defects={defects} state="default" noPermission={noPermission} roles={["project_engineer"]} today={today} selectedId={defects[0].id} onSelect={onSelect} onCreate={vi.fn()} onUpdate={vi.fn()} />,
+    );
+    expect(screen.getByRole("dialog").className).toMatch(/\bz-40\b/);
+    await user.click(screen.getByRole("button", { name: "Πίσω στη λίστα" }));
+    fireEvent.keyDown(document, { key: "Escape" });
+    await user.click(screen.getByTestId("side-sheet-backdrop"));
+    expect(onSelect.mock.calls).toEqual([[null], [null], [null]]);
+  });
+
   it("shows every field read-only, with «Επεξεργασία» for a writer", () => {
     const defects = buildDefects();
     const open = defects.find((d) => d.status === "IN_PROGRESS")!;

@@ -44,12 +44,13 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { useTranslations } from "next-intl";
-import { LoaderCircle, X } from "lucide-react";
+import { LoaderCircle } from "lucide-react";
 import type { Defect } from "@ecapital/shared";
 import { RiskBand, nicosiaDateOf } from "@ecapital/shared";
 import { zodResolver } from "@/lib/zod-resolver";
 import { formatDate, formatEURorDash } from "@/lib/format";
 import { DefectCreateFormSchema, DefectUpdateFormSchema, type DefectCreateFormValues, type DefectUpdateFormValues } from "./schema";
+import { SideSheet } from "@/components/side-sheet";
 
 export interface DefectAreaOption {
   id: string;
@@ -76,24 +77,10 @@ export interface DefectSheetProps {
   onReopen?: () => void;
 }
 
-function SheetShell({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
-  const t = useTranslations();
-  return (
-    <div
-      role="dialog"
-      aria-label={title}
-      className="fixed inset-0 desktop:inset-y-0 desktop:left-auto desktop:right-0 desktop:w-[480px] flex flex-col bg-k-white shadow-k"
-    >
-      <header className="flex items-start justify-between border-b border-k-grey p-s-5">
-        <h2 className="text-fs-20">{title}</h2>
-        <button type="button" onClick={onClose} aria-label={t("common.close")} className="rounded-k p-s-2 text-k-text hover:bg-k-surface">
-          <X size={20} strokeWidth={1.5} aria-hidden="true" />
-        </button>
-      </header>
-      <div className="flex-1 overflow-auto p-s-5">{children}</div>
-    </div>
-  );
-}
+// OWNER UAT 25/11/2026: the shared sheet — above the top bar and the
+// table's sticky header, with «Πίσω στη λίστα», Escape and the backdrop as
+// its ways out (`components/side-sheet`).
+const SheetShell = SideSheet;
 
 function updateValuesOf(defect: Defect | undefined): DefectUpdateFormValues | undefined {
   return defect

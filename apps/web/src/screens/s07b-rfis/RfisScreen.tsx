@@ -164,6 +164,28 @@ export function RfisScreen({ contractId, roles, noPermission }: RfisScreenProps)
     }
   }
 
+  /** Owner UAT 25/11/2026: «Ημερομηνία αποστολής» set to today in one click, after «Αποστολή με e-mail». */
+  async function handleMarkSent(sentOn: string): Promise<boolean> {
+    if (!selectedId || selectedId === "new") return false;
+    setSheetSaving(true);
+    setSheetApiError(undefined);
+    try {
+      await apiMutate<Rfi>(
+        `/contracts/${encodeURIComponent(contractId)}/rfis/${encodeURIComponent(selectedId)}`,
+        "PATCH",
+        { sentOn },
+        RfiSchema,
+      );
+      await refetchAll();
+      return true;
+    } catch (submitError) {
+      setSheetApiError(submitError instanceof ApiError ? submitError.message : String(submitError));
+      return false;
+    } finally {
+      setSheetSaving(false);
+    }
+  }
+
   /**
    * Owner decision 25/11/2026: the sent e-mail or the reply, filed against
    * the RFI. Multipart, the browser's own content-type (`apiMutateMultipart`);
@@ -234,6 +256,7 @@ export function RfisScreen({ contractId, roles, noPermission }: RfisScreenProps)
       onAnswer={handleAnswer}
       onCloseRfi={handleClose}
       onUpdate={handleUpdate}
+      onMarkSent={handleMarkSent}
       documents={documentsQuery.data}
       onUpload={handleUpload}
       uploading={uploading}

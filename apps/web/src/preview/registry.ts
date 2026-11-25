@@ -25,6 +25,8 @@ import offlineChip from "@/components/offline-chip/OfflineChip.preview";
 import permitBanner from "@/components/permit-banner/PermitBanner.preview";
 import photoStrip from "@/components/photo-strip/PhotoStrip.preview";
 import ragChip from "@/components/rag-chip/RagChip.preview";
+import sessionExpired from "@/components/session-expired/SessionExpiredDialog.preview";
+import sideSheet from "@/components/side-sheet/SideSheet.preview";
 import slaChip from "@/components/sla-chip/SlaChip.preview";
 import suggestionPanel from "@/components/suggestion-panel/SuggestionPanel.preview";
 import table from "@/components/table/Table.preview";
@@ -104,6 +106,8 @@ const entries: PreviewEntry[] = [
   permitBanner,
   photoStrip,
   ragChip,
+  sessionExpired,
+  sideSheet,
   slaChip,
   suggestionPanel,
   table,

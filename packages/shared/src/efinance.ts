@@ -369,6 +369,12 @@ export const EFinanceVendor = z.object({
   vat: z.string().nullable(),
   blocked: z.boolean(),
   active: z.boolean(),
+  // eFinance 25/11/2026 (deploy68): the vendor's address e-mail and
+  // telephone, from eFinance's supplier contact list; null when it has none
+  // or none that is valid. The contractor sheet prefills its empty contact
+  // fields from them on a pick. There is no bank field, ever.
+  email: z.string().nullable(),
+  phone: z.string().nullable(),
 });
 export type EFinanceVendor = z.infer<typeof EFinanceVendor>;
 

@@ -53,6 +53,14 @@ export function PermitDetailScreen({ permitId, roles, me, orgUnits, noPermission
   const queryClient = useQueryClient();
   const online = useOnlineStatus();
 
+  // OWNER UAT 25/11/2026: the window rule reads the clock. A page left open
+  // until the window starts must offer «Έναρξη εργασιών» without a reload.
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(new Date()), 30_000);
+    return () => window.clearInterval(timer);
+  }, []);
+
   const [closeoutOpen, setCloseoutOpen] = useState(false);
   const [closeoutValue, setCloseoutValue] = useState<CloseoutChecklistValue>(EMPTY_CLOSEOUT);
   const [closeoutSaving, setCloseoutSaving] = useState(false);
@@ -179,6 +187,7 @@ export function PermitDetailScreen({ permitId, roles, me, orgUnits, noPermission
       onDecide={(approvalId, decision, comment) => void handleDecide(approvalId, decision, comment)}
       decideError={decideError}
       startWorkError={startWorkError}
+      now={now}
     />
   );
 }

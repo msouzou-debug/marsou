@@ -1,7 +1,9 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { getSession } from "@/auth/session";
+import { SESSION_COOKIE } from "@/auth/cookies";
 import { API_BASE } from "@/data/client";
-import { defaultLocale, isLocale, LOCALE_COOKIE } from "@/i18n/config";
+import { defaultLocale, isLocale, LOCALE_COOKIE, type Locale } from "@/i18n/config";
+import el from "@/i18n/el.json";
+import en from "@/i18n/en.json";
 
 // M1's same-origin proxy (see ADR-0005's "status" paragraph for why the
 // ADR-0005 mock route handlers are gone). The bearer token lives in an
@@ -9,9 +11,9 @@ import { defaultLocale, isLocale, LOCALE_COOKIE } from "@/i18n/config";
 // browser cannot call `apps/api` itself the way `serverApi()` does. Instead
 // `proxyFetch`/`apiMutate` (`src/data/client.ts`), which every screen's
 // TanStack Query hooks and write forms call, hit this route; this route
-// reads the session cookie on the server, via the same `getSession()` every
-// Server Component uses, and forwards the request to the real API with the
-// bearer attached.
+// reads the session cookie on the server and forwards the request to the
+// real API with the bearer attached; the API verifies the bearer on every
+// request, so this route does not ask it twice.
 //
 // GET, POST, PATCH, PUT and DELETE all forward the same way. What changes
 // for a mutating verb:
@@ -83,6 +85,32 @@ function ownOrigins(request: NextRequest): Set<string> {
 
 type ProxyContext = RouteContext<"/api/proxy/[...path]">;
 
+function localeOf(request: NextRequest): Locale {
+  const localeCookie = request.cookies.get(LOCALE_COOKIE)?.value;
+  return isLocale(localeCookie) ? localeCookie : defaultLocale;
+}
+
+/** This route's own refusals, said in the caller's language (ADR-0002). */
+function sentence(locale: Locale, key: "sessionExpired" | "unreachable" | "generic"): string {
+  return (locale === "en" ? en : el).states.error[key];
+}
+
+/**
+ * OWNER UAT 25/11/2026 («RFI save: Request to /contracts/<id>/rfis failed
+ * with 401»): a session that is gone — no cookie, or a token the API no
+ * longer accepts (it lives eight hours) — is answered with a sentence, not a
+ * bare key the browser then turned into English. The dead cookie is deleted
+ * on the way, so the app stops showing a signed-in user it cannot act for.
+ */
+function sessionGone(locale: Locale, key = "errors.notSignedIn", message?: string): NextResponse {
+  const response = NextResponse.json(
+    { key, message: message ?? sentence(locale, "sessionExpired") },
+    { status: 401 },
+  );
+  response.cookies.delete(SESSION_COOKIE);
+  return response;
+}
+
 async function forward(request: NextRequest, context: ProxyContext, method: string): Promise<NextResponse> {
   // RULE: the session cookie is sameSite=lax (ADR-0013), which already keeps
   // it off genuine cross-site requests. This is the second lock: a mutating
@@ -97,25 +125,33 @@ async function forward(request: NextRequest, context: ProxyContext, method: stri
   if (MUTATING_METHODS.has(method)) {
     const origin = request.headers.get("origin");
     if (!origin || !ownOrigins(request).has(origin)) {
-      return NextResponse.json({ key: "errors.originNotAllowed" }, { status: 403 });
+      return NextResponse.json(
+        { key: "errors.originNotAllowed", message: sentence(localeOf(request), "generic") },
+        { status: 403 },
+      );
     }
   }
 
-  const session = await getSession();
-  if (!session) {
+  const locale = localeOf(request);
+  // OWNER UAT 25/11/2026: the token is read from the cookie and the API, which
+  // checks every bearer it is sent, decides whether it is still good. This
+  // route used to ask `getSession()` first — two more API calls per request —
+  // and `getSession()` cannot tell «the token is dead» from «the API is
+  // restarting for a release», so every save made during a restart came
+  // back as «not signed in».
+  const token = request.cookies.get(SESSION_COOKIE)?.value;
+  if (!token) {
     // The same body shape `AppError.unauthorized()` sends for a request with
     // no token, so a caller branching on `ApiError.status`/`.key` (see
     // `data/client.ts`) cannot tell this apart from the API refusing it
     // directly.
-    return NextResponse.json({ key: "errors.notSignedIn" }, { status: 401 });
+    return sessionGone(locale);
   }
 
   const { path } = await context.params;
-  const localeCookie = request.cookies.get(LOCALE_COOKIE)?.value;
-  const locale = isLocale(localeCookie) ? localeCookie : defaultLocale;
 
   const headers: Record<string, string> = {
-    authorization: `Bearer ${session.token}`,
+    authorization: `Bearer ${token}`,
     "accept-language": locale,
   };
 
@@ -142,15 +178,42 @@ async function forward(request: NextRequest, context: ProxyContext, method: stri
     }
   }
 
-  const upstream = await fetch(`${API_BASE}/${path.join("/")}${request.nextUrl.search}`, {
-    method,
-    headers,
-    body,
-    // Never cached: every response is scoped to the caller's units by the
-    // row policies (ADR-0010), so a shared cache entry would be a leak.
-    cache: "no-store",
-    ...(duplex ? ({ duplex } as Record<string, unknown>) : {}),
-  } as RequestInit);
+  let upstream: Response;
+  try {
+    upstream = await fetch(`${API_BASE}/${path.join("/")}${request.nextUrl.search}`, {
+      method,
+      headers,
+      body,
+      // Never cached: every response is scoped to the caller's units by the
+      // row policies (ADR-0010), so a shared cache entry would be a leak.
+      cache: "no-store",
+      ...(duplex ? ({ duplex } as Record<string, unknown>) : {}),
+    } as RequestInit);
+  } catch {
+    // The API is not there — restarting for a release, or down. A sentence,
+    // not Next's own 500 page.
+    return NextResponse.json(
+      { key: "errors.apiUnreachable", message: sentence(locale, "unreachable") },
+      { status: 502 },
+    );
+  }
+
+  // The token died between the session check above and this call (it
+  // expired, or the API stopped accepting it): the same answer as no session.
+  if (upstream.status === 401) {
+    let key: string | undefined;
+    let message: string | undefined;
+    try {
+      const refusal = (await upstream.json()) as { key?: unknown; message?: unknown };
+      if (typeof refusal.key === "string") key = refusal.key;
+      if (typeof refusal.message === "string") message = refusal.message;
+    } catch {
+      // No JSON body: the generic sentence below.
+    }
+    // A deactivated account keeps the API's own sentence; anything else is
+    // the session having ended.
+    return key && key !== "errors.notSignedIn" ? sessionGone(locale, key, message) : sessionGone(locale);
+  }
 
   // OWNER UAT 25/11/2026: a 204 (`POST /inbox/:id/read`, every DELETE) has
   // no body, and the Fetch spec refuses to build a 204/205/304 response with

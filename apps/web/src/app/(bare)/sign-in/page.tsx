@@ -19,8 +19,11 @@ export default async function SignInPage({ searchParams }: PageProps<"/sign-in">
   // going instead of showing a form that would immediately bounce them.
   if (await getSession()) redirect(next && next.startsWith("/") && !next.startsWith("//") ? next : "/");
 
+  const expired = params.expired === "1";
+
   const mode = signInMode();
   const t = await getTranslations("app");
+  const ts = await getTranslations("screens.s00");
   return (
     <main className="flex flex-1 items-center justify-center p-s-4">
       <div className="w-full max-w-[400px] rounded-k bg-k-white p-s-8 shadow-k">
@@ -29,6 +32,13 @@ export default async function SignInPage({ searchParams }: PageProps<"/sign-in">
             languages — «eCapital», never transliterated. */}
         <h1 className="mt-s-4 text-fs-24 font-bold text-k-blue-deep">eCapital</h1>
         <p className="mt-s-1 text-fs-16 text-k-text">{t("tagline")}</p>
+
+        {/* OWNER UAT 25/11/2026: sent here because the session ended. */}
+        {expired && (
+          <p role="status" className="mt-s-4 rounded-k border border-k-amber bg-k-amber-bg p-s-3 text-fs-14 text-k-ink">
+            {ts("expired")}
+          </p>
+        )}
 
         {/* ADR-0018: which form to draw is the deployment's decision, read
             once here on the server and handed down. */}

@@ -42,8 +42,26 @@ const SessionTokenResponse = z.object({ token: z.string().min(1), claims: Me });
  * `cache` makes this once per request, however many layouts and pages ask.
  */
 export const getSession = cache(async (): Promise<Session | null> => {
+  const state = await getSessionState();
+  return state.status === "ok" ? state.session : null;
+});
+
+/**
+ * Why there is or is not a session. OWNER UAT 25/11/2026: «the token is no
+ * longer accepted» (`rejected`: sign in again) and «the API did not answer»
+ * (`unreachable`: it is restarting for a release, or down — the token may be
+ * perfectly good) used to be the same null, so every page opened during a
+ * release threw the user out and deleted a good cookie.
+ */
+export type SessionState =
+  | { status: "ok"; session: Session }
+  | { status: "none" }
+  | { status: "rejected" }
+  | { status: "unreachable" };
+
+export const getSessionState = cache(async (): Promise<SessionState> => {
   const token = (await cookies()).get(SESSION_COOKIE)?.value;
-  if (!token) return null;
+  if (!token) return { status: "none" };
   try {
     // ADR-0033: the role matrix comes with the session, so every helper in
     // `./roles` a Server Component asks after this line reads the matrix as
@@ -56,12 +74,35 @@ export const getSession = cache(async (): Promise<Session | null> => {
     ]);
     const matrix = permissions?.matrix ?? ROLE_MATRIX;
     setRoleMatrix(matrix);
-    return { me, token, matrix };
-  } catch {
-    // 401 (expired, or signed with another key), 5xx, or no API at all.
-    return null;
+    return { status: "ok", session: { me, token, matrix } };
+  } catch (error) {
+    // 401: expired, signed with another key, or a deactivated account.
+    if (error instanceof ApiError && error.status === 401) return { status: "rejected" };
+    // 5xx, or no API at all.
+    return { status: "unreachable" };
   }
 });
+
+/**
+ * How long the cookie may live: until the token inside it expires, and no
+ * longer (OWNER UAT 25/11/2026: a cookie that outlives its token shows a
+ * signed-in user nobody can act for). Read from the token's own `exp`, so it
+ * is right for an eight-hour session token and for a shorter Entra ID one
+ * alike; `SESSION_MAX_AGE` when the token carries none. Not verified here —
+ * the API does that on every request; this only decides when the browser
+ * forgets it.
+ */
+export function cookieMaxAgeFor(token: string, nowMs: number = Date.now()): number {
+  try {
+    const payload = token.split(".")[1];
+    if (!payload) return SESSION_MAX_AGE;
+    const { exp } = JSON.parse(Buffer.from(payload, "base64url").toString("utf8")) as { exp?: unknown };
+    if (typeof exp !== "number") return SESSION_MAX_AGE;
+    return Math.max(0, Math.min(SESSION_MAX_AGE, Math.floor(exp - nowMs / 1000)));
+  } catch {
+    return SESSION_MAX_AGE;
+  }
+}
 
 export type SignInError =
   | "devAuthOff"
@@ -150,7 +191,7 @@ async function keepToken(token: string): Promise<void> {
     httpOnly: true,
     sameSite: "lax",
     path: "/",
-    maxAge: SESSION_MAX_AGE,
+    maxAge: cookieMaxAgeFor(token),
     // ADR-0018 §5: the origin decides, not NODE_ENV — behind cloudflared the
     // server speaks HTTP while the browser is on HTTPS.
     secure: sessionCookieIsSecure() || (await forwardedProtoIsHttps()),

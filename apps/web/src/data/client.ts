@@ -1,4 +1,5 @@
 import type { ZodType } from "zod";
+import { announceSessionExpired, errorTexts } from "./session-expiry";
 
 // Two fetchers, because two different things call the API.
 //
@@ -48,7 +49,7 @@ export interface ApiFetchOptions {
  * that catches an `ApiError` can show `.message` straight to the user rather
  * than re-translating `.key` itself.
  */
-async function errorFrom(res: Response, path: string): Promise<ApiError> {
+async function errorFrom(res: Response): Promise<ApiError> {
   let key: string | undefined;
   let message: string | undefined;
   try {
@@ -56,13 +57,41 @@ async function errorFrom(res: Response, path: string): Promise<ApiError> {
     if (body && typeof body === "object") {
       const candidate = body as { key?: unknown; message?: unknown };
       if (typeof candidate.key === "string") key = candidate.key;
-      if (typeof candidate.message === "string") message = candidate.message;
+      if (typeof candidate.message === "string" && candidate.message.trim()) message = candidate.message;
     }
   } catch {
     // A non-JSON body (a proxy page, an empty 502) is still an error; the
     // status is what callers branch on.
   }
-  return new ApiError(message ?? `Request to ${path} failed with ${res.status}`, res.status, key);
+  // OWNER UAT 25/11/2026: a 401 is the session having ended, wherever it
+  // came from — the proxy finding no cookie, or the API refusing a token
+  // that ran out. Every caller shows the same sentence, and the open page is
+  // told so it can offer the way back (`SessionExpiredDialog`). A deactivated
+  // account keeps the API's own sentence.
+  if (res.status === 401) {
+    announceSessionExpired();
+    const own = key && key !== "errors.notSignedIn" ? message : undefined;
+    return new ApiError(own ?? errorTexts().sessionExpired, 401, key ?? "errors.notSignedIn");
+  }
+  // RULE (owner UAT 25/11/2026): never an English «Request to … failed with
+  // …» in front of a user. A refusal without a sentence of its own (a proxy's
+  // HTML error page, a bare 502) gets the generic one.
+  return new ApiError(message ?? errorTexts().generic, res.status, key);
+}
+
+/**
+ * `fetch`, with a failure to reach the server at all (the network, or the
+ * web server restarting for a release) said in a sentence instead of the
+ * browser's own «Failed to fetch». An abort stays an abort.
+ */
+async function send(input: string, init: RequestInit): Promise<Response> {
+  try {
+    return await fetch(input, init);
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") throw error;
+    if (init.signal?.aborted) throw error;
+    throw new ApiError(errorTexts().unreachable, 0, "errors.apiUnreachable");
+  }
 }
 
 /** The NestJS API. `path` starts with a slash and carries no `/api` prefix. */
@@ -84,7 +113,7 @@ export async function apiFetch<T>(
     // row policies (ADR-0010), so a shared cache entry would be a leak.
     cache: "no-store",
   });
-  if (!res.ok) throw await errorFrom(res, path);
+  if (!res.ok) throw await errorFrom(res);
   return schema.parse(await res.json());
 }
 
@@ -95,8 +124,8 @@ export async function apiFetch<T>(
  * changing the path it passes.
  */
 export async function proxyFetch<T>(path: string, schema: ZodType<T>): Promise<T> {
-  const res = await fetch(`/api/proxy${path}`, { cache: "no-store" });
-  if (!res.ok) throw await errorFrom(res, path);
+  const res = await send(`/api/proxy${path}`, { cache: "no-store" });
+  if (!res.ok) throw await errorFrom(res);
   return schema.parse(await res.json());
 }
 
@@ -124,14 +153,14 @@ export async function apiMutate<T>(
   schema: ZodType<T>,
   options: ApiMutateOptions = {},
 ): Promise<T> {
-  const res = await fetch(`/api/proxy${path}`, {
+  const res = await send(`/api/proxy${path}`, {
     method,
     headers: body === undefined ? undefined : { "content-type": "application/json" },
     body: body === undefined ? undefined : JSON.stringify(body),
     signal: options.signal,
     cache: "no-store",
   });
-  if (!res.ok) throw await errorFrom(res, path);
+  if (!res.ok) throw await errorFrom(res);
   const text = await res.text();
   return schema.parse(text ? JSON.parse(text) : undefined);
 }
@@ -162,13 +191,13 @@ export function fileNameFrom(disposition: string | null, fallback: string): stri
  * Throws `ApiError` on a non-2xx response, like `apiMutate`.
  */
 export async function apiDownload(path: string, body: unknown, fallbackName: string): Promise<void> {
-  const res = await fetch(`/api/proxy${path}`, {
+  const res = await send(`/api/proxy${path}`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(body),
     cache: "no-store",
   });
-  if (!res.ok) throw await errorFrom(res, path);
+  if (!res.ok) throw await errorFrom(res);
   const blob = await res.blob();
   const url = URL.createObjectURL(blob);
   try {
@@ -200,13 +229,13 @@ export async function apiMutateMultipart<T>(
   schema: ZodType<T>,
   options: ApiMutateOptions = {},
 ): Promise<T> {
-  const res = await fetch(`/api/proxy${path}`, {
+  const res = await send(`/api/proxy${path}`, {
     method: "POST",
     body: form,
     signal: options.signal,
     cache: "no-store",
   });
-  if (!res.ok) throw await errorFrom(res, path);
+  if (!res.ok) throw await errorFrom(res);
   const text = await res.text();
   return schema.parse(text ? JSON.parse(text) : undefined);
 }

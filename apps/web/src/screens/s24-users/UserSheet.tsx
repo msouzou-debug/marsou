@@ -33,12 +33,13 @@
 import { useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { LoaderCircle, X } from "lucide-react";
+import { LoaderCircle } from "lucide-react";
 import type { AdminUser, AppRole, OrgUnit, RoleCatalogueEntry } from "@ecapital/shared";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { ApproverScopesEditor } from "./ApproverScopesEditor";
 import { PasswordEditor } from "./PasswordEditor";
 import { coversAllUnits, needsAUnit, type UserFormValues } from "./schema";
+import { SideSheet } from "@/components/side-sheet";
 
 export interface UserSheetProps {
   open: boolean;
@@ -107,24 +108,8 @@ export function UserSheet({
   }
 
   return (
-    <div
-      role="dialog"
-      aria-label={user ? ts("titleEdit") : ts("titleNew")}
-      className="fixed inset-0 desktop:inset-y-0 desktop:left-auto desktop:right-0 desktop:w-[480px] flex flex-col bg-k-white shadow-k"
-    >
-      <header className="flex items-start justify-between border-b border-k-grey p-s-5">
-        <h2 className="text-fs-20">{user ? ts("titleEdit") : ts("titleNew")}</h2>
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label={t("common.close")}
-          className="rounded-k p-s-2 text-k-text hover:bg-k-surface"
-        >
-          <X size={20} strokeWidth={1.5} aria-hidden="true" />
-        </button>
-      </header>
-
-      <div className="flex-1 overflow-auto p-s-5">
+    <SideSheet title={user ? ts("titleEdit") : ts("titleNew")} onClose={onClose}>
+      <div>
         <form onSubmit={submit} className="flex flex-col gap-s-4">
           {!user && <p className="text-fs-14 text-k-text">{ts(localAccounts ? "newHintLocal" : "newHint")}</p>}
 
@@ -316,6 +301,6 @@ export function UserSheet({
           onSave(values());
         }}
       />
-    </div>
+    </SideSheet>
   );
 }

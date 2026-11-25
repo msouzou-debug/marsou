@@ -119,13 +119,71 @@ describe("PermitDetail", () => {
     expect(screen.getAllByRole("button", { name: "Έγκριση" })).toHaveLength(1);
   });
 
-  it("disables «Έναρξη εργασιών» outside the planned window, with the reason as a tooltip", () => {
+  // OWNER UAT 25/11/2026: «Start work does not work for admin» — the button
+  // was disabled with its reason only in a tooltip.
+  it("says, under the disabled button, that the window has not started yet, with its dates", () => {
     renderWithIntl(
-      <PermitDetail {...NOOP_PROPS} permit={BASE_PERMIT} state="default" now={new Date("2026-03-14T20:00:00.000Z")} />,
+      <PermitDetail
+        {...NOOP_PROPS}
+        roles={["admin"]}
+        permit={BASE_PERMIT}
+        state="default"
+        now={new Date("2026-03-14T07:00:00.000Z")}
+      />,
     );
     const button = screen.getByRole("button", { name: "Έναρξη εργασιών" });
     expect(button).toBeDisabled();
-    expect(button).toHaveAttribute("title");
+    expect(button).toHaveAccessibleDescription(
+      /^Το παράθυρο εργασιών ξεκινά στις 14\/03\/2026\s10:00 και λήγει στις 14\/03\/2026\s18:00\. Η έναρξη εργασιών γίνεται μόνο μέσα σε αυτό\.$/,
+    );
+    expect(screen.getByText(/ξεκινά στις 14\/03\/2026 10:00/)).toBeVisible();
+  });
+
+  it("says when the window ended once it has passed", () => {
+    renderWithIntl(
+      <PermitDetail {...NOOP_PROPS} permit={BASE_PERMIT} state="default" now={new Date("2026-03-14T20:00:00.000Z")} />,
+    );
+    expect(screen.getByRole("button", { name: "Έναρξη εργασιών" })).toBeDisabled();
+    expect(screen.getByText(/έληξε στις 14\/03\/2026 18:00/)).toBeVisible();
+  });
+
+  it("enables «Έναρξη εργασιών» for an administrator inside the window, with no reason line", () => {
+    const onStartWork = vi.fn();
+    renderWithIntl(
+      <PermitDetail
+        {...NOOP_PROPS}
+        roles={["admin"]}
+        onStartWork={onStartWork}
+        permit={BASE_PERMIT}
+        state="default"
+        now={new Date("2026-03-14T09:00:00.000Z")}
+      />,
+    );
+    const button = screen.getByRole("button", { name: "Έναρξη εργασιών" });
+    expect(button).not.toBeDisabled();
+    button.click();
+    expect(onStartWork).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText(/παράθυρο εργασιών/)).toBeNull();
+  });
+
+  it("shows the API's refusal sentence when starting fails", () => {
+    renderWithIntl(
+      <PermitDetail
+        {...NOOP_PROPS}
+        permit={BASE_PERMIT}
+        state="default"
+        now={new Date("2026-03-14T09:00:00.000Z")}
+        startWorkError="Η άδεια εργασίας ισχύει μόνο μέσα στην περίοδο για την οποία εγκρίθηκε."
+      />,
+    );
+    expect(screen.getByRole("alert")).toHaveTextContent("Η άδεια εργασίας ισχύει μόνο μέσα στην περίοδο");
+  });
+
+  it("offers no «Έναρξη εργασιών» on a permit that has already started", () => {
+    renderWithIntl(
+      <PermitDetail {...NOOP_PROPS} permit={{ ...BASE_PERMIT, status: "ACTIVE" }} state="default" now={new Date("2026-03-14T09:00:00.000Z")} />,
+    );
+    expect(screen.queryByRole("button", { name: "Έναρξη εργασιών" })).toBeNull();
   });
 
   it("enables «Έναρξη εργασιών» inside the planned window on an APPROVED permit", () => {

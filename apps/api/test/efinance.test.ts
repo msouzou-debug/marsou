@@ -742,6 +742,18 @@ describe("eFinance, configured (ADR-0029)", () => {
       expect(Object.keys(vendor.rows[0]).some((column) => /iban|bank|account/i.test(column))).toBe(false);
       expect(JSON.stringify(vendor.rows[0])).not.toContain("CY17002001280000001200527600");
 
+      // Coordinator 25/11/2026: the vendor search carries the e-mail and the
+      // telephone too, so the contractor sheet can prefill them on a pick —
+      // and still no bank field.
+      const engineer = await tokenFor(app, USERS.engineerLarnaca);
+      const search = await request(app.getHttpServer()).get(`/efinance/vendors?q=${codes[0]}`).set(bearer(engineer));
+      expect(search.status).toBe(200);
+      const found = EFinanceVendorList.parse(search.body).items;
+      expect(found[0]).toMatchObject({ vendorCode: codes[0], email: "info@zeta.example.cy", phone: "+357 22 100901" });
+      const unusable = await request(app.getHttpServer()).get(`/efinance/vendors?q=${codes[3]}`).set(bearer(engineer));
+      expect(EFinanceVendorList.parse(unusable.body).items[0]).toMatchObject({ email: null, phone: null });
+      expect(JSON.stringify(search.body)).not.toMatch(/iban|CY17002001280000001200527600/i);
+
       // A second run with nothing new writes nothing (no audit line a day).
       const audits = async () =>
         Number((await db.query("select count(*) from ecapital.audit_log where entity_type = 'contractor' and entity_id = any($1::text[])", [ids])).rows[0].count);

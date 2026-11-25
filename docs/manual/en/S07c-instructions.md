@@ -10,6 +10,7 @@ This screen records the instructions given to the contractor on a contract and s
 4. To correct the text, the date issued or the cost impact, press "Edit" and then "Save". The change is kept in the audit trail.
 5. For a cost-impact instruction with no variation yet, press "Create variation". This opens a draft variation on S08, priced at zero until the engineer works out the cost.
 6. For an instruction that already has a variation, the link in the "Variation" column opens the variations list.
+7. To go back to the list, press "Back to the list" at the top right of the instruction, press Esc, or click outside the instruction, on the list.
 
 ## What can go wrong
 

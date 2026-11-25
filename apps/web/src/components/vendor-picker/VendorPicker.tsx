@@ -12,6 +12,7 @@
  * | id         | string                                            | The input's id, for the form's `<label htmlFor>`.                     |
  * | value      | string \| null                                    | The stored `sapVendorId`.                                             |
  * | onChange   | (value: string \| null) => void                   | Fires on every keystroke and on a pick. A blank field is `null`.       |
+ * | onPick     | (vendor: EFinanceVendor) => void?                 | Fires once on a pick, after `onChange`, with the whole row (its e-mail and telephone). |
  * | search     | (q: string) => Promise<EFinanceVendor[]>?         | `GET /efinance/vendors?q=`, twenty at most. Omit it and the field is a plain text input. |
  * | debounceMs | number?                                           | Default 300.                                                         |
  * | invalid    | boolean?                                          | `aria-invalid`.                                                      |
@@ -40,6 +41,8 @@ export interface VendorPickerProps {
   id: string;
   value: string | null;
   onChange: (value: string | null) => void;
+  /** Coordinator 25/11/2026: the whole vendor, once, when a row is picked (not on typing). */
+  onPick?: (vendor: EFinanceVendor) => void;
   search?: (q: string) => Promise<EFinanceVendor[]>;
   debounceMs?: number;
   invalid?: boolean;
@@ -56,7 +59,7 @@ type Status = "idle" | "loading" | "done" | "failed";
 
 const MIN_QUERY_LENGTH = 2;
 
-export function VendorPicker({ id, value, onChange, search, debounceMs = 300, invalid }: VendorPickerProps) {
+export function VendorPicker({ id, value, onChange, onPick, search, debounceMs = 300, invalid }: VendorPickerProps) {
   const t = useTranslations("components.vendor-picker");
   const listId = useId();
   const [query, setQuery] = useState("");
@@ -96,6 +99,7 @@ export function VendorPicker({ id, value, onChange, search, debounceMs = 300, in
     if (vendorDisabledReason(vendor)) return;
     requestRef.current += 1;
     onChange(vendor.vendorCode);
+    onPick?.(vendor);
     setPickedName(vendor.name);
     setQuery("");
     setResults([]);

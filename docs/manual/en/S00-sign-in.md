@@ -18,6 +18,8 @@ The screen shows one form or the other, never both. The steps below describe the
 - **"Development sign-in is off".** The API is running without `DEV_AUTH=1`, so it issues no development tokens. Start it with `DEV_AUTH=1`, or sign in with your SHSO account.
 - **"No account has that address".** Check the address. If you are using a sample account, load the sample data with `pnpm --filter @ecapital/api seed`.
 - **"The server did not answer".** The API is not listening on port 3001. Start it with `pnpm --filter @ecapital/api dev` and try again.
-- **You land back on sign-in although you had signed in.** Your token expired. Development tokens last eight hours. Sign in again.
+- **You land back on sign-in although you had signed in, with "Your session has expired".** A session lasts eight hours. Sign in again; you return to the page you were on.
+- **While you work, "Your session has expired. Sign in again." appears.** The eight hours ran out while the page was open. "Sign in" signs you in and brings you back to the same page, but anything you typed and did not save is lost. To keep it, press "Sign in in a new tab", sign in there, come back to the first tab and press the same button again. "Stay on this page" lets you copy your text first.
+- **"eCapital is not answering right now".** The server is restarting, usually for a new release. You stay signed in; try again in a moment.
 - **The screen asks for a username and password instead of an address.** The server is configured for Active Directory. Use your network account; the sample accounts do not exist there.
 - **You see fewer units than you expected.** You see only the units you belong to. Ask the system administrator for access.

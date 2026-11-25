@@ -391,7 +391,7 @@ export function BacklogDrawer({ item, orgUnits, defaultUnit, canManage, canFund,
   return (
     <aside
       aria-labelledby="s21-drawer-title"
-      className="fixed inset-0 z-30 overflow-y-auto bg-k-white p-s-5 shadow-k tablet:inset-y-0 tablet:left-auto tablet:right-0 tablet:w-[480px] tablet:border-l tablet:border-k-grey"
+      className="fixed inset-0 z-40 overflow-y-auto bg-k-white p-s-5 shadow-k tablet:inset-y-0 tablet:left-auto tablet:right-0 tablet:w-[480px] tablet:border-l tablet:border-k-grey"
     >
       <div className="flex items-start justify-between gap-s-3">
         <h2 id="s21-drawer-title" className="text-fs-20 text-k-blue-deep">

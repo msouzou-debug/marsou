@@ -24,8 +24,10 @@
  * | onDecide          | (approvalId, decision, comment?) => void | A user's own pending approval line.                       |
  *
  * RULE: «Έναρξη εργασιών» is disabled outside the planned window (or before
- * APPROVED), with the reason in the button's `title` —
- * `startWorkDisabledReasonKey` (`src/lib/permit-rules.ts`).
+ * APPROVED), with the reason said in a sentence under it, with the window's
+ * dates (owner UAT 25/11/2026: a tooltip is not seen) —
+ * `startWorkDisabledReasonKey` (`src/lib/permit-rules.ts`). The Screen ticks
+ * `now` every 30 seconds so the button wakes up when the window opens.
  *
  * RULE: the Έγκριση/Επιστροφή με σχόλια/Απόρριψη buttons render only on the
  * approval line where `approval.approverId === myUserId && decision === "PENDING"`
@@ -216,6 +218,19 @@ export function PermitDetail(props: PermitDetailProps) {
   const canOperate = state !== "offline" && canOperatePermit(roles);
   const canReject = state !== "offline" && canRejectPermit(roles);
   const startDisabledKey = startWorkDisabledReasonKey(permit.status, permit.plannedStart, permit.plannedEnd, now);
+  // OWNER UAT 25/11/2026 («Start work does not work for admin»): the button
+  // was greyed out with its reason only in a tooltip, which nobody sees on a
+  // touch screen or without hovering. The reason is now a sentence under the
+  // button, with the window's own dates in Nicosia time. «Έναρξη εργασιών»
+  // is offered only while starting is still ahead: once the permit is active,
+  // closed or rejected there is nothing to start.
+  const startOffered = !["ACTIVE", "BREACH", "CLOSED", "REJECTED"].includes(permit.status);
+  const startReason = startDisabledKey
+    ? t(START_WORK_REASON_KEY[startDisabledKey], {
+        start: formatDateTime(permit.plannedStart),
+        end: formatDateTime(permit.plannedEnd),
+      })
+    : undefined;
   const directAreas = permit.affectedAreas.filter((a) => a.impact === "DIRECT");
   const indirectAreas = permit.affectedAreas.filter((a) => a.impact === "INDIRECT");
   const timeline = permitTimelineFrom(permit, (key) => t(`screens.s11detail.timeline.${key}`));
@@ -403,6 +418,11 @@ export function PermitDetail(props: PermitDetailProps) {
         <p className="mt-s-6 text-fs-14 text-k-text">{t(notEditableKey)}</p>
       )}
       {startWorkError && <p role="alert" className="mt-s-3 text-fs-14 text-k-red">{startWorkError}</p>}
+      {canOperate && startOffered && startReason && (
+        <p id="permit-start-reason" className="mt-s-3 text-fs-14 text-k-text">
+          {startReason}
+        </p>
+      )}
 
       <div className="mt-s-6 flex flex-wrap items-center gap-s-3 border-t border-k-grey pt-s-4">
         {canEdit && editable && (
@@ -414,12 +434,12 @@ export function PermitDetail(props: PermitDetailProps) {
             {t("buttons.edit")}
           </Link>
         )}
-        {canOperate && (
+        {canOperate && startOffered && (
           <button
             type="button"
             onClick={onStartWork}
             disabled={startDisabledKey !== null}
-            title={startDisabledKey ? t(START_WORK_REASON_KEY[startDisabledKey]) : undefined}
+            aria-describedby={startReason ? "permit-start-reason" : undefined}
             className="rounded-k bg-k-blue px-s-4 py-s-3 text-fs-14 font-bold text-k-white shadow-k disabled:bg-k-grey disabled:text-k-text-muted"
           >
             {t("screens.s11detail.startWork.button")}

@@ -24,12 +24,13 @@
 import { useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { useTranslations } from "next-intl";
-import { LoaderCircle, X } from "lucide-react";
+import { LoaderCircle } from "lucide-react";
 import { ContractorCategory, type Contractor, type EFinanceVendor } from "@ecapital/shared";
 import { VendorPicker } from "@/components/vendor-picker";
 import { zodResolver } from "@/lib/zod-resolver";
 import { formatDate } from "@/lib/format";
 import { ContractorFormSchema, type ContractorFormValues } from "./schema";
+import { SideSheet } from "@/components/side-sheet";
 
 export interface ContractorSheetProps {
   open: boolean;
@@ -51,10 +52,14 @@ export function ContractorSheet({ open, contractor, isAdmin, saving = false, api
   const tf = useTranslations("screens.s24.fields");
   const [blacklisted, setBlacklisted] = useState(contractor?.blacklisted ?? false);
 
+  const [prefilledFromVendor, setPrefilledFromVendor] = useState(false);
+
   const {
     register,
     control,
     handleSubmit,
+    getValues,
+    setValue,
     formState: { errors },
   } = useForm<ContractorFormValues>({
     resolver: zodResolver<ContractorFormValues>(ContractorFormSchema),
@@ -72,30 +77,34 @@ export function ContractorSheet({ open, contractor, isAdmin, saving = false, api
 
   if (!open) return null;
 
+  /**
+   * Coordinator 25/11/2026 (eFinance deploy68 sends `email` and `phone`):
+   * picking a vendor fills the contact e-mail and telephone from it, but only
+   * a field that is empty — what is already there, typed or synced, stays.
+   * The contact person is never touched. What is filled stays editable, and
+   * saving it makes it the user's own (MANUAL), as any typed contact is.
+   */
+  function prefillContact(vendor: EFinanceVendor) {
+    let filled = false;
+    for (const [field, value] of [
+      ["contactEmail", vendor.email],
+      ["contactPhone", vendor.phone],
+    ] as const) {
+      if (!value || (getValues(field) ?? "").trim() !== "") continue;
+      setValue(field, value, { shouldDirty: true, shouldValidate: true });
+      filled = true;
+    }
+    setPrefilledFromVendor(filled);
+  }
+
   function fieldError(key: keyof ContractorFormValues): string | undefined {
     const message = errors[key]?.message;
     return typeof message === "string" ? t(message) : undefined;
   }
 
   return (
-    <div
-      role="dialog"
-      aria-label={contractor ? t("screens.s24.titleEdit") : t("screens.s24.titleNew")}
-      className="fixed inset-0 desktop:inset-y-0 desktop:left-auto desktop:right-0 desktop:w-[480px] flex flex-col bg-k-white shadow-k"
-    >
-      <header className="flex items-start justify-between border-b border-k-grey p-s-5">
-        <h2 className="text-fs-20">{contractor ? t("screens.s24.titleEdit") : t("screens.s24.titleNew")}</h2>
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label={t("common.close")}
-          className="rounded-k p-s-2 text-k-text hover:bg-k-surface"
-        >
-          <X size={20} strokeWidth={1.5} aria-hidden="true" />
-        </button>
-      </header>
-
-      <div className="flex-1 overflow-auto p-s-5">
+    <SideSheet title={contractor ? t("screens.s24.titleEdit") : t("screens.s24.titleNew")} onClose={onClose}>
+      <div>
         <form
           noValidate
           onSubmit={handleSubmit((values) => onSave(values, isAdmin ? blacklisted : undefined))}
@@ -170,7 +179,7 @@ export function ContractorSheet({ open, contractor, isAdmin, saving = false, api
               name="sapVendorId"
               control={control}
               render={({ field }) => (
-                <VendorPicker id="cs-sap" value={field.value} onChange={field.onChange} search={vendorSearch} />
+                <VendorPicker id="cs-sap" value={field.value} onChange={field.onChange} onPick={prefillContact} search={vendorSearch} />
               )}
             />
             {vendorSearch && <p className="text-fs-14 text-k-text">{t("components.vendor-picker.hint")}</p>}
@@ -233,6 +242,11 @@ export function ContractorSheet({ open, contractor, isAdmin, saving = false, api
                 </p>
               )}
             </div>
+            {prefilledFromVendor && (
+              <p role="status" className="text-fs-14 text-k-text">
+                {t("screens.s24.contactFromVendor")}
+              </p>
+            )}
             {contractor?.contactSource === "EFINANCE" && (
               <p className="text-fs-14 text-k-text">
                 {contractor.contactSyncedAt
@@ -284,6 +298,6 @@ export function ContractorSheet({ open, contractor, isAdmin, saving = false, api
           </div>
         </form>
       </div>
-    </div>
+    </SideSheet>
   );
 }

@@ -10,6 +10,7 @@ This screen lists the handover defects on a contract, with a risk band, a cost a
 4. If a capital project is paying for the defect, check "Funded" and pick the project.
 5. Watch the due date: an open defect past its due date shows in red.
 6. The total at the bottom shows the count and the cost per risk band.
+7. To go back to the list, press "Back to the list" at the top right of the defect, press Esc, or click outside the defect, on the list.
 
 ## What can go wrong
 

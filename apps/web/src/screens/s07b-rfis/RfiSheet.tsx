@@ -59,11 +59,26 @@
  * | uploading | boolean?                      |                                                    |
  * | uploadError | string?                     | The API's refusal of the last upload.              |
  * | today     | string?                       | yyyy-mm-dd in Nicosia; injectable for tests.       |
+ * | contractFacts | RfiContractFacts?         | Contract and project for the e-mail. Omitted, no «Αποστολή με e-mail». |
+ * | onMarkSent | (sentOn) => Promise<boolean>? | `PATCH .../rfis/:rid` `{ sentOn }`, the one-click «sent today». |
+ *
+ * Owner UAT 25/11/2026 («The RFI should go through e-mail»): the read view of
+ * an RFI that is not closed offers «Αποστολή με e-mail» to a writer. There is
+ * no outgoing mail server, so it is a `mailto:` link that opens Outlook with
+ * the recipient, the subject (number — contract — short question) and the
+ * body already written (`rfi-mail.ts`). With no recipient e-mail it is
+ * disabled and says why. Once opened, the sheet reminds the user to record
+ * the day it left — one click sets «Ημερομηνία αποστολής» to today — and to
+ * file the sent message under «Αλληλογραφία».
+ *
+ * Owner UAT 25/11/2026 («there is no close button; it stays in limbo»): the
+ * sheet is the shared `SideSheet` — «Πίσω στη λίστα» at the top, Escape and a
+ * click beside it all close it, in every mode, after a close as before it.
  */
 import { useState } from "react";
 import { useForm, type UseFormRegisterReturn } from "react-hook-form";
 import { useTranslations } from "next-intl";
-import { LoaderCircle, X } from "lucide-react";
+import { LoaderCircle, Mail } from "lucide-react";
 import { nicosiaDateOf, type Rfi, type RfiDocument } from "@ecapital/shared";
 import { documentContentHref, documentViewHref } from "@/data/queries";
 import { zodResolver } from "@/lib/zod-resolver";
@@ -79,6 +94,8 @@ import {
   type RfiEditFormValues,
   type RfiFormValues,
 } from "./schema";
+import { buildRfiMail, mailtoHref, type RfiMailFacts } from "./rfi-mail";
+import { SideSheet } from "@/components/side-sheet";
 
 export interface RfiSheetProps {
   open: boolean;
@@ -98,26 +115,18 @@ export interface RfiSheetProps {
   uploading?: boolean;
   uploadError?: string;
   today?: string;
+  /** Owner UAT 25/11/2026: the contract and project, for «Αποστολή με e-mail». Omitted, no e-mail button. */
+  contractFacts?: RfiContractFacts;
+  /** Owner UAT 25/11/2026: `PATCH .../rfis/:rid` with `{ sentOn }`; true once saved. */
+  onMarkSent?: (sentOn: string) => Promise<boolean>;
 }
 
-function SheetShell({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
-  const t = useTranslations();
-  return (
-    <div
-      role="dialog"
-      aria-label={title}
-      className="fixed inset-0 desktop:inset-y-0 desktop:left-auto desktop:right-0 desktop:w-[480px] flex flex-col bg-k-white shadow-k"
-    >
-      <header className="flex items-start justify-between border-b border-k-grey p-s-5">
-        <h2 className="text-fs-20">{title}</h2>
-        <button type="button" onClick={onClose} aria-label={t("common.close")} className="rounded-k p-s-2 text-k-text hover:bg-k-surface">
-          <X size={20} strokeWidth={1.5} aria-hidden="true" />
-        </button>
-      </header>
-      <div className="flex-1 overflow-auto p-s-5">{children}</div>
-    </div>
-  );
-}
+export type RfiContractFacts = Pick<RfiMailFacts, "contractNo" | "contractorName" | "projectCode" | "projectTitle">;
+
+// OWNER UAT 25/11/2026: the shared sheet — above the top bar and the
+// table's sticky header, with «Πίσω στη λίστα», Escape and the backdrop as
+// its ways out (`components/side-sheet`).
+const SheetShell = SideSheet;
 
 function editValuesOf(rfi: Rfi | undefined): RfiEditFormValues {
   return {
@@ -158,10 +167,13 @@ export function RfiSheet({
   uploadError,
   today = nicosiaDateOf(new Date()),
   recipientDefaults,
+  contractFacts,
+  onMarkSent,
 }: RfiSheetProps) {
   const t = useTranslations();
   const [mode, setMode] = useState<"read" | "edit" | "answer" | "close">("read");
   const [notice, setNotice] = useState<string | undefined>(undefined);
+  const [mailOpened, setMailOpened] = useState(false);
   const [uploadOpen, setUploadOpen] = useState(false);
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploadTitle, setUploadTitle] = useState("");
@@ -462,6 +474,35 @@ export function RfiSheet({
   const title = t("screens.s07b.sheetTitle", { number: rfi.number });
   const notRecorded = <span className="text-k-text">{t("screens.s07b.notRecorded")}</span>;
 
+  // Owner UAT 25/11/2026: «Αποστολή με e-mail» opens Outlook with the RFI
+  // written out (`rfi-mail.ts`); eCapital itself sends nothing.
+  const canMail = canWrite && rfi.status !== "CLOSED" && !!contractFacts;
+  const recipientEmail = rfi.recipientEmail?.trim() ?? "";
+  const mailHref =
+    canMail && recipientEmail
+      ? mailtoHref(
+          buildRfiMail(
+            {
+              number: rfi.number,
+              questionEl: rfi.questionEl,
+              recipientEmail,
+              slaDueAt: rfi.slaDueAt,
+              ...contractFacts,
+            },
+            (key, values) => t(`screens.s07b.email.${key}`, values),
+          ),
+        )
+      : undefined;
+  const canMarkSent = canEdit && !!onMarkSent && rfi.sentOn !== today;
+
+  async function markSentToday() {
+    if (!onMarkSent) return;
+    if (await onMarkSent(today)) {
+      setMailOpened(false);
+      setNotice(t("screens.s07b.email.sentSaved"));
+    }
+  }
+
   async function submitUpload() {
     if (!uploadFile || !onUpload) return;
     const titleError = evidenceTitleError(uploadTitle);
@@ -597,6 +638,53 @@ export function RfiSheet({
             >
               {t("screens.s07b.closeAction")}
             </button>
+          )}
+        </div>
+      )}
+
+      {canMail && (
+        <div className="mt-s-4 grid gap-s-2">
+          {mailHref ? (
+            <a
+              href={mailHref}
+              onClick={() => {
+                setNotice(undefined);
+                setMailOpened(true);
+              }}
+              aria-describedby="rfi-mail-hint"
+              className="flex h-11 w-fit items-center gap-s-2 rounded-k border border-k-grey px-s-5 text-fs-14 font-bold text-k-blue-deep"
+            >
+              <Mail size={20} strokeWidth={1.5} aria-hidden="true" />
+              {t("screens.s07b.email.button")}
+            </a>
+          ) : (
+            <button
+              type="button"
+              disabled
+              aria-describedby="rfi-mail-hint"
+              className="flex h-11 w-fit items-center gap-s-2 rounded-k border border-k-grey px-s-5 text-fs-14 font-bold text-k-text-muted"
+            >
+              <Mail size={20} strokeWidth={1.5} aria-hidden="true" />
+              {t("screens.s07b.email.button")}
+            </button>
+          )}
+          <p id="rfi-mail-hint" className="text-fs-14 text-k-text">
+            {mailHref ? t("screens.s07b.email.hint") : t("screens.s07b.email.noRecipient")}
+          </p>
+          {mailOpened && (
+            <div role="status" className="grid gap-s-2 rounded-k border border-k-grey bg-k-surface p-s-3 text-fs-14 text-k-ink">
+              <p>{t("screens.s07b.email.afterOpen")}</p>
+              {canMarkSent && (
+                <button
+                  type="button"
+                  onClick={() => void markSentToday()}
+                  disabled={saving}
+                  className="h-11 w-fit rounded-k bg-k-blue px-s-5 text-fs-14 font-bold text-k-white shadow-k disabled:opacity-60"
+                >
+                  {t("screens.s07b.email.setSentToday", { date: formatDate(today) })}
+                </button>
+              )}
+            </div>
           )}
         </div>
       )}

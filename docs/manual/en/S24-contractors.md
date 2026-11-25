@@ -10,7 +10,9 @@ This screen holds the register of contractors working with the organisation, sha
 4. Under "Contact details", fill in the contractor's contact person, e-mail and telephone. They fill in the recipient of a new RFI and show on the page of every contract the contractor holds. No bank details are recorded.
 5. The system administrator also sees a "Blacklist" toggle when editing a contractor.
 
-Once eFinance starts sending the e-mail and telephone of SAP's vendors, the daily sync will fill in the contact details of contractors that have an SAP code and an empty contact. Details a user typed are never replaced. Details that came from eFinance say so under the fields; if you change them, they become yours and eFinance no longer touches them.
+When you pick a vendor from the "SAP code" search, the e-mail and telephone eFinance holds for that vendor fill the "Contact details", but only the fields that are empty. The contact person is not filled. You can change what was filled; on "Save" the details become yours, as when you type them.
+
+Since 25/11/2026 eFinance sends the e-mail and telephone of SAP's vendors, and the daily sync fills in the contact details of contractors that have an SAP code and an empty contact. Details a user typed are never replaced. Details that came from eFinance say so under the fields; if you change them, they become yours and eFinance no longer touches them.
 
 ## What can go wrong
 

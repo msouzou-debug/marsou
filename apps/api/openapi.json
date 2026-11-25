@@ -27198,6 +27198,18 @@
                           },
                           "active": {
                             "type": "boolean"
+                          },
+                          "email": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "phone": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
                           }
                         },
                         "required": [
@@ -27205,7 +27217,9 @@
                           "name",
                           "vat",
                           "blocked",
-                          "active"
+                          "active",
+                          "email",
+                          "phone"
                         ],
                         "additionalProperties": false
                       }

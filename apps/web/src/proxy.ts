@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { isPublicPath, SESSION_COOKIE } from "@/auth/cookies";
+import { isPublicPath, PATH_HEADER, SESSION_COOKIE } from "@/auth/cookies";
 
 // The gate (R01). Next 16 calls this file `proxy.ts`; it is the former
 // `middleware.ts` under its new name, and it runs before any route renders.
@@ -7,7 +7,7 @@ import { isPublicPath, SESSION_COOKIE } from "@/auth/cookies";
 // RULE: everything except `/sign-in`, `/preview` (the dev-only component
 // gallery, ADR-0004) and `/api/*` (the same-origin proxy route, ADR-0005's
 // "status" paragraph) needs a session. `/api/proxy/*` checks for the cookie
-// itself, with `getSession()`, and answers 401 without it — this file does
+// itself and answers 401 without it — this file does
 // not need to gate it too. This file checks that the cookie is *there*, not
 // that it is good: whether the token still verifies is the API's answer to
 // give, and asking it here would put a network call in front of every
@@ -32,7 +32,13 @@ export function proxy(request: NextRequest): NextResponse {
   }
 
   if (isPublicPath(pathname)) return NextResponse.next();
-  if (request.cookies.has(SESSION_COOKIE)) return NextResponse.next();
+  if (request.cookies.has(SESSION_COOKIE)) {
+    // OWNER UAT 25/11/2026: where the user is, for the layout's «sign in
+    // again and come back here» when the API rejects the cookie.
+    const forwarded = new Headers(request.headers);
+    forwarded.set(PATH_HEADER, `${pathname}${search}`);
+    return NextResponse.next({ request: { headers: forwarded } });
+  }
 
   const url = request.nextUrl.clone();
   url.pathname = "/sign-in";

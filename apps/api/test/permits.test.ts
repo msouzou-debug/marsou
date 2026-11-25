@@ -532,6 +532,25 @@ describe("shutdown permits", () => {
     expect(body.actualStart).not.toBeNull();
   });
 
+  // OWNER UAT 25/11/2026: «Start work does not work for admin.» The administrator
+  // holds permitOperate WRITE and every unit, so inside the window the step is
+  // theirs as much as the engineer's.
+  it("lets an administrator start work inside the window", async () => {
+    const permit = await approvedPermit(app, {
+      titleEl: title("Έναρξη από διαχειριστή"),
+      areaIds: [areas.office],
+      activityType: "A",
+    });
+    await setWindow(permit.id, -1, 4);
+    const admin = await tokenFor(app, USERS.admin);
+    const response = await request(app.getHttpServer())
+      .post(`/permits/${permit.id}/transition`)
+      .set(bearer(admin))
+      .send({ to: "ACTIVE" });
+    expect(response.status).toBe(200);
+    expect((response.body as ShutdownPermit).status).toBe("ACTIVE");
+  });
+
   it("refuses ACTIVE from anywhere but APPROVED", async () => {
     const permit = await draftPermit(app, {
       titleEl: title("Έναρξη από πρόχειρο"),

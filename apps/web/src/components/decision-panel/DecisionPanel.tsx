@@ -143,7 +143,7 @@ export function DecisionPanel({
     <div
       role="dialog"
       aria-label={what}
-      className="fixed inset-0 desktop:inset-y-0 desktop:left-auto desktop:right-0 desktop:w-[480px] bg-k-white shadow-k flex flex-col"
+      className="fixed inset-0 z-40 desktop:inset-y-0 desktop:left-auto desktop:right-0 desktop:w-[480px] bg-k-white shadow-k flex flex-col"
     >
       <header className="flex items-start justify-between border-b border-k-grey p-s-5">
         <div>

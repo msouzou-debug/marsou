@@ -22,10 +22,11 @@
  */
 import { useForm } from "react-hook-form";
 import { useTranslations } from "next-intl";
-import { LoaderCircle, X } from "lucide-react";
+import { LoaderCircle } from "lucide-react";
 import { RiskStatus, type ProjectPerson, type Risk } from "@ecapital/shared";
 import { zodResolver } from "@/lib/zod-resolver";
 import { RiskFormSchema, type RiskFormValues } from "./schema";
+import { SideSheet } from "@/components/side-sheet";
 
 export interface RiskSheetProps {
   open: boolean;
@@ -78,19 +79,8 @@ export function RiskSheet({ open, risk, people = [], saving = false, apiError, o
   }
 
   return (
-    <div
-      role="dialog"
-      aria-label={risk ? t("screens.s06.editRiskTitle") : t("screens.s06.addRiskTitle")}
-      className="fixed inset-0 z-40 flex flex-col bg-k-white shadow-k desktop:inset-y-0 desktop:left-auto desktop:right-0 desktop:w-[480px]"
-    >
-      <header className="flex items-start justify-between border-b border-k-grey p-s-5">
-        <h2 className="text-fs-20">{risk ? t("screens.s06.editRiskTitle") : t("screens.s06.addRiskTitle")}</h2>
-        <button type="button" onClick={onClose} aria-label={t("common.close")} className="rounded-k p-s-2 text-k-text hover:bg-k-surface">
-          <X size={20} strokeWidth={1.5} aria-hidden="true" />
-        </button>
-      </header>
-
-      <div className="flex-1 overflow-auto p-s-5">
+    <SideSheet title={risk ? t("screens.s06.editRiskTitle") : t("screens.s06.addRiskTitle")} onClose={onClose}>
+      <div>
         <form onSubmit={handleSubmit(onSave)} className="flex flex-col gap-s-4">
           <div className="flex flex-col gap-s-1">
             <label htmlFor="rs-description" className="text-fs-14 text-k-text">
@@ -209,6 +199,6 @@ export function RiskSheet({ open, risk, people = [], saving = false, apiError, o
           </div>
         </form>
       </div>
-    </div>
+    </SideSheet>
   );
 }

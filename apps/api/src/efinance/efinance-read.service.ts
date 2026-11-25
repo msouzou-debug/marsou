@@ -261,6 +261,10 @@ export class EFinanceReadService {
         vat: schema.efinanceVendor.vat,
         blocked: schema.efinanceVendor.blocked,
         active: schema.efinanceVendor.active,
+        // eFinance 25/11/2026 (deploy68): the address e-mail and telephone, for
+        // the contractor sheet to prefill on a pick. Never a bank field.
+        email: schema.efinanceVendor.email,
+        phone: schema.efinanceVendor.phone,
       })
       .from(schema.efinanceVendor)
       .where(
