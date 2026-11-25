@@ -79,13 +79,13 @@ create policy document_insert_rfi on ecapital.document
     and kind::text = 'RFI_EVIDENCE'
     and ecapital.can_manage_site_log(org_unit_id));
 
--- eArchive's queue names the module every item comes from. The full list,
--- 0022's plus this one.
+-- eArchive's queue names the module every item comes from. The full list:
+-- 0022's, 0029's claim papers, and this one.
 alter table ecapital.dms_outbox drop constraint if exists dms_outbox_module_known;
 alter table ecapital.dms_outbox add constraint dms_outbox_module_known
   check (source_module in ('award', 'business_case', 'variation', 'permit',
                            'payment_cert', 'asset_document', 'work_order_document',
-                           'rfi_document'));
+                           'claim_document', 'rfi_document'));
 
 -- ===================================================== 2. SAP asset class --
 

@@ -17,11 +17,15 @@
  *
  * `takesAgreement` is in the contract but no report sets it today; the bar
  * draws no agreement picker until one does.
+ *
+ * RULE (date sanity, PERIOD_DATE_RULES): a period typed backwards is held
+ * back, not sent, and the bar says so under «Έως».
  */
+import { useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import type { OrgUnit, ReportCatalogueEntry, ReportQuery } from "@ecapital/shared";
 import type { Locale } from "@/i18n/config";
-import { quarter, shiftDay } from "@/screens/s22-scorecard/period";
+import { periodBackwards, quarter, shiftDay } from "@/screens/s22-scorecard/period";
 
 export interface ReportFilterBarProps {
   entry: ReportCatalogueEntry;
@@ -44,6 +48,12 @@ export function ReportFilterBar({ entry, orgUnits, query, onQuery, today }: Repo
   const locale = useLocale() as Locale;
   const current = quarter(today, 0);
   const previous = quarter(today, -1);
+  const [backwards, setBackwards] = useState(false);
+  function applyPeriod(from: string, lastDay: string) {
+    const wrong = periodBackwards(from, lastDay);
+    setBackwards(wrong);
+    if (!wrong) onQuery({ ...query, from, to: shiftDay(lastDay, 1) });
+  }
   const preset =
     query.from === current.from && query.to === current.to ? "current" : query.from === previous.from && query.to === previous.to ? "previous" : "custom";
 
@@ -98,7 +108,10 @@ export function ReportFilterBar({ entry, orgUnits, query, onQuery, today }: Repo
             <input
               type="date"
               value={query.from ?? ""}
-              onChange={(e) => e.target.value && onQuery({ ...query, from: e.target.value })}
+              onChange={(e) =>
+                e.target.value &&
+                (query.to ? applyPeriod(e.target.value, shiftDay(query.to, -1)) : onQuery({ ...query, from: e.target.value }))
+              }
               className={`num ${inputClass}`}
             />
           </label>
@@ -107,9 +120,19 @@ export function ReportFilterBar({ entry, orgUnits, query, onQuery, today }: Repo
             <input
               type="date"
               value={query.to ? shiftDay(query.to, -1) : ""}
-              onChange={(e) => e.target.value && onQuery({ ...query, to: shiftDay(e.target.value, 1) })}
+              min={query.from}
+              onChange={(e) =>
+                e.target.value &&
+                (query.from ? applyPeriod(query.from, e.target.value) : onQuery({ ...query, to: shiftDay(e.target.value, 1) }))
+              }
+              aria-invalid={backwards ? "true" : undefined}
               className={`num ${inputClass}`}
             />
+            {backwards && (
+              <span role="alert" className="text-fs-14 text-k-red">
+                {t("forms.dateEndBeforeStart")}
+              </span>
+            )}
           </label>
         </fieldset>
       )}

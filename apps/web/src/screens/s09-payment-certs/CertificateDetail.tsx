@@ -37,7 +37,7 @@
 import { useState, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
 import { LoaderCircle } from "lucide-react";
-import type { AppRole, PaymentCert, PaymentCertStatus } from "@ecapital/shared";
+import { PAYMENT_CERT_TRANSITION_DATE_RULES, dateIssues, nicosiaDateOf, type AppRole, type PaymentCert, type PaymentCertStatus } from "@ecapital/shared";
 import { canApprovePaymentCertEngineer, canProcessPaymentCertFinance } from "@/auth/roles";
 import { PageTitle } from "@/components/app-shell";
 import { formatDate, formatEUR } from "@/lib/format";
@@ -80,6 +80,7 @@ export function CertificateDetail({
   const t = useTranslations();
   const [sapInvoiceRef, setSapInvoiceRef] = useState("");
   const [paidDate, setPaidDate] = useState("");
+  const paidDateIssue = dateIssues({ paidDate }, PAYMENT_CERT_TRANSITION_DATE_RULES)[0];
   const [retentionReleased, setRetentionReleased] = useState(false);
 
   if (state === "noPermission") return <>{noPermission}</>;
@@ -225,13 +226,23 @@ export function CertificateDetail({
           <label htmlFor="cert-paid-date" className="text-fs-14 text-k-text">
             {t("screens.s09.transitions.paidDateLabel")}
           </label>
+          {/* RULE (date sanity, PAYMENT_CERT_TRANSITION_DATE_RULES): a payment
+              is recorded once it has been made, so not after today. */}
           <input
             id="cert-paid-date"
             type="date"
+            max={nicosiaDateOf()}
             value={paidDate}
             onChange={(e) => setPaidDate(e.target.value)}
+            aria-invalid={paidDateIssue ? "true" : undefined}
+            aria-describedby={paidDateIssue ? "cert-paid-date-error" : undefined}
             className="mt-s-1 h-11 w-[200px] rounded-k border border-k-grey px-s-3 text-fs-16 text-k-ink"
           />
+          {paidDateIssue && (
+            <p id="cert-paid-date-error" role="alert" className="mt-s-1 text-fs-14 text-k-red">
+              {t(`forms.${paidDateIssue.rule}`)}
+            </p>
+          )}
 
           <label className="mt-s-4 flex items-center gap-s-2 text-fs-14 text-k-ink">
             <input type="checkbox" checked={retentionReleased} onChange={(e) => setRetentionReleased(e.target.checked)} />
@@ -248,7 +259,7 @@ export function CertificateDetail({
             <button
               type="button"
               onClick={() => onTransition("PAID", { paidDate: paidDate || null, retentionReleased })}
-              disabled={transitioning || paidDate.trim() === ""}
+              disabled={transitioning || paidDate.trim() === "" || paidDateIssue !== undefined}
               className="flex h-11 items-center justify-center gap-s-2 rounded-k bg-k-blue px-s-5 text-fs-14 font-bold text-k-white shadow-k disabled:opacity-60"
             >
               {transitioning && <LoaderCircle size={20} strokeWidth={1.5} aria-hidden="true" className="animate-spin" />}

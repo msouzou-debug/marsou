@@ -101,3 +101,24 @@ finance deducts it.**
   «Αξιώσεις». The certificate form shows the accrual as a notice.
 - Deferred: e-mail on activation or on a stale project (M10); a penalty
   cap per contract; interest on claims.
+
+## Addendum, 25/11/2026 — a claim's papers
+
+The owner reported that there was no way to file the e-mail or the lawyer's
+letter a claim arrives with. «An optional document» (§4) was one
+`document_id` column that nothing filled. A claim carries several papers —
+the letter or e-mail that made it, the reply, a lawyer's letter — so they are
+`document` rows like every other paper eCapital files with eArchive
+(ADR-0023), on `entity_type = 'contract_claim'`, of three new kinds
+(`CLAIM_LETTER`, `CLAIM_REPLY`, `CLAIM_LEGAL_LETTER`, migration 0029), under
+`source_module: claim_document` and `source_ref claim_doc:<claim>:<n>`.
+`POST /contracts/:id/claims/:cid/documents` files one (multipart, with its
+kind); the contract detail lists them on each claim (`claims[].documents`).
+A paper from the contractor goes to eArchive as incoming with the
+contractor as sender; ours is internal. A lawyer's letter files under
+«Νομικά». No policy changed: `document_read` and `document_write` already
+cover it, and `contractRecords` WRITE is the permission on the route.
+`document_id` stays on the table for the record.
+
+The date notified is not after today in Nicosia and not before the award
+(the shared date rules in `packages/shared/src/calendar-date.ts`).

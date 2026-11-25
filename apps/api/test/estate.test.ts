@@ -346,6 +346,36 @@ describe("GET /contracts", () => {
     expect(theirs.body.items).toEqual([]);
   });
 
+  // S07e's two filters: several units at once, and one project inside them.
+  it("narrows to several units, and to one project", async () => {
+    const larnaca = await makeContract(app, stamp(), {}, USERS.admin, "larnaca-general");
+    const nicosia = await makeContract(app, stamp(), {}, USERS.admin, "nicosia-general");
+    const token = await tokenFor(app, USERS.admin);
+
+    const both = await request(app.getHttpServer())
+      .get("/contracts?unit=nicosia-general&unit=larnaca-general")
+      .set(bearer(token));
+    expect(both.status).toBe(200);
+    const units = new Set((both.body.items as { orgUnitId: string }[]).map((c) => c.orgUnitId));
+    expect([...units].sort()).toEqual(["larnaca-general", "nicosia-general"]);
+
+    const one = await request(app.getHttpServer())
+      .get(`/contracts?project=${nicosia.project.id}`)
+      .set(bearer(token));
+    expect(one.status).toBe(200);
+    expect((one.body.items as { id: string }[]).map((c) => c.id)).toEqual([nicosia.contract.id]);
+
+    // A project outside the unit asked for: nothing, not the project's contract.
+    const crossed = await request(app.getHttpServer())
+      .get(`/contracts?unit=nicosia-general&project=${larnaca.project.id}`)
+      .set(bearer(token));
+    expect(crossed.body.items).toEqual([]);
+
+    const notAnId = await request(app.getHttpServer()).get("/contracts?project=PRJ-001").set(bearer(token));
+    expect(notAnId.status).toBe(200);
+    expect(notAnId.body.items).toEqual([]);
+  });
+
   it("searches the reference and the contractor without regard to case or accents", async () => {
     const { contract } = await makeContract(app, stamp());
     const token = await tokenFor(app, USERS.admin);

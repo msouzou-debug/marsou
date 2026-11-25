@@ -45,6 +45,8 @@ import {
   type SlaSystem,
   type WorkOrderCreate,
   type WorkOrderSource,
+  WORK_ORDER_CREATE_DATE_RULES,
+  dateIssues,
 } from "@ecapital/shared";
 import { AreaPicker } from "@/components/area-picker";
 import { PageTitle } from "@/components/app-shell";
@@ -125,7 +127,11 @@ export function CallForm(props: CallFormProps) {
   const calledValid = calledIso !== null && !Number.isNaN(Date.parse(calledIso));
   const titleValid = title.trim().length >= 3;
   const unitValid = unitId !== "";
-  const valid = titleValid && unitValid && calledValid;
+  // RULE (date sanity, WORK_ORDER_CREATE_DATE_RULES): the call has been made
+  // by the time it is typed in, so it is not dated after today. The API holds
+  // it to the minute (errors.workOrderTimeNotValid).
+  const calledIssue = dateIssues({ calledAt }, WORK_ORDER_CREATE_DATE_RULES)[0];
+  const valid = titleValid && unitValid && calledValid && !calledIssue;
 
   function submit() {
     setTouched(true);
@@ -353,10 +359,16 @@ export function CallForm(props: CallFormProps) {
               value={calledAt}
               onChange={(e) => setCalledAt(e.target.value)}
               aria-describedby="s20-called-hint"
+              aria-invalid={calledIssue ? "true" : undefined}
               className={`num ${inputClass}`}
               disabled={readOnly}
             />
           </label>
+          {calledIssue && (
+            <p role="alert" className="text-fs-14 text-k-red">
+              {t(`forms.${calledIssue.rule}`)}
+            </p>
+          )}
           <p id="s20-called-hint" className="text-fs-14 text-k-text">
             {t("screens.s20.calledAtHint")}
           </p>

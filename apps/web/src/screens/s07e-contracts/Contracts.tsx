@@ -18,6 +18,16 @@
  * | onSearch     | (q: string) => void    | Pushes the term into the URL; the screen refetches.          |
  * | onRetry      | () => void?            | Wired to the error state's retry button.                     |
  * | noPermission | ReactNode              | The shell's `NoPermission`.                                  |
+ * | orgUnits     | OrgUnit[]?             | The caller's visible units — the «Μονάδα» filter's options.  |
+ * | filter       | ContractsFilter?       | The «Μονάδα» and «Έργο» filters, from the URL.               |
+ * | projects     | ProjectOption[]?       | The «Έργο» options: the projects of the units chosen, or of every visible unit when none is. |
+ * | onFilterChange | (filter) => void?    | Pushes the filters into the URL; the screen refetches.       |
+ *
+ * «Μονάδα» is a multi-select (S02's `FacetFilter`), «Έργο» a single select
+ * narrowed by it; both show as chips in the shared `FilterBar`, which can
+ * remove one, clear them all or save the combination as a view.
+ * RULE: choosing units drops a chosen project that is in none of them — a
+ * project filter the unit filter contradicts would only ever say «nothing».
  *
  * A list and not a `Table`: the register is read one row at a time, on a
  * phone as often as on a desktop, and the export button CONVENTIONS.md asks
@@ -33,14 +43,25 @@
  * register is read.
  */
 import type { ReactNode } from "react";
-import { useState, type FormEvent } from "react";
+import { useMemo, useState, type FormEvent } from "react";
 import Link from "next/link";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { Search } from "lucide-react";
-import type { Contract } from "@ecapital/shared";
+import type { Contract, OrgUnit } from "@ecapital/shared";
 import { EmptyState } from "@/components/empty-state";
 import { PageTitle } from "@/components/app-shell";
+import { FilterBar, type FilterItem } from "@/components/filter-bar";
 import { formatDate, formatEUR } from "@/lib/format";
+import { FacetFilter } from "@/screens/s02-projects/FacetFilter";
+import {
+  type ProjectOption,
+  filterToItems,
+  itemsToFilter,
+  loadSavedViews,
+  projectLabel,
+  saveSavedViews,
+} from "./filters";
+import { type ContractsFilter, NO_FILTER, isFiltered } from "./query";
 
 export type ContractsScreenState = "default" | "loading" | "empty" | "error" | "noPermission";
 
@@ -51,6 +72,10 @@ export interface ContractsProps {
   onSearch?: (q: string) => void;
   onRetry?: () => void;
   noPermission: ReactNode;
+  orgUnits?: OrgUnit[];
+  filter?: ContractsFilter;
+  projects?: ProjectOption[];
+  onFilterChange?: (filter: ContractsFilter) => void;
 }
 
 export function Contracts({
@@ -60,13 +85,59 @@ export function Contracts({
   onSearch = () => undefined,
   onRetry,
   noPermission,
+  orgUnits = [],
+  filter = NO_FILTER,
+  projects = [],
+  onFilterChange = () => undefined,
 }: ContractsProps) {
   const t = useTranslations();
+  const locale = useLocale();
   const [term, setTerm] = useState(q);
   // ADR-0025: off by default, per-visit only — see the header comment.
   const [showBudgetCode, setShowBudgetCode] = useState(false);
+  // Read once on the client, as S02 does; the server pass gets none.
+  const [savedViews, setSavedViews] = useState<ReturnType<typeof loadSavedViews>>(() =>
+    typeof window === "undefined" ? [] : loadSavedViews(),
+  );
+
+  const unitNameById = useMemo(
+    () => new Map(orgUnits.map((u) => [u.id, locale === "en" ? u.nameEn : u.nameEl] as const)),
+    [orgUnits, locale],
+  );
+  const unitOptions = useMemo(
+    () =>
+      orgUnits
+        .map((u) => ({ value: u.id, label: unitNameById.get(u.id) ?? u.id }))
+        .sort((a, b) => a.label.localeCompare(b.label, locale)),
+    [orgUnits, unitNameById, locale],
+  );
+  const projectById = useMemo(() => new Map(projects.map((p) => [p.id, p] as const)), [projects]);
+  const filterItems = useMemo(
+    () => filterToItems(filter, unitNameById, projectById, t),
+    [filter, unitNameById, projectById, t],
+  );
 
   if (state === "noPermission") return <>{noPermission}</>;
+
+  function toggleUnit(id: string) {
+    const unit = filter.unit.includes(id) ? filter.unit.filter((u) => u !== id) : [...filter.unit, id];
+    // RULE (header): a chosen project outside every chosen unit goes.
+    const chosen = projectById.get(filter.project);
+    const keepProject = !filter.project || unit.length === 0 || (chosen !== undefined && unit.includes(chosen.orgUnitId));
+    onFilterChange({ unit, project: keepProject ? filter.project : "" });
+  }
+
+  function handleFilterBarChange(next: FilterItem[]) {
+    onFilterChange(itemsToFilter(next));
+  }
+
+  function handleSaveView(name: string) {
+    const next = [...savedViews, { id: `view-${Date.now()}`, label: name, filters: filterItems }];
+    setSavedViews(next);
+    saveSavedViews(next);
+  }
+
+  const filtered = isFiltered(filter);
 
   function submit(event: FormEvent) {
     event.preventDefault();
@@ -101,6 +172,38 @@ export function Contracts({
         </button>
       </form>
 
+      <div className="mb-s-6 flex flex-col gap-s-3" data-testid="contract-filters">
+        <div className="flex flex-wrap items-end gap-s-3">
+          <FacetFilter
+            label={t("screens.s07e.filters.unit")}
+            options={unitOptions}
+            selected={filter.unit}
+            onToggle={toggleUnit}
+          />
+          <label className="flex min-w-[240px] flex-col gap-s-1 text-fs-14 text-k-text">
+            {t("screens.s07e.filters.project")}
+            <select
+              value={filter.project}
+              onChange={(event) => onFilterChange({ ...filter, project: event.target.value })}
+              className="h-11 max-w-[420px] rounded-k border border-k-grey bg-k-white px-s-3 text-fs-14 text-k-ink"
+            >
+              <option value="">{t("screens.s07e.filters.allProjects")}</option>
+              {projects.map((project) => (
+                <option key={project.id} value={project.id}>
+                  {projectLabel(project)}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+        <FilterBar
+          filters={filterItems}
+          onChange={handleFilterBarChange}
+          savedViews={savedViews}
+          onSaveView={handleSaveView}
+        />
+      </div>
+
       {state === "loading" && (
         <ul aria-hidden="true" aria-busy="true" className="grid gap-s-2">
           {[0, 1, 2, 3].map((i) => (
@@ -125,14 +228,22 @@ export function Contracts({
       )}
 
       {state === "empty" && (
-        <EmptyState
-          message={q ? t("screens.s07e.emptySearch", { q }) : t("screens.s07e.empty")}
-          actionLabel={t("screens.s07e.clearSearch")}
-          onAction={() => {
-            setTerm("");
-            onSearch("");
-          }}
-        />
+        filtered && !q ? (
+          <EmptyState
+            message={t("screens.s07e.emptyFiltered")}
+            actionLabel={t("screens.s07e.clearFilters")}
+            onAction={() => onFilterChange(NO_FILTER)}
+          />
+        ) : (
+          <EmptyState
+            message={q ? t("screens.s07e.emptySearch", { q }) : t("screens.s07e.empty")}
+            actionLabel={t("screens.s07e.clearSearch")}
+            onAction={() => {
+              setTerm("");
+              onSearch("");
+            }}
+          />
+        )
       )}
 
       {state === "default" && (

@@ -14,25 +14,38 @@
  * rendered: `page.tsx` looks it up and redirects. By the time the list is on
  * screen with a `q` in the URL, the lookup has already said "no".
  *
+ * The «Μονάδα» and «Έργο» filters live in the URL too (`unit`, repeated, and
+ * `project`; see `query.ts`), and go to the API as they are. The «Έργο»
+ * options are the projects of the units chosen, or of every unit the caller
+ * may see while none is.
+ *
  * | Prop         | Type       | Notes                                             |
  * |--------------|------------|----------------------------------------------------|
  * | q            | string?    | The term from the URL, resolved by the Server Component. |
+ * | orgUnits     | OrgUnit[]? | The caller's visible units, from the server (R01). |
  * | noPermission | ReactNode  | The shell's `NoPermission`.                         |
  */
 import type { ReactNode } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import type { OrgUnit } from "@ecapital/shared";
 import { ApiError } from "@/data/client";
-import { useContracts } from "@/data/queries";
+import { useContracts, useProjectsForUnits } from "@/data/queries";
 import { Contracts, type ContractsScreenState } from "./Contracts";
+import { contractsFilterToSearchParams, parseContractsFilter } from "./query";
 
 export interface ContractsScreenProps {
   q?: string;
+  orgUnits?: OrgUnit[];
   noPermission: ReactNode;
 }
 
-export function ContractsScreen({ q, noPermission }: ContractsScreenProps) {
+export function ContractsScreen({ q, orgUnits = [], noPermission }: ContractsScreenProps) {
   const router = useRouter();
-  const { data, error, isLoading, refetch } = useContracts(q);
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const filter = parseContractsFilter(new URLSearchParams(searchParams.toString()));
+  const { data, error, isLoading, refetch } = useContracts(q, filter);
+  const projects = useProjectsForUnits(filter.unit);
 
   let state: ContractsScreenState;
   if (isLoading) {
@@ -53,6 +66,13 @@ export function ContractsScreen({ q, noPermission }: ContractsScreenProps) {
       onSearch={(term) => router.push(term ? `/contracts?q=${encodeURIComponent(term)}` : "/contracts")}
       onRetry={() => void refetch()}
       noPermission={noPermission}
+      orgUnits={orgUnits}
+      filter={filter}
+      projects={projects.data ?? []}
+      onFilterChange={(next) => {
+        const qs = contractsFilterToSearchParams(next).toString();
+        router.replace(qs ? `${pathname}?${qs}` : pathname);
+      }}
     />
   );
 }

@@ -23,6 +23,10 @@ export const DocumentRecord = z.object({
     "ASSET_DOCUMENT",
     // M5 (ADR-0031 §11): a photograph or the contractor's report on a work order.
     "WORK_ORDER_DOCUMENT",
+    // ADR-0035 §4, 0029: the papers of a claim.
+    "CLAIM_LETTER",
+    "CLAIM_REPLY",
+    "CLAIM_LEGAL_LETTER",
     // 0030 (owner decision 25/11/2026): an RFI's sent e-mail or the reply.
     "RFI_EVIDENCE",
   ]),

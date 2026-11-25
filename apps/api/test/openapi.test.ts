@@ -66,6 +66,7 @@ describe("openapi.json", () => {
       "/contracts/{id}/budget-position",
       "/contracts/{id}/claims",
       "/contracts/{id}/claims/{cid}",
+      "/contracts/{id}/claims/{cid}/documents",
       "/contracts/{id}/delay",
       "/contracts/{id}/delay/activate",
       "/contracts/{id}/documents",

@@ -56,6 +56,7 @@ describe("migrations", () => {
     expect(result.applied).toContain("0025_delay_extensions_claims");
     expect(result.applied).toContain("0027_unit_people");
     expect(result.applied).toContain("0028_project_cashflow_plan");
+    expect(result.applied).toContain("0029_claim_documents");
     expect(result.applied).toContain("0030_rfi_recipient_and_sap_asset_class");
     expect(result.lastMigrationId).toBe("0030_rfi_recipient_and_sap_asset_class");
 
@@ -169,6 +170,7 @@ describe("migrations", () => {
     expect(result.skipped).toContain("0025_delay_extensions_claims");
     expect(result.skipped).toContain("0027_unit_people");
     expect(result.skipped).toContain("0028_project_cashflow_plan");
+    expect(result.skipped).toContain("0029_claim_documents");
     expect(result.skipped).toContain("0030_rfi_recipient_and_sap_asset_class");
     expect(await snapshot(targetUrl)).toEqual(before);
   });
@@ -830,6 +832,66 @@ describe("migrations", () => {
     }
   });
 
+  /**
+   * 0029: a claim's papers are `document` rows of three new kinds, queued
+   * under their own module. No policy moves in 0029. 0030 comes after it on
+   * this database: it adds the RFI evidence kind, the `rfi_document` module
+   * (keeping `claim_document`) and the one narrow `document_insert_rfi`
+   * policy, so the replay is 0029 then 0030, as a fresh install runs them.
+   */
+  it("0029 adds the claim paper kinds and module, touches no policy, and is idempotent", async () => {
+    const client = new Client({ connectionString: targetUrl });
+    await client.connect();
+    try {
+      const files = readMigrations();
+      const file = files.find((m) => m.id === "0029_claim_documents");
+      const next = files.find((m) => m.id === "0030_rfi_recipient_and_sap_asset_class");
+      expect(file).toBeDefined();
+      expect(next).toBeDefined();
+
+      const state = async () => {
+        const { rows: labels } = await client.query<{ enumlabel: string }>(
+          `select e.enumlabel from pg_enum e join pg_type t on t.oid = e.enumtypid
+             join pg_namespace n on n.oid = t.typnamespace
+            where n.nspname = 'ecapital' and t.typname = 'document_kind'
+            order by e.enumsortorder`,
+        );
+        const { rows: check } = await client.query<{ def: string }>(
+          `select pg_get_constraintdef(c.oid) as def from pg_constraint c
+            where c.conname = 'dms_outbox_module_known'`,
+        );
+        const { rows: policies } = await client.query<{ policyname: string }>(
+          `select policyname from pg_policies
+            where schemaname = 'ecapital' and tablename = 'document' order by policyname`,
+        );
+        return { labels: labels.map((l) => l.enumlabel), check: check[0]?.def ?? "", policies };
+      };
+
+      const before = await state();
+      expect(before.labels.slice(-4)).toEqual([
+        "CLAIM_LETTER",
+        "CLAIM_REPLY",
+        "CLAIM_LEGAL_LETTER",
+        "RFI_EVIDENCE",
+      ]);
+      expect(before.check).toContain("claim_document");
+      expect(before.check).toContain("rfi_document");
+      expect(before.check).toContain("work_order_document");
+      expect(before.policies.map((p) => p.policyname)).toEqual([
+        "document_insert_rfi",
+        "document_insert_work_order",
+        "document_read",
+        "document_write",
+      ]);
+
+      await client.query(file!.sql);
+      await client.query(next!.sql);
+      expect(await state()).toEqual(before);
+    } finally {
+      await client.end();
+    }
+  });
+
   it("leaves row-level security on every table that has a policy", async () => {
     const client = new Client({ connectionString: targetUrl });
     await client.connect();
@@ -1139,6 +1201,15 @@ describe("migrations", () => {
           where t.typname = 'document_kind' and e.enumlabel = 'RFI_EVIDENCE'`,
       );
       expect(kinds).toHaveLength(1);
+
+      // 6. The queue's module list keeps 0029's claim papers and adds the RFI's.
+      const { rows: moduleCheck } = await client.query<{ def: string }>(
+        `select pg_get_constraintdef(c.oid) as def from pg_constraint c
+          where c.conname = 'dms_outbox_module_known'`,
+      );
+      expect(moduleCheck[0].def).toContain("'claim_document'");
+      expect(moduleCheck[0].def).toContain("'rfi_document'");
+      expect(moduleCheck[0].def).toContain("'work_order_document'");
     } finally {
       await client.end();
       const cleanup = new Client({ connectionString: adminUrl });

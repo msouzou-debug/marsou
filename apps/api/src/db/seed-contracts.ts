@@ -443,7 +443,9 @@ export const seedDelay = {
       titleEl: "Αξίωση Οργανισμού μετά τον τερματισμό της σύμβασης",
       amount: 2508506.69,
       stage: "COURT" as const,
-      notifiedAt: "2025-11-20",
+      // After the seeded NAM III contract's award (27/11/2025): a claim on a
+      // contract is not notified before the contract exists (CONTRACT_CLAIM_DATE_RULES).
+      notifiedAt: "2026-02-20",
       legalAdvisorEl: "Νομική Υπηρεσία",
       contingentLiability: false,
       notesEl: "",

@@ -14,11 +14,13 @@
  * see does not exist for them and the answer is 404; a write they may not
  * make is refused by the `document_write` policy.
  *
- * NO PATIENT DATA. The three item types are an award decision, a business
- * case and an approved variation.
+ * NO PATIENT DATA. The item types are an award decision, a business case,
+ * an approved variation, an asset's and a work order's papers, and a claim's
+ * letters (0029).
  */
 import { Inject, Injectable, Logger } from "@nestjs/common";
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
+import { nicosiaDateOf } from "@ecapital/shared";
 import { UUID, callerUserId } from "../common/actor";
 import { AppError } from "../common/errors";
 import { CONFIG, type AppConfig } from "../config";
@@ -28,6 +30,7 @@ import { UNIQUE_VIOLATION, sqlState } from "../common/sql-error";
 import { type DocumentRecord } from "./dms-contracts";
 import {
   type AssetDocumentKindKey,
+  type ClaimDocumentKindKey,
   type ContractorFacts,
   type PersonAction,
   type UnitFacts,
@@ -36,10 +39,12 @@ import {
   buildAssetDocumentMeta,
   buildAwardMeta,
   buildBusinessCaseMeta,
+  buildClaimDocumentMeta,
   buildRfiDocumentMeta,
   buildVariationMeta,
   buildWorkOrderDocumentMeta,
   businessCaseSourceRef,
+  claimDocumentSourceRef,
   rfiDocumentSourceRef,
   variationSourceRef,
   workOrderDocumentSourceRef,
@@ -479,6 +484,97 @@ export class DocumentsService {
   }
 
   /**
+   * ADR-0035 §4, 0029: a paper on a claim — the letter or e-mail that made
+   * it, the reply, a lawyer's letter. As many as the claim has, each its own
+   * item in eArchive: the nth paper on the claim, like an asset's.
+   *
+   * The claim has to be on the contract named; anything else is the same 404
+   * an unknown claim gets. The `document_write` policy decides whether the
+   * caller may file it, as for every other paper (ADR-0010).
+   */
+  async fileClaimDocument(
+    contractId: string,
+    claimId: string,
+    kind: ClaimDocumentKindKey,
+    upload: UploadInput,
+  ): Promise<DocumentRecord> {
+    const tx = currentTx();
+    if (!tx) throw AppError.internal();
+    if (!UUID.test(contractId)) throw AppError.notFound("errors.contractNotFound");
+    if (!UUID.test(claimId)) throw AppError.notFound("errors.claimNotFound");
+
+    const [row] = await tx.db
+      .select({
+        claimId: schema.contractClaim.id,
+        direction: schema.contractClaim.direction,
+        titleEl: schema.contractClaim.titleEl,
+        amount: schema.contractClaim.amount,
+        notifiedAt: schema.contractClaim.notifiedAt,
+        orgUnitId: schema.contractClaim.orgUnitId,
+        contractId: schema.contract.id,
+        contractRef: schema.contract.ref,
+        unitCode: schema.orgUnit.code,
+        unitName: schema.orgUnit.nameEl,
+        contractorId: schema.contractor.id,
+        contractorName: schema.contractor.name,
+        contractorVat: schema.contractor.vatNumber,
+        contractorReg: schema.contractor.registrationNo,
+        contractorSap: schema.contractor.sapVendorId,
+      })
+      .from(schema.contractClaim)
+      .innerJoin(schema.contract, eq(schema.contract.id, schema.contractClaim.contractId))
+      .innerJoin(schema.orgUnit, eq(schema.orgUnit.id, schema.contractClaim.orgUnitId))
+      .innerJoin(schema.contractor, eq(schema.contractor.id, schema.contract.contractorId))
+      .where(
+        and(eq(schema.contractClaim.id, claimId), eq(schema.contractClaim.contractId, contractId)),
+      )
+      .limit(1);
+    if (!row) throw AppError.notFound("errors.claimNotFound");
+
+    const n = await this.nextVersion("contract_claim", claimId);
+    const stored = await this.store.put({
+      bytes: upload.bytes,
+      filename: upload.filename,
+      mime: upload.mime,
+      prefix: `claim/${claimId}`,
+    });
+    const files = [mainFile(stored)];
+    const meta = buildClaimDocumentMeta(
+      {
+        claimId,
+        contractId: row.contractId,
+        contractRef: row.contractRef,
+        direction: row.direction === "BY_ORGANISATION" ? "BY_ORGANISATION" : "BY_CONTRACTOR",
+        titleEl: row.titleEl,
+        amount: Number(row.amount),
+        notifiedAt: row.notifiedAt,
+        kind,
+        n,
+        filedOn: nicosiaDateOf(),
+        unit: unitOf(row.unitCode, row.unitName),
+        contractor: contractorOf(row),
+        approvals: await this.recordedBy("contract_claim", claimId),
+      },
+      files,
+      this.origin(),
+    );
+
+    return this.persist({
+      orgUnitId: row.orgUnitId,
+      entityType: "contract_claim",
+      entityId: claimId,
+      kind,
+      titleEl: upload.titleEl?.trim() || meta.subject,
+      sourceRef: claimDocumentSourceRef(claimId, n),
+      sourceModule: "claim_document",
+      version: n,
+      stored,
+      meta,
+      files,
+    });
+  }
+
+  /**
    * Owner decision 25/11/2026: eCapital sends no e-mail. The engineer sends
    * the RFI from Outlook and files the sent message here — or, later, the
    * reply. The nth paper on the RFI, numbered like an asset's, and the same
@@ -538,7 +634,7 @@ export class DocumentsService {
         questionEl: rfi.questionEl,
         recipientName: rfi.recipientName,
         n,
-        letterDate: dateOnly(new Date()),
+        letterDate: nicosiaDateOf(),
         contractor: contractorOf(facts),
         unit: unitOf(facts.unitCode, facts.unitName),
         approvals: await this.recordedBy("rfi", rfi.id),
@@ -649,7 +745,8 @@ export class DocumentsService {
       | "VARIATION"
       | "ASSET_DOCUMENT"
       | "WORK_ORDER_DOCUMENT"
-      | "RFI_EVIDENCE";
+      | "RFI_EVIDENCE"
+      | ClaimDocumentKindKey;
     titleEl: string;
     sourceRef: string;
     sourceModule: string;

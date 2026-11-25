@@ -8,7 +8,8 @@
 // With a `q` it resolves the reference on the server and redirects, so nobody
 // sees a list flash past on the way to the contract they asked for. Without
 // one it lists the caller's own contracts, which is also where somebody lands
-// when the reference matches nothing.
+// when the reference matches nothing, filtered by «Μονάδα» and «Έργο» when
+// the URL says so (`unit`, `project`).
 
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -16,7 +17,7 @@ import { getTranslations } from "next-intl/server";
 import { ContractLookup } from "@ecapital/shared";
 import { NoPermission } from "@/components/app-shell";
 import { PageTitle } from "@/components/app-shell";
-import { serverApi } from "@/data/server";
+import { getVisibleOrgUnits, serverApi } from "@/data/server";
 import { HelpSection } from "@/help/HelpSection";
 import { ContractsScreen } from "@/screens/s07e-contracts/ContractsScreen";
 
@@ -60,9 +61,11 @@ export default async function ContractsPage({ searchParams }: PageProps<"/contra
     );
   }
 
+  // The «Μονάδα» filter's options: the units the caller may see (R01).
+  const orgUnits = await getVisibleOrgUnits();
   return (
     <>
-      <ContractsScreen noPermission={<NoPermission />} />
+      <ContractsScreen orgUnits={orgUnits} noPermission={<NoPermission />} />
       <HelpSection route="/contracts" />
     </>
   );

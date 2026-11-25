@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { DateRules } from "./calendar-date";
 import { EFinanceContractSummary } from "./efinance";
 import { Defect } from "./site";
 
@@ -212,9 +213,39 @@ export type ClaimStage = z.infer<typeof ClaimStage>;
 export const CLAIM_OPEN_STAGES: readonly ClaimStage[] = ["NOTIFIED", "UNDER_REVIEW", "NEGOTIATION", "ARBITRATION", "COURT"];
 
 /**
+ * The papers of a claim (0029): the letter or e-mail that made it, the reply
+ * to it, a lawyer's letter. The same names as the database's
+ * `document_kind` labels, so nothing translates between the two.
+ */
+export const ClaimDocumentKind = z.enum(["CLAIM_LETTER", "CLAIM_REPLY", "CLAIM_LEGAL_LETTER"]);
+export type ClaimDocumentKind = z.infer<typeof ClaimDocumentKind>;
+
+/**
+ * One paper filed on a claim: a `document` row with `entity_type =
+ * 'contract_claim'`, filed with eArchive like every other (ADR-0023). The
+ * bytes are at `GET /documents/:documentId/content`.
+ */
+export const ClaimDocument = z.object({
+  documentId: z.string(),
+  kind: ClaimDocumentKind,
+  titleEl: z.string(),
+  filename: z.string(),
+  mime: z.string(),
+  size: z.number().int(),
+  /** eArchive's number, once it has answered; null while queued. */
+  protocolNumber: z.string().nullable(),
+  filedAt: z.string(),
+});
+export type ClaimDocument = z.infer<typeof ClaimDocument>;
+
+/**
  * A claim (αξίωση) on a contract, by the contractor or by the Organisation
  * (a counterclaim is a BY_ORGANISATION row). `contingentLiability` is the
  * flag finance reads for the notes to the financial statements.
+ *
+ * ADR-0035 gave a claim «an optional document» as `documentId`; nothing ever
+ * filled it and it stays for the record. The papers are `documents`, as
+ * many as the claim has, oldest first (0029).
  */
 export const ContractClaim = z.object({
   id: z.string(),
@@ -228,6 +259,9 @@ export const ContractClaim = z.object({
   contingentLiability: z.boolean(),
   notesEl: z.string(),
   documentId: z.string().nullable(),
+  // Optional with a default for the same fixture reason as ContractDetail's
+  // ADR-0035 fields; the API always sends it.
+  documents: z.array(ClaimDocument).default([]),
   createdAt: z.string(),
   updatedAt: z.string(),
 });
@@ -390,11 +424,58 @@ export type ContractCreate = z.infer<typeof ContractCreate>;
 export const ContractUpdate = ContractCreate.omit({ projectId: true, contractorId: true, originalValue: true }).partial();
 export type ContractUpdate = z.infer<typeof ContractUpdate>;
 
+// ------------------------------------------------------------ date sanity --
+// The rules `calendar-date.ts` applies, for the contract and its ADR-0035 records.
+// The web form refines with these and the API checks them before a write.
+// Bond expiry, a section's contractual completion date and every planned
+// date are future dates by nature and are deliberately not listed.
+
+/** The award is a decision already taken; completion cannot be before start. */
+export const CONTRACT_DATE_RULES = {
+  happened: ["awardDate"],
+  ordered: [["startDate", "completionDate"]],
+} as const satisfies DateRules<keyof ContractCreate & string>;
+
+/** The handover (Πιστοποιητικό Παραλαβής) is a fact, so never after today. */
+export const CONTRACT_SECTION_DATE_RULES = {
+  happened: ["handoverDate"],
+} as const satisfies DateRules<keyof ContractSectionWrite & string>;
+
+/**
+ * An extension is recorded once it has been approved, and it cannot have
+ * been approved before the contract it extends was awarded. `awardDate` is
+ * the contract's, merged in by the caller.
+ */
+export const CONTRACT_EXTENSION_DATE_RULES = {
+  happened: ["approvedAt"],
+  ordered: [["awardDate", "approvedAt"]],
+} as const satisfies DateRules<(keyof ContractExtensionWrite & string) | "awardDate">;
+
+/**
+ * «Ημερομηνία κοινοποίησης»: the day the claim reached the other side. Not
+ * after today, and not before the contract was awarded. `awardDate` as above.
+ */
+export const CONTRACT_CLAIM_DATE_RULES = {
+  happened: ["notifiedAt"],
+  ordered: [["awardDate", "notifiedAt"]],
+} as const satisfies DateRules<(keyof ContractClaimWrite & string) | "awardDate">;
+
+/** «Ενεργοποίηση ρήτρας» is recorded after the decision, never ahead of it. */
+export const DELAY_ACTIVATION_DATE_RULES = {
+  happened: ["activatedAt"],
+} as const satisfies DateRules<keyof DelayActivation & string>;
+
 // GET /contracts — the register across every project the caller may see.
-// `unit` narrows to one org unit, `q` searches the two references and the
-// contractor's name without regard to case or accents.
+// `unit` narrows to org units (repeat the parameter for several), `project`
+// to one project, `q` searches the two references and the contractor's name
+// without regard to case or accents. A single `unit=` arrives as a string,
+// several as an array; both are read as a list.
 export const ContractListQuery = z.object({
-  unit: z.string().optional(),
+  unit: z
+    .union([z.string(), z.array(z.string())])
+    .optional()
+    .transform((value) => (value === undefined ? [] : Array.isArray(value) ? value : [value]).filter(Boolean)),
+  project: z.string().optional(),
   q: z.string().optional(),
 });
 export type ContractListQuery = z.infer<typeof ContractListQuery>;

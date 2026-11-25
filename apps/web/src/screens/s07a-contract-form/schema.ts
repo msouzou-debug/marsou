@@ -8,7 +8,7 @@
 // message a person actually sees, as an i18n key (`forms.*`) — see
 // `lib/zod-resolver.ts` for why the message is a key, not a sentence.
 import { z } from "zod";
-import { ContractType, EMAP_CONTRACT_REF } from "@ecapital/shared";
+import { CONTRACT_DATE_RULES, ContractType, EMAP_CONTRACT_REF, refineDates } from "@ecapital/shared";
 
 // The fields the form edits. `contractorId` and `originalValue` are in the
 // create schema only — RULE (ADR-0015, contract `ContractUpdate`): a
@@ -82,15 +82,12 @@ const defectsLiabilityMonths = z
 // turned into `null` by `ContractFormScreen` before the request is sent).
 const budgetCodeRequired = z.string().trim().min(1, "forms.required");
 
-// RULE (CAPEX-03 §2 pattern reused from S02a): a start or completion date can
-// be missing, but a completion before its own start never is.
+// RULE (date sanity, CONTRACT_DATE_RULES — the list the API checks too): a
+// start or completion date can be missing, but a completion before its own
+// start never is; and the award is a decision already taken, so it is not
+// after today in Nicosia (forms.dateInFuture, under «Ημερομηνία κατακύρωσης»).
 function refineDateOrder<T extends z.ZodTypeAny>(schema: T) {
-  return schema.superRefine((data: unknown, ctx) => {
-    const { startDate, completionDate } = data as { startDate?: string | null; completionDate?: string | null };
-    if (startDate && completionDate && completionDate < startDate) {
-      ctx.addIssue({ code: "custom", message: "forms.dateOrder", path: ["completionDate"] });
-    }
-  });
+  return schema.superRefine(refineDates(CONTRACT_DATE_RULES));
 }
 
 const sharedFields = {

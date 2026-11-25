@@ -24,21 +24,22 @@ import {
   ApiTags,
 } from "@nestjs/swagger";
 import type { Response } from "express";
+import { ClaimDocumentKind } from "@ecapital/shared";
 import { z } from "zod";
 import { AppError } from "../common/errors";
 import { ApiZodError, ApiZodResponse } from "../common/openapi";
 import { RolesGuard } from "../common/roles.guard";
-import { NeedsAny } from "../permissions/needs.guard";
+import { Needs, NeedsAny } from "../permissions/needs.guard";
 import { DocumentRecord } from "./dms-contracts";
 import { DocumentsService, type UploadInput } from "./documents.service";
 import { MAX_FILE_BYTES, MIME_WHITELIST } from "./earchive-contract";
 
 /**
- * M8 — the three things eCapital files with eArchive today: the award
- * decision on a contract, the business case behind a project and an approved
- * variation. Permits come with M5 and payment certificates later; both
- * already have a `source_module` in the contract so that adding them is a
- * route and not a migration.
+ * M8 — the things eCapital files with eArchive from here: the award decision
+ * on a contract, the business case behind a project, an approved variation
+ * and the papers of a claim (ADR-0035 §4, 0029). Permits come with M5 and
+ * payment certificates later; both already have a `source_module` in the
+ * contract so that adding them is a route and not a migration.
  *
  * RULE (ADR-0023): the upload writes the `document` row and the `dms_outbox`
  * row in one transaction. What the caller gets back is the record with
@@ -62,6 +63,20 @@ const UPLOAD_BODY = {
       type: "string",
       enum: MIME_WHITELIST.map(String),
       description: "Overrides the browser's guess. eArchive's whitelist, nothing else.",
+    },
+  },
+};
+
+/** The claim route's body: the upload's fields plus what the paper is. */
+const CLAIM_UPLOAD_BODY = {
+  ...UPLOAD_BODY,
+  required: ["file", "kind"],
+  properties: {
+    ...UPLOAD_BODY.properties,
+    kind: {
+      type: "string",
+      enum: ClaimDocumentKind.options,
+      description: "The letter that made the claim, the reply to it, or a lawyer's letter",
     },
   },
 };
@@ -168,6 +183,38 @@ export class DocumentsController {
   @ApiZodError(401, "No token, or a token that does not verify")
   variationDocuments(@Param("id") id: string): Promise<DocumentRecord[]> {
     return this.documents.listFor("variation", id);
+  }
+
+  /**
+   * ADR-0035 §4, 0029: the letter or e-mail that made a claim, the reply to
+   * it, a lawyer's letter — as many as the claim has, each with what it is.
+   * `contractRecords` WRITE, the permission that adds and edits the claim
+   * itself; the `document_write` policy is the lock behind it. The claim
+   * screen lists them from the contract (`claims[].documents`).
+   */
+  @Post("contracts/:id/claims/:cid/documents")
+  @HttpCode(201)
+  @Needs("contractRecords", "WRITE")
+  @UseInterceptors(FileInterceptor("file", { limits: { fileSize: MAX_FILE_BYTES, files: 1 } }))
+  @ApiConsumes("multipart/form-data")
+  @ApiOperation({ summary: "File a claim's letter, the reply to it or a lawyer's letter with eArchive" })
+  @ApiParam({ name: "id", schema: { type: "string", format: "uuid" } })
+  @ApiParam({ name: "cid", schema: { type: "string", format: "uuid" } })
+  @ApiBody({ schema: CLAIM_UPLOAD_BODY })
+  @ApiZodResponse(201, DocumentRecord, "The document, queued for eArchive")
+  @ApiZodError(400, "No file, no kind, or a file name that is not usable")
+  @ApiZodError(403, "A role that does not write contract records, or a unit the caller may not write")
+  @ApiZodError(404, "No such contract or claim, or none the caller may see")
+  @ApiZodError(422, "A file type eArchive does not accept, or one over 50 MB")
+  claimDocument(
+    @Param("id") id: string,
+    @Param("cid") cid: string,
+    @UploadedFile() file: Express.Multer.File | undefined,
+    @Body() body: unknown,
+  ): Promise<DocumentRecord> {
+    const kind = ClaimDocumentKind.safeParse((body as { kind?: unknown } | undefined)?.kind);
+    if (!kind.success) throw AppError.badRequest("errors.claimDocumentKindNeeded");
+    return this.documents.fileClaimDocument(id, cid, kind.data, upload(file, body));
   }
 
   /**

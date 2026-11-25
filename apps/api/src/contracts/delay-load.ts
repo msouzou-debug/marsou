@@ -3,15 +3,18 @@
  * contract screen) or for many (the exceptions report, the contractor
  * scorecard). Runs inside the caller's transaction, so the row policies decide
  * which contracts, sections, extensions and claims exist for them (ADR-0010).
+ * A claim's papers (0029) come with it: `document` rows on the claim, read
+ * through the same transaction, so `document_read` decides which come back.
  */
 import type {
+  ClaimDocument,
   ContractClaim,
   ContractDelay,
   ContractExtension,
   ContractSection,
   ProjectPhase,
 } from "@ecapital/shared";
-import { asc, desc, inArray, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { AppError } from "../common/errors";
 import { currentTx } from "../db/client";
 import * as schema from "../db/schema";
@@ -48,7 +51,7 @@ export async function loadContractDelays(
   const tx = currentTx();
   if (!tx) throw AppError.internal();
 
-  const [contracts, sections, extensions, claims] = await Promise.all([
+  const [contracts, sections, extensions, claims, papers] = await Promise.all([
     tx.db
       .select({
         id: schema.contract.id,
@@ -80,7 +83,33 @@ export async function loadContractDelays(
       .from(schema.contractClaim)
       .where(inArray(schema.contractClaim.contractId, contractIds))
       .orderBy(desc(schema.contractClaim.createdAt)),
+    // A tombstone (eArchive deleted the protocol) is not a paper to open, so
+    // it is not listed; the row stays in `document` as the record of it.
+    tx.db
+      .select()
+      .from(schema.document)
+      .where(
+        and(
+          eq(schema.document.entityType, CLAIM_ENTITY),
+          isNull(schema.document.deletedAt),
+          inArray(
+            schema.document.entityId,
+            tx.db
+              .select({ id: schema.contractClaim.id })
+              .from(schema.contractClaim)
+              .where(inArray(schema.contractClaim.contractId, contractIds)),
+          ),
+        ),
+      )
+      .orderBy(asc(schema.document.createdAt), asc(schema.document.version)),
   ]);
+
+  const papersByClaim = new Map<string, ClaimDocument[]>();
+  for (const row of papers) {
+    const paper = toClaimDocument(row);
+    if (!paper) continue;
+    papersByClaim.set(row.entityId, [...(papersByClaim.get(row.entityId) ?? []), paper]);
+  }
 
   for (const contract of contracts) {
     const mine = {
@@ -88,7 +117,9 @@ export async function loadContractDelays(
       extensions: extensions
         .filter((e) => e.row.contractId === contract.id)
         .map((e) => toExtension(e.row, e.createdByName)),
-      claims: claims.filter((c) => c.contractId === contract.id).map(toClaim),
+      claims: claims
+        .filter((c) => c.contractId === contract.id)
+        .map((c) => toClaim(c, papersByClaim.get(c.id) ?? [])),
     };
     const stopped = phaseIndex(contract.phase) >= phaseIndex(STOPPED_FROM);
     const delay = computeDelay({
@@ -144,7 +175,30 @@ export function toExtension(
   };
 }
 
-export function toClaim(row: typeof schema.contractClaim.$inferSelect): ContractClaim {
+/** `document.entity_type` for a claim's papers (0029). */
+export const CLAIM_ENTITY = "contract_claim";
+
+const CLAIM_KINDS = new Set<string>(["CLAIM_LETTER", "CLAIM_REPLY", "CLAIM_LEGAL_LETTER"]);
+
+/** A `document` row as a claim's paper; null for any other kind, which a claim does not carry. */
+export function toClaimDocument(row: typeof schema.document.$inferSelect): ClaimDocument | null {
+  if (!CLAIM_KINDS.has(row.kind)) return null;
+  return {
+    documentId: row.id,
+    kind: row.kind as ClaimDocument["kind"],
+    titleEl: row.titleEl,
+    filename: row.filename,
+    mime: row.mime,
+    size: Number(row.size),
+    protocolNumber: row.protocolNumber,
+    filedAt: row.createdAt.toISOString(),
+  };
+}
+
+export function toClaim(
+  row: typeof schema.contractClaim.$inferSelect,
+  documents: ClaimDocument[] = [],
+): ContractClaim {
   return {
     id: row.id,
     contractId: row.contractId,
@@ -157,6 +211,7 @@ export function toClaim(row: typeof schema.contractClaim.$inferSelect): Contract
     contingentLiability: row.contingentLiability,
     notesEl: row.notesEl,
     documentId: row.documentId,
+    documents,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };

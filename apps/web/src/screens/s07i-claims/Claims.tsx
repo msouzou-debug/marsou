@@ -12,10 +12,14 @@
  * | data    | ContractDetail?         | Carries `claims`.                                         |
  * | state   | ClaimsScreenState       |                                                          |
  * | roles   | AppRole[]               | `canWriteContracts` gates the add and edit controls.      |
- * | onSave  | (id \| null, values) => Promise<boolean> | Wired by `ClaimsScreen`; true closes the panel. |
+ * | onSave  | (id \| null, values, attachment?) => Promise<boolean> | Wired by `ClaimsScreen`; true closes the panel. |
  *
  * RULE (ADR-0035 §4): open stages are the shared `CLAIM_OPEN_STAGES`; the
  * totals sum only those.
+ *
+ * The «Έγγραφα» column (0029) lists each claim's filed papers — the letter,
+ * the reply, a lawyer's letter — each a link that opens it. Everybody who
+ * reads the claim reads its papers; adding one is on the edit panel.
  */
 import { useState, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
@@ -23,10 +27,11 @@ import { CLAIM_OPEN_STAGES, type AppRole, type ContractClaim, type ContractDetai
 import { canWriteContracts } from "@/auth/roles";
 import { PageTitle } from "@/components/app-shell";
 import { Table, type TableColumn } from "@/components/table";
+import { documentContentHref } from "@/data/queries";
 import { formatDate, formatEUR } from "@/lib/format";
 import { ContractTabs } from "@/screens/s07-contract/ContractTabs";
 import { ClaimForm } from "./ClaimForm";
-import type { ClaimFormValues } from "./schema";
+import type { ClaimAttachment, ClaimFormValues } from "./schema";
 
 export type ClaimsScreenState = "default" | "loading" | "error" | "noPermission" | "offline";
 
@@ -38,7 +43,7 @@ export interface ClaimsProps {
   roles?: AppRole[];
   saving?: boolean;
   apiError?: string;
-  onSave?: (claimId: string | null, values: ClaimFormValues) => Promise<boolean>;
+  onSave?: (claimId: string | null, values: ClaimFormValues, attachment?: ClaimAttachment) => Promise<boolean>;
   onClearError?: () => void;
 }
 
@@ -135,6 +140,32 @@ export function Claims({
       cell: (c) => (c.contingentLiability ? t("common.yes") : t("common.no")),
     },
     { id: "notes", headerKey: "screens.s07i.columns.notes", accessor: (c) => c.notesEl, sortable: false },
+    {
+      id: "documents",
+      headerKey: "screens.s07i.columns.documents",
+      accessor: (c) => c.documents.length,
+      sortable: false,
+      cell: (c) =>
+        c.documents.length === 0 ? (
+          t("common.notAvailable")
+        ) : (
+          <ul className="grid gap-s-1">
+            {c.documents.map((paper) => (
+              <li key={paper.documentId}>
+                <a
+                  href={documentContentHref(paper.documentId)}
+                  target="_blank"
+                  rel="noopener"
+                  title={paper.titleEl}
+                  className="text-fs-14 text-k-blue-deep underline-offset-2 hover:underline"
+                >
+                  {t(`claimDocumentKind.${paper.kind}`)}
+                </a>
+              </li>
+            ))}
+          </ul>
+        ),
+    },
     ...(canWrite
       ? [
           {
@@ -180,11 +211,15 @@ export function Claims({
 
       {panel && (
         <ClaimForm
+          key={panel.id ?? "new"}
           claim={editing}
+          awardDate={data?.awardDate}
           saving={saving}
           apiError={apiError}
           onCancel={() => setPanel(null)}
-          onSave={(values) => void onSave(panel.id, values).then((ok) => ok && setPanel(null))}
+          onSave={(values, attachment) =>
+            void (attachment ? onSave(panel.id, values, attachment) : onSave(panel.id, values)).then((ok) => ok && setPanel(null))
+          }
         />
       )}
 

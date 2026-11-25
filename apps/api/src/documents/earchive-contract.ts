@@ -113,6 +113,8 @@ export const SOURCE_MODULES = [
   "asset_document",
   // M5: a photograph or the contractor's report on a work order. ADR-0031 §11.
   "work_order_document",
+  // ADR-0035 §4, 0029: a claim's letter, the reply to it, a lawyer's letter.
+  "claim_document",
   // The sent e-mail of an RFI, or the reply to it (owner decision 25/11/2026:
   // eCapital sends no e-mail; the engineer files what Outlook sent).
   "rfi_document",

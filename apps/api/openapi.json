@@ -6851,6 +6851,9 @@
                         "OTHER",
                         "ASSET_DOCUMENT",
                         "WORK_ORDER_DOCUMENT",
+                        "CLAIM_LETTER",
+                        "CLAIM_REPLY",
+                        "CLAIM_LEGAL_LETTER",
                         "RFI_EVIDENCE"
                       ]
                     },
@@ -7176,6 +7179,9 @@
                           "OTHER",
                           "ASSET_DOCUMENT",
                           "WORK_ORDER_DOCUMENT",
+                          "CLAIM_LETTER",
+                          "CLAIM_REPLY",
+                          "CLAIM_LEGAL_LETTER",
                           "RFI_EVIDENCE"
                         ]
                       },
@@ -7421,6 +7427,9 @@
                         "OTHER",
                         "ASSET_DOCUMENT",
                         "WORK_ORDER_DOCUMENT",
+                        "CLAIM_LETTER",
+                        "CLAIM_REPLY",
+                        "CLAIM_LEGAL_LETTER",
                         "RFI_EVIDENCE"
                       ]
                     },
@@ -7746,6 +7755,9 @@
                           "OTHER",
                           "ASSET_DOCUMENT",
                           "WORK_ORDER_DOCUMENT",
+                          "CLAIM_LETTER",
+                          "CLAIM_REPLY",
+                          "CLAIM_LEGAL_LETTER",
                           "RFI_EVIDENCE"
                         ]
                       },
@@ -7991,6 +8003,9 @@
                         "OTHER",
                         "ASSET_DOCUMENT",
                         "WORK_ORDER_DOCUMENT",
+                        "CLAIM_LETTER",
+                        "CLAIM_REPLY",
+                        "CLAIM_LEGAL_LETTER",
                         "RFI_EVIDENCE"
                       ]
                     },
@@ -8316,6 +8331,9 @@
                           "OTHER",
                           "ASSET_DOCUMENT",
                           "WORK_ORDER_DOCUMENT",
+                          "CLAIM_LETTER",
+                          "CLAIM_REPLY",
+                          "CLAIM_LEGAL_LETTER",
                           "RFI_EVIDENCE"
                         ]
                       },
@@ -8454,6 +8472,368 @@
           }
         ],
         "summary": "The documents filed against a variation, newest version first",
+        "tags": [
+          "documents"
+        ]
+      }
+    },
+    "/contracts/{id}/claims/{cid}/documents": {
+      "post": {
+        "operationId": "DocumentsController_claimDocument",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "cid",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "el"
+            },
+            "description": "el or en. Greek when the header is absent."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "file",
+                  "kind"
+                ],
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary"
+                  },
+                  "titleEl": {
+                    "type": "string",
+                    "description": "The title on the folder. Left out, the subject line is used."
+                  },
+                  "mime": {
+                    "type": "string",
+                    "enum": [
+                      "application/pdf",
+                      "application/zip",
+                      "text/html",
+                      "text/plain",
+                      "text/csv",
+                      "image/png",
+                      "image/jpeg",
+                      "image/tiff",
+                      "image/gif",
+                      "image/webp",
+                      "application/msword",
+                      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                      "application/vnd.ms-excel",
+                      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                      "application/vnd.ms-powerpoint",
+                      "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+                      "message/rfc822",
+                      "application/vnd.ms-outlook"
+                    ],
+                    "description": "Overrides the browser's guess. eArchive's whitelist, nothing else."
+                  },
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "CLAIM_LETTER",
+                      "CLAIM_REPLY",
+                      "CLAIM_LEGAL_LETTER"
+                    ],
+                    "description": "The letter that made the claim, the reply to it, or a lawyer's letter"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The document, queued for eArchive",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "entityType": {
+                      "type": "string"
+                    },
+                    "entityId": {
+                      "type": "string"
+                    },
+                    "orgUnitId": {
+                      "type": "string"
+                    },
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "AWARD_DECISION",
+                        "BUSINESS_CASE",
+                        "VARIATION",
+                        "PERMIT",
+                        "PAYMENT_CERT",
+                        "OTHER",
+                        "ASSET_DOCUMENT",
+                        "WORK_ORDER_DOCUMENT",
+                        "CLAIM_LETTER",
+                        "CLAIM_REPLY",
+                        "CLAIM_LEGAL_LETTER",
+                        "RFI_EVIDENCE"
+                      ]
+                    },
+                    "titleEl": {
+                      "type": "string"
+                    },
+                    "filename": {
+                      "type": "string"
+                    },
+                    "mime": {
+                      "type": "string"
+                    },
+                    "size": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "sha256": {
+                      "type": "string"
+                    },
+                    "version": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "sourceRef": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "protocolId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "protocolNumber": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "legalHold": {
+                      "type": "boolean"
+                    },
+                    "deletedAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "outboxStatus": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "QUEUED",
+                            "SENDING",
+                            "SENT",
+                            "FAILED",
+                            "HELD"
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "createdAt": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "entityType",
+                    "entityId",
+                    "orgUnitId",
+                    "kind",
+                    "titleEl",
+                    "filename",
+                    "mime",
+                    "size",
+                    "sha256",
+                    "version",
+                    "sourceRef",
+                    "protocolId",
+                    "protocolNumber",
+                    "legalHold",
+                    "deletedAt",
+                    "outboxStatus",
+                    "createdAt"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "No file, no kind, or a file name that is not usable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "A role that does not write contract records, or a unit the caller may not write",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such contract or claim, or none the caller may see",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "A file type eArchive does not accept, or one over 50 MB",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "File a claim's letter, the reply to it or a lawyer's letter with eArchive",
         "tags": [
           "documents"
         ]
@@ -8746,6 +9126,7 @@
                               "payment_cert",
                               "asset_document",
                               "work_order_document",
+                              "claim_document",
                               "rfi_document"
                             ]
                           },
@@ -8972,6 +9353,7 @@
                         "payment_cert",
                         "asset_document",
                         "work_order_document",
+                        "claim_document",
                         "rfi_document"
                       ]
                     },
@@ -10246,7 +10628,7 @@
             }
           },
           "400": {
-            "description": "The body is not a valid agreement",
+            "description": "The body is not a valid agreement, or it ends before it starts",
             "content": {
               "application/json": {
                 "schema": {
@@ -10845,7 +11227,7 @@
             }
           },
           "400": {
-            "description": "The body is not a valid change",
+            "description": "The body is not a valid change, or the agreement would end before it starts",
             "content": {
               "application/json": {
                 "schema": {
@@ -21247,7 +21629,7 @@
             }
           },
           "400": {
-            "description": "The body is not a valid project",
+            "description": "The body is not a valid project, or its planned finish is before its start",
             "content": {
               "application/json": {
                 "schema": {
@@ -22676,7 +23058,7 @@
             }
           },
           "400": {
-            "description": "The body is not a valid change",
+            "description": "The body is not a valid change, or the planned finish would be before the start",
             "content": {
               "application/json": {
                 "schema": {
@@ -23666,7 +24048,7 @@
             }
           },
           "400": {
-            "description": "The body is not a valid milestone",
+            "description": "The body is not a valid milestone, or its actual date is after today",
             "content": {
               "application/json": {
                 "schema": {
@@ -23907,7 +24289,7 @@
             }
           },
           "400": {
-            "description": "The body is not a valid milestone",
+            "description": "The body is not a valid milestone, or its actual date is after today",
             "content": {
               "application/json": {
                 "schema": {
@@ -28881,6 +29263,60 @@
                               "null"
                             ]
                           },
+                          "documents": {
+                            "default": [],
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "documentId": {
+                                  "type": "string"
+                                },
+                                "kind": {
+                                  "type": "string",
+                                  "enum": [
+                                    "CLAIM_LETTER",
+                                    "CLAIM_REPLY",
+                                    "CLAIM_LEGAL_LETTER"
+                                  ]
+                                },
+                                "titleEl": {
+                                  "type": "string"
+                                },
+                                "filename": {
+                                  "type": "string"
+                                },
+                                "mime": {
+                                  "type": "string"
+                                },
+                                "size": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                },
+                                "protocolNumber": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "filedAt": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "documentId",
+                                "kind",
+                                "titleEl",
+                                "filename",
+                                "mime",
+                                "size",
+                                "protocolNumber",
+                                "filedAt"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
                           "createdAt": {
                             "type": "string"
                           },
@@ -28900,6 +29336,7 @@
                           "contingentLiability",
                           "notesEl",
                           "documentId",
+                          "documents",
                           "createdAt",
                           "updatedAt"
                         ],
@@ -29105,7 +29542,7 @@
             }
           },
           "400": {
-            "description": "The body is not a valid contract, or budgetCode does not name an active code",
+            "description": "The body is not a valid contract, an award after today or a completion before the start, or budgetCode does not name an active code",
             "content": {
               "application/json": {
                 "schema": {
@@ -29257,12 +29694,28 @@
             }
           },
           {
+            "name": "project",
+            "required": false,
+            "in": "query",
+            "description": "Only the contracts of this project",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
             "name": "unit",
             "required": false,
             "in": "query",
+            "description": "Org unit id; repeat the parameter for several",
             "schema": {
-              "type": "string"
-            }
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "style": "form",
+            "explode": true
           },
           {
             "name": "Accept-Language",
@@ -30636,6 +31089,60 @@
                               "null"
                             ]
                           },
+                          "documents": {
+                            "default": [],
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "documentId": {
+                                  "type": "string"
+                                },
+                                "kind": {
+                                  "type": "string",
+                                  "enum": [
+                                    "CLAIM_LETTER",
+                                    "CLAIM_REPLY",
+                                    "CLAIM_LEGAL_LETTER"
+                                  ]
+                                },
+                                "titleEl": {
+                                  "type": "string"
+                                },
+                                "filename": {
+                                  "type": "string"
+                                },
+                                "mime": {
+                                  "type": "string"
+                                },
+                                "size": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                },
+                                "protocolNumber": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "filedAt": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "documentId",
+                                "kind",
+                                "titleEl",
+                                "filename",
+                                "mime",
+                                "size",
+                                "protocolNumber",
+                                "filedAt"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
                           "createdAt": {
                             "type": "string"
                           },
@@ -30655,6 +31162,7 @@
                           "contingentLiability",
                           "notesEl",
                           "documentId",
+                          "documents",
                           "createdAt",
                           "updatedAt"
                         ],
@@ -31948,6 +32456,60 @@
                               "null"
                             ]
                           },
+                          "documents": {
+                            "default": [],
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "documentId": {
+                                  "type": "string"
+                                },
+                                "kind": {
+                                  "type": "string",
+                                  "enum": [
+                                    "CLAIM_LETTER",
+                                    "CLAIM_REPLY",
+                                    "CLAIM_LEGAL_LETTER"
+                                  ]
+                                },
+                                "titleEl": {
+                                  "type": "string"
+                                },
+                                "filename": {
+                                  "type": "string"
+                                },
+                                "mime": {
+                                  "type": "string"
+                                },
+                                "size": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                },
+                                "protocolNumber": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "filedAt": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "documentId",
+                                "kind",
+                                "titleEl",
+                                "filename",
+                                "mime",
+                                "size",
+                                "protocolNumber",
+                                "filedAt"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
                           "createdAt": {
                             "type": "string"
                           },
@@ -31967,6 +32529,7 @@
                           "contingentLiability",
                           "notesEl",
                           "documentId",
+                          "documents",
                           "createdAt",
                           "updatedAt"
                         ],
@@ -32172,7 +32735,7 @@
             }
           },
           "400": {
-            "description": "The body is not a valid change, or budgetCode does not name an active code",
+            "description": "The body is not a valid change, a date out of order or after today, or budgetCode does not name an active code",
             "content": {
               "application/json": {
                 "schema": {
@@ -33789,6 +34352,60 @@
                               "null"
                             ]
                           },
+                          "documents": {
+                            "default": [],
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "documentId": {
+                                  "type": "string"
+                                },
+                                "kind": {
+                                  "type": "string",
+                                  "enum": [
+                                    "CLAIM_LETTER",
+                                    "CLAIM_REPLY",
+                                    "CLAIM_LEGAL_LETTER"
+                                  ]
+                                },
+                                "titleEl": {
+                                  "type": "string"
+                                },
+                                "filename": {
+                                  "type": "string"
+                                },
+                                "mime": {
+                                  "type": "string"
+                                },
+                                "size": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                },
+                                "protocolNumber": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "filedAt": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "documentId",
+                                "kind",
+                                "titleEl",
+                                "filename",
+                                "mime",
+                                "size",
+                                "protocolNumber",
+                                "filedAt"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
                           "createdAt": {
                             "type": "string"
                           },
@@ -33808,6 +34425,7 @@
                           "contingentLiability",
                           "notesEl",
                           "documentId",
+                          "documents",
                           "createdAt",
                           "updatedAt"
                         ],
@@ -34013,7 +34631,7 @@
             }
           },
           "400": {
-            "description": "The body is not a valid section",
+            "description": "The body is not a valid section, or its handover is after today",
             "content": {
               "application/json": {
                 "schema": {
@@ -35118,6 +35736,60 @@
                               "null"
                             ]
                           },
+                          "documents": {
+                            "default": [],
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "documentId": {
+                                  "type": "string"
+                                },
+                                "kind": {
+                                  "type": "string",
+                                  "enum": [
+                                    "CLAIM_LETTER",
+                                    "CLAIM_REPLY",
+                                    "CLAIM_LEGAL_LETTER"
+                                  ]
+                                },
+                                "titleEl": {
+                                  "type": "string"
+                                },
+                                "filename": {
+                                  "type": "string"
+                                },
+                                "mime": {
+                                  "type": "string"
+                                },
+                                "size": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                },
+                                "protocolNumber": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "filedAt": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "documentId",
+                                "kind",
+                                "titleEl",
+                                "filename",
+                                "mime",
+                                "size",
+                                "protocolNumber",
+                                "filedAt"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
                           "createdAt": {
                             "type": "string"
                           },
@@ -35137,6 +35809,7 @@
                           "contingentLiability",
                           "notesEl",
                           "documentId",
+                          "documents",
                           "createdAt",
                           "updatedAt"
                         ],
@@ -35342,7 +36015,7 @@
             }
           },
           "400": {
-            "description": "The body is not a valid change",
+            "description": "The body is not a valid change, or the handover is after today",
             "content": {
               "application/json": {
                 "schema": {
@@ -36398,6 +37071,60 @@
                               "null"
                             ]
                           },
+                          "documents": {
+                            "default": [],
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "documentId": {
+                                  "type": "string"
+                                },
+                                "kind": {
+                                  "type": "string",
+                                  "enum": [
+                                    "CLAIM_LETTER",
+                                    "CLAIM_REPLY",
+                                    "CLAIM_LEGAL_LETTER"
+                                  ]
+                                },
+                                "titleEl": {
+                                  "type": "string"
+                                },
+                                "filename": {
+                                  "type": "string"
+                                },
+                                "mime": {
+                                  "type": "string"
+                                },
+                                "size": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                },
+                                "protocolNumber": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "filedAt": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "documentId",
+                                "kind",
+                                "titleEl",
+                                "filename",
+                                "mime",
+                                "size",
+                                "protocolNumber",
+                                "filedAt"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
                           "createdAt": {
                             "type": "string"
                           },
@@ -36417,6 +37144,7 @@
                           "contingentLiability",
                           "notesEl",
                           "documentId",
+                          "documents",
                           "createdAt",
                           "updatedAt"
                         ],
@@ -37663,6 +38391,60 @@
                               "null"
                             ]
                           },
+                          "documents": {
+                            "default": [],
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "documentId": {
+                                  "type": "string"
+                                },
+                                "kind": {
+                                  "type": "string",
+                                  "enum": [
+                                    "CLAIM_LETTER",
+                                    "CLAIM_REPLY",
+                                    "CLAIM_LEGAL_LETTER"
+                                  ]
+                                },
+                                "titleEl": {
+                                  "type": "string"
+                                },
+                                "filename": {
+                                  "type": "string"
+                                },
+                                "mime": {
+                                  "type": "string"
+                                },
+                                "size": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                },
+                                "protocolNumber": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "filedAt": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "documentId",
+                                "kind",
+                                "titleEl",
+                                "filename",
+                                "mime",
+                                "size",
+                                "protocolNumber",
+                                "filedAt"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
                           "createdAt": {
                             "type": "string"
                           },
@@ -37682,6 +38464,7 @@
                           "contingentLiability",
                           "notesEl",
                           "documentId",
+                          "documents",
                           "createdAt",
                           "updatedAt"
                         ],
@@ -37887,7 +38670,7 @@
             }
           },
           "400": {
-            "description": "The body is not a valid extension",
+            "description": "The body is not a valid extension, or approved after today or before the award",
             "content": {
               "application/json": {
                 "schema": {
@@ -38945,6 +39728,60 @@
                               "null"
                             ]
                           },
+                          "documents": {
+                            "default": [],
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "documentId": {
+                                  "type": "string"
+                                },
+                                "kind": {
+                                  "type": "string",
+                                  "enum": [
+                                    "CLAIM_LETTER",
+                                    "CLAIM_REPLY",
+                                    "CLAIM_LEGAL_LETTER"
+                                  ]
+                                },
+                                "titleEl": {
+                                  "type": "string"
+                                },
+                                "filename": {
+                                  "type": "string"
+                                },
+                                "mime": {
+                                  "type": "string"
+                                },
+                                "size": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                },
+                                "protocolNumber": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "filedAt": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "documentId",
+                                "kind",
+                                "titleEl",
+                                "filename",
+                                "mime",
+                                "size",
+                                "protocolNumber",
+                                "filedAt"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
                           "createdAt": {
                             "type": "string"
                           },
@@ -38964,6 +39801,7 @@
                           "contingentLiability",
                           "notesEl",
                           "documentId",
+                          "documents",
                           "createdAt",
                           "updatedAt"
                         ],
@@ -40222,6 +41060,60 @@
                               "null"
                             ]
                           },
+                          "documents": {
+                            "default": [],
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "documentId": {
+                                  "type": "string"
+                                },
+                                "kind": {
+                                  "type": "string",
+                                  "enum": [
+                                    "CLAIM_LETTER",
+                                    "CLAIM_REPLY",
+                                    "CLAIM_LEGAL_LETTER"
+                                  ]
+                                },
+                                "titleEl": {
+                                  "type": "string"
+                                },
+                                "filename": {
+                                  "type": "string"
+                                },
+                                "mime": {
+                                  "type": "string"
+                                },
+                                "size": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                },
+                                "protocolNumber": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "filedAt": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "documentId",
+                                "kind",
+                                "titleEl",
+                                "filename",
+                                "mime",
+                                "size",
+                                "protocolNumber",
+                                "filedAt"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
                           "createdAt": {
                             "type": "string"
                           },
@@ -40241,6 +41133,7 @@
                           "contingentLiability",
                           "notesEl",
                           "documentId",
+                          "documents",
                           "createdAt",
                           "updatedAt"
                         ],
@@ -40446,7 +41339,7 @@
             }
           },
           "400": {
-            "description": "The body is not a valid claim",
+            "description": "The body is not a valid claim, or notified after today or before the award",
             "content": {
               "application/json": {
                 "schema": {
@@ -41530,6 +42423,60 @@
                               "null"
                             ]
                           },
+                          "documents": {
+                            "default": [],
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "documentId": {
+                                  "type": "string"
+                                },
+                                "kind": {
+                                  "type": "string",
+                                  "enum": [
+                                    "CLAIM_LETTER",
+                                    "CLAIM_REPLY",
+                                    "CLAIM_LEGAL_LETTER"
+                                  ]
+                                },
+                                "titleEl": {
+                                  "type": "string"
+                                },
+                                "filename": {
+                                  "type": "string"
+                                },
+                                "mime": {
+                                  "type": "string"
+                                },
+                                "size": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                },
+                                "protocolNumber": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "filedAt": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "documentId",
+                                "kind",
+                                "titleEl",
+                                "filename",
+                                "mime",
+                                "size",
+                                "protocolNumber",
+                                "filedAt"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
                           "createdAt": {
                             "type": "string"
                           },
@@ -41549,6 +42496,7 @@
                           "contingentLiability",
                           "notesEl",
                           "documentId",
+                          "documents",
                           "createdAt",
                           "updatedAt"
                         ],
@@ -41754,7 +42702,7 @@
             }
           },
           "400": {
-            "description": "The body is not a valid change",
+            "description": "The body is not a valid change, or notified after today or before the award",
             "content": {
               "application/json": {
                 "schema": {
@@ -42802,6 +43750,60 @@
                               "null"
                             ]
                           },
+                          "documents": {
+                            "default": [],
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "documentId": {
+                                  "type": "string"
+                                },
+                                "kind": {
+                                  "type": "string",
+                                  "enum": [
+                                    "CLAIM_LETTER",
+                                    "CLAIM_REPLY",
+                                    "CLAIM_LEGAL_LETTER"
+                                  ]
+                                },
+                                "titleEl": {
+                                  "type": "string"
+                                },
+                                "filename": {
+                                  "type": "string"
+                                },
+                                "mime": {
+                                  "type": "string"
+                                },
+                                "size": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                },
+                                "protocolNumber": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "filedAt": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "documentId",
+                                "kind",
+                                "titleEl",
+                                "filename",
+                                "mime",
+                                "size",
+                                "protocolNumber",
+                                "filedAt"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
                           "createdAt": {
                             "type": "string"
                           },
@@ -42821,6 +43823,7 @@
                           "contingentLiability",
                           "notesEl",
                           "documentId",
+                          "documents",
                           "createdAt",
                           "updatedAt"
                         ],
@@ -43026,7 +44029,7 @@
             }
           },
           "400": {
-            "description": "The body is not a valid activation",
+            "description": "The body is not a valid activation, or one dated after today",
             "content": {
               "application/json": {
                 "schema": {
@@ -51174,7 +52177,7 @@
             }
           },
           "400": {
-            "description": "The body is not a valid transition",
+            "description": "The body is not a valid transition, or the paid date is after today",
             "content": {
               "application/json": {
                 "schema": {

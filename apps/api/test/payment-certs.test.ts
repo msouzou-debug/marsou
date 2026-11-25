@@ -16,6 +16,7 @@
  */
 import { Client } from "pg";
 import type { INestApplication } from "@nestjs/common";
+import { nicosiaDateOf } from "@ecapital/shared";
 import request from "supertest";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { USERS, bearer, createTestApp, tokenFor } from "./app";
@@ -165,7 +166,15 @@ describe("payment certificates (R11, R18, R31)", () => {
     expect(noDate.status).toBe(422);
     expect(noDate.body.key).toBe("errors.paidDateNeeded");
 
-    const paid = await post(`/payment-certs/${certId}/transition`)
+    // Date sanity: a payment is recorded once it has been made.
+    const tomorrow = new Date(Date.parse(`${nicosiaDateOf()}T00:00:00Z`) + 86_400_000).toISOString().slice(0, 10);
+    const future = await post(`/payment-certs/${certId}/transition`)
+      .set(bearer(finance))
+      .send({ to: "PAID", sapInvoiceRef: null, paidDate: tomorrow });
+    expect(future.status).toBe(400);
+    expect(future.body.key).toBe("errors.dateInFuture");
+
+    const paid =await post(`/payment-certs/${certId}/transition`)
       .set(bearer(finance))
       .send({ to: "PAID", sapInvoiceRef: null, paidDate: "2026-04-15" });
     expect(paid.status).toBe(200);

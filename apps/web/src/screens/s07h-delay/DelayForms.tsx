@@ -10,11 +10,11 @@ import type { ReactNode } from "react";
 import { useForm } from "react-hook-form";
 import { useTranslations } from "next-intl";
 import { LoaderCircle } from "lucide-react";
-import { ExtensionApprover, type ContractSection } from "@ecapital/shared";
+import { ExtensionApprover, nicosiaDateOf, type ContractSection } from "@ecapital/shared";
 import { zodResolver } from "@/lib/zod-resolver";
 import {
   ActivationFormSchema,
-  ExtensionFormSchema,
+  extensionFormSchema,
   SectionFormSchema,
   type ActivationFormValues,
   type ExtensionFormValues,
@@ -115,7 +115,7 @@ export function SectionForm({ section, saving, apiError, onSave, onCancel }: Sec
   const P = "screens.s07h.sections";
   return (
     <Panel title={section ? t(`${P}.editTitle`) : t(`${P}.add`)}>
-      <form onSubmit={handleSubmit((values) => onSave(values))} className="flex flex-col gap-s-4">
+      <form noValidate onSubmit={handleSubmit((values) => onSave(values))} className="flex flex-col gap-s-4">
         <div className="grid gap-s-4 tablet:grid-cols-[120px_1fr]">
           <Field id="sec-code" label={t(`${P}.fields.code`)} error={err("code")}>
             <input id="sec-code" {...register("code")} aria-invalid={errors.code ? "true" : undefined} className={INPUT} />
@@ -128,8 +128,15 @@ export function SectionForm({ section, saving, apiError, onSave, onCancel }: Sec
           <Field id="sec-completion" label={t(`${P}.fields.completion`)} error={err("completionDate")}>
             <input id="sec-completion" type="date" {...register("completionDate")} className={INPUT} />
           </Field>
-          <Field id="sec-handover" label={t(`${P}.fields.handover`)}>
-            <input id="sec-handover" type="date" {...register("handoverDate")} className={INPUT} />
+          <Field id="sec-handover" label={t(`${P}.fields.handover`)} error={err("handoverDate")}>
+            <input
+              id="sec-handover"
+              type="date"
+              max={nicosiaDateOf()}
+              {...register("handoverDate")}
+              aria-invalid={errors.handoverDate ? "true" : undefined}
+              className={INPUT}
+            />
           </Field>
         </div>
         <Field id="sec-rate" label={t(`${P}.fields.rate`)} error={err("liquidatedDamagesPerDay")}>
@@ -154,20 +161,22 @@ export function SectionForm({ section, saving, apiError, onSave, onCancel }: Sec
 
 export interface ExtensionFormProps {
   sections: ContractSection[];
+  /** The contract's; an extension is not approved before it (date sanity). */
+  awardDate?: string;
   saving: boolean;
   apiError?: string;
   onSave: (values: ExtensionFormValues) => void;
   onCancel: () => void;
 }
 
-export function ExtensionForm({ sections, saving, apiError, onSave, onCancel }: ExtensionFormProps) {
+export function ExtensionForm({ sections, awardDate, saving, apiError, onSave, onCancel }: ExtensionFormProps) {
   const t = useTranslations();
   const {
     register,
     handleSubmit,
     formState: { errors },
   } = useForm<ExtensionFormValues>({
-    resolver: zodResolver<ExtensionFormValues>(ExtensionFormSchema),
+    resolver: zodResolver<ExtensionFormValues>(extensionFormSchema(awardDate)),
     defaultValues: {
       sectionId: "",
       days: undefined as unknown as number,
@@ -182,7 +191,7 @@ export function ExtensionForm({ sections, saving, apiError, onSave, onCancel }: 
   const P = "screens.s07h.extensions";
   return (
     <Panel title={t(`${P}.addTitle`)}>
-      <form onSubmit={handleSubmit((values) => onSave(values))} className="flex flex-col gap-s-4">
+      <form noValidate onSubmit={handleSubmit((values) => onSave(values))} className="flex flex-col gap-s-4">
         <div className="grid gap-s-4 tablet:grid-cols-2">
           <Field id="ext-section" label={t(`${P}.fields.section`)}>
             <select id="ext-section" {...register("sectionId")} className={INPUT}>
@@ -209,7 +218,15 @@ export function ExtensionForm({ sections, saving, apiError, onSave, onCancel }: 
         </div>
         <div className="grid gap-s-4 tablet:grid-cols-2">
           <Field id="ext-date" label={t(`${P}.fields.approvedAt`)} error={err("approvedAt")}>
-            <input id="ext-date" type="date" {...register("approvedAt")} className={INPUT} />
+            <input
+              id="ext-date"
+              type="date"
+              max={nicosiaDateOf()}
+              min={awardDate || undefined}
+              {...register("approvedAt")}
+              aria-invalid={errors.approvedAt ? "true" : undefined}
+              className={INPUT}
+            />
           </Field>
           <Field id="ext-approver" label={t(`${P}.fields.approver`)} error={err("approver")}>
             <select id="ext-approver" {...register("approver")} className={INPUT}>
@@ -277,13 +294,20 @@ export function ActivationForm({ clockLabel, saving, apiError, onSave, onCancel 
   const P = "screens.s07h.activation";
   return (
     <Panel title={t(`${P}.title`)} intro={t(`${P}.intro`)}>
-      <form onSubmit={handleSubmit((values) => onSave(values))} className="flex flex-col gap-s-4">
+      <form noValidate onSubmit={handleSubmit((values) => onSave(values))} className="flex flex-col gap-s-4">
         <p className="text-fs-14 text-k-ink">
           <span className="text-k-text">{t(`${P}.clock`)}: </span>
           {clockLabel}
         </p>
         <Field id="act-date" label={t(`${P}.date`)} error={err("activatedAt")}>
-          <input id="act-date" type="date" {...register("activatedAt")} className={`w-[220px] ${INPUT}`} />
+          <input
+            id="act-date"
+            type="date"
+            max={nicosiaDateOf()}
+            {...register("activatedAt")}
+            aria-invalid={errors.activatedAt ? "true" : undefined}
+            className={`w-[220px] ${INPUT}`}
+          />
         </Field>
         <Field id="act-note" label={t(`${P}.note`)} error={err("noteEl")}>
           <textarea id="act-note" rows={3} {...register("noteEl")} className="rounded-k border border-k-grey p-s-3 text-fs-14 text-k-ink" />

@@ -1367,6 +1367,10 @@ export const documentKind = ecapital.enum("document_kind", [
   // M5 (0022): a photograph or the contractor's report on a work order.
   // ADR-0031 §11.
   "WORK_ORDER_DOCUMENT",
+  // 0029 (ADR-0035 §4): a claim's letter, the reply to it, a lawyer's letter.
+  "CLAIM_LETTER",
+  "CLAIM_REPLY",
+  "CLAIM_LEGAL_LETTER",
   // 0030: an RFI's sent e-mail or the reply to it (owner decision 25/11/2026).
   "RFI_EVIDENCE",
 ]);

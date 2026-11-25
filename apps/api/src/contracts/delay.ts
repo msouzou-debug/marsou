@@ -172,17 +172,13 @@ export function calendarDays(from: string, to: string): number {
   return Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000);
 }
 
-/** Today in Europe/Nicosia, as an ISO date: the day a Cypriot clerk would write. */
-export function nicosiaToday(now: Date = new Date()): string {
-  const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Europe/Nicosia",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).formatToParts(now);
-  const part = (type: string) => parts.find((p) => p.type === type)?.value ?? "";
-  return `${part("year")}-${part("month")}-${part("day")}`;
-}
+/**
+ * Today in Europe/Nicosia, as an ISO date: the day a Cypriot clerk would
+ * write. The shared `nicosiaDateOf` (packages/shared/src/calendar-date.ts),
+ * which the date rules use on the web and here; re-exported under its old
+ * name so the clocks and the reports keep importing it from where they did.
+ */
+export { nicosiaDateOf as nicosiaToday } from "@ecapital/shared";
 
 function round2(value: number): number {
   return Math.round(value * 100) / 100;

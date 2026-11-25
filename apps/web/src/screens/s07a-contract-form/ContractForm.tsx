@@ -28,7 +28,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { useTranslations } from "next-intl";
 import { LoaderCircle } from "lucide-react";
-import { ContractType, type BudgetCode, type Contractor } from "@ecapital/shared";
+import { ContractType, nicosiaDateOf, type BudgetCode, type Contractor } from "@ecapital/shared";
 import { PageTitle } from "@/components/app-shell";
 import { zodResolver } from "@/lib/zod-resolver";
 import { formatEUR } from "@/lib/format";
@@ -125,7 +125,7 @@ export function ContractForm({
         eyebrow={t("nav.contracts")}
         title={mode === "create" ? t("screens.s07a.titleNew") : t("screens.s07a.titleEdit")}
       />
-      <form onSubmit={handleSubmit((values) => onSubmit(values))} className="flex max-w-[680px] flex-col gap-s-5">
+      <form noValidate onSubmit={handleSubmit((values) => onSubmit(values))} className="flex max-w-[680px] flex-col gap-s-5">
         {mode === "create" ? (
           <div className="flex flex-col gap-s-1">
             <label htmlFor="cf-contractor" className="text-fs-14 text-k-text">
@@ -237,6 +237,7 @@ export function ContractForm({
             <input
               id="cf-award-date"
               type="date"
+              max={nicosiaDateOf()}
               {...register("awardDate")}
               aria-invalid={errors.awardDate ? "true" : undefined}
               className="num h-11 rounded-k border border-k-grey bg-k-white px-s-3 text-fs-16 text-k-ink"

@@ -81,7 +81,7 @@ export class PaymentCertsController {
   @ApiParam({ name: "id", schema: { type: "string", format: "uuid" } })
   @ApiBody({ schema: jsonSchema(PaymentCertTransitionBody) as never })
   @ApiZodResponse(200, PaymentCert, "The certificate in its new status")
-  @ApiZodError(400, "The body is not a valid transition")
+  @ApiZodError(400, "The body is not a valid transition, or the paid date is after today")
   @ApiZodError(403, "The person who created it, or a role that may not take this step")
   @ApiZodError(404, "No such certificate, or none the caller may see")
   @ApiZodError(422, "Not the next status, or a field this status needs is missing")

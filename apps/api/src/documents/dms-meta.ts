@@ -512,3 +512,98 @@ export function buildAssetDocumentMeta(
     files,
   });
 }
+
+/**
+ * ADR-0035 §4, 0029: the papers of a claim, in the Greek a clerk searching
+ * the registry types. Not i18n keys, for the reason ADR-0023 §«Strings»
+ * gives. A lawyer's letter files under «Νομικά», which is where the
+ * Organisation's legal service looks; the letter that made the claim and the
+ * reply to it are contract correspondence and file under «Συμβάσεις».
+ */
+export const CLAIM_DOC_TYPE = {
+  CLAIM_LETTER: "Επιστολή αξίωσης",
+  CLAIM_REPLY: "Απάντηση σε αξίωση",
+  CLAIM_LEGAL_LETTER: "Επιστολή δικηγόρου για αξίωση",
+} as const;
+
+export type ClaimDocumentKindKey = keyof typeof CLAIM_DOC_TYPE;
+
+const CLAIM_DOC_CATEGORY: Record<ClaimDocumentKindKey, "Συμβάσεις" | "Νομικά"> = {
+  CLAIM_LETTER: "Συμβάσεις",
+  CLAIM_REPLY: "Συμβάσεις",
+  CLAIM_LEGAL_LETTER: "Νομικά",
+};
+
+/** `claim_doc:<claim_id>:<n>`, the nth paper on this claim. Same reasoning as an asset's. */
+export function claimDocumentSourceRef(claimId: string, n: number): string {
+  return `claim_doc:${claimId}:${n}`;
+}
+
+export interface ClaimDocumentFacts {
+  claimId: string;
+  contractId: string;
+  contractRef: string;
+  direction: "BY_CONTRACTOR" | "BY_ORGANISATION";
+  titleEl: string;
+  amount: number;
+  notifiedAt: string | null;
+  kind: ClaimDocumentKindKey;
+  n: number;
+  /** The day the paper is filed, in Nicosia: the letter date when nothing better is known. */
+  filedOn: string;
+  unit: UnitFacts;
+  contractor: ContractorFacts;
+  approvals: PersonAction[];
+}
+
+/**
+ * Who wrote the paper. A claim by the contractor arrives as their letter and
+ * their lawyer's, and the reply is ours; a claim by the Organisation is the
+ * other way round. What came from the contractor is filed as incoming, with
+ * the contractor as the sender; what we wrote is internal, from Technical
+ * Services, like every other paper eCapital files.
+ */
+export function claimPaperIsIncoming(
+  direction: ClaimDocumentFacts["direction"],
+  kind: ClaimDocumentKindKey,
+): boolean {
+  return (direction === "BY_CONTRACTOR") !== (kind === "CLAIM_REPLY");
+}
+
+/**
+ * The subject leads with the kind of paper and the contract's reference, then
+ * the claim's own title and amount. The letter that made the claim is dated
+ * the day it was notified, when that is known; any other paper the day it is
+ * filed. Every paper points back at the award, as a variation does, so the
+ * claim and the contract are one story in the registry.
+ */
+export function buildClaimDocumentMeta(
+  facts: ClaimDocumentFacts,
+  files: DmsFile[],
+  origin: string,
+): DmsMetaBody {
+  const docType = CLAIM_DOC_TYPE[facts.kind];
+  const incoming = claimPaperIsIncoming(facts.direction, facts.kind);
+  const letterDate =
+    facts.kind === "CLAIM_LETTER" && facts.notifiedAt ? facts.notifiedAt : facts.filedOn;
+  return checked({
+    ...commonFacts(facts.unit),
+    ...(incoming
+      ? { direction: "IN" as const, sender_name: facts.contractor.name.slice(0, 200) }
+      : {}),
+    source_module: "claim_document",
+    source_ref: claimDocumentSourceRef(facts.claimId, facts.n),
+    source_url: deepLink(origin, `/contracts/${facts.contractId}/claims`),
+    doc_type: docType,
+    subject: subject([docType, facts.contractRef, facts.titleEl, moneyInText(facts.amount)]),
+    sender_ref: `${facts.contractRef}/claim`.slice(0, 120),
+    letter_date: letterDate,
+    ...(facts.notifiedAt ? { event_date: facts.notifiedAt } : {}),
+    category: CLAIM_DOC_CATEGORY[facts.kind],
+    counterparties: [vendorCounterparty(facts.contractor)],
+    amount: round2(facts.amount),
+    related: [{ source_ref: `award:${facts.contractId}`, relation: "RELATED" as const }],
+    approvals: approvalsOf(facts.approvals),
+    files,
+  });
+}

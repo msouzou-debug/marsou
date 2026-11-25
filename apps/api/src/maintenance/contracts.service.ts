@@ -13,6 +13,7 @@
  */
 import { Injectable } from "@nestjs/common";
 import {
+  MAINTENANCE_CONTRACT_DATE_RULES,
   MaintenanceAgreementRow,
   agreementExpiryBand,
   daysToExpiry,
@@ -27,6 +28,7 @@ import {
 import ExcelJS from "exceljs";
 import { and, asc, eq, exists, inArray, sql, type SQL } from "drizzle-orm";
 import { UUID } from "../common/actor";
+import { assertDates, merged } from "../common/dates";
 import { AppError } from "../common/errors";
 import {
   CHECK_VIOLATION,
@@ -198,6 +200,8 @@ export class MaintenanceContractsService {
   async create(input: MaintenanceContractWrite): Promise<MaintenanceContract> {
     const tx = currentTx();
     if (!tx) throw AppError.internal();
+    // MAINTENANCE_CONTRACT_DATE_RULES: an agreement does not end before it starts.
+    assertDates(input, MAINTENANCE_CONTRACT_DATE_RULES);
     await this.checkUnit(input.orgUnitId);
     await this.checkContractor(input.contractorId);
     await this.checkCapitalContract(input.orgUnitId, input.contractId ?? null);
@@ -234,6 +238,14 @@ export class MaintenanceContractsService {
     const tx = currentTx();
     if (!tx) throw AppError.internal();
     const existing = await this.row(id);
+    // The agreement as it will be: a new end against the start already on it.
+    assertDates(
+      {
+        startDate: merged(patch.startDate, existing.startDate),
+        endDate: merged(patch.endDate, existing.endDate),
+      },
+      MAINTENANCE_CONTRACT_DATE_RULES,
+    );
     // The unit does not move: the catalogue, the orders and the scorecard of
     // an agreement all belong to the hospital that signed it.
     if (patch.orgUnitId !== undefined && patch.orgUnitId !== existing.orgUnitId) {
