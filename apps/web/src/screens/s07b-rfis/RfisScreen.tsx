@@ -6,7 +6,8 @@
  * RfisScreen — the network-aware wrapper around `Rfis` (same Screen/pure
  * split as S07's own pair). Reads the contract (`useContract`, for the
  * eyebrow, tab strip and its counts) and the contract's own RFI list
- * (`useRfis`) side by side, and owns every mutation: create, answer, close.
+ * (`useRfis`) side by side, and owns every mutation: create, answer, edit
+ * (UAT 25/11/2026), close.
  * Every one refetches both queries and closes the sheet on success.
  *
  * | Prop         | Type       | Notes                                             |
@@ -21,7 +22,7 @@ import { Rfi as RfiSchema } from "@ecapital/shared";
 import { ApiError, apiMutate } from "@/data/client";
 import { useContract, useRfis } from "@/data/queries";
 import { Rfis, type RfisScreenState } from "./Rfis";
-import type { RfiFormValues } from "./schema";
+import type { RfiEditFormValues, RfiFormValues } from "./schema";
 
 export interface RfisScreenProps {
   contractId: string;
@@ -110,6 +111,28 @@ export function RfisScreen({ contractId, roles, noPermission }: RfisScreenProps)
     }
   }
 
+  /** UAT 25/11/2026: the sheet goes back to its read view when this is true. */
+  async function handleUpdate(values: RfiEditFormValues): Promise<boolean> {
+    if (!selectedId || selectedId === "new") return false;
+    setSheetSaving(true);
+    setSheetApiError(undefined);
+    try {
+      await apiMutate<Rfi>(
+        `/contracts/${encodeURIComponent(contractId)}/rfis/${encodeURIComponent(selectedId)}`,
+        "PATCH",
+        { questionEl: values.questionEl.trim(), dueDate: values.dueDate },
+        RfiSchema,
+      );
+      await refetchAll();
+      return true;
+    } catch (submitError) {
+      setSheetApiError(submitError instanceof ApiError ? submitError.message : String(submitError));
+      return false;
+    } finally {
+      setSheetSaving(false);
+    }
+  }
+
   async function handleClose(): Promise<void> {
     if (!selectedId || selectedId === "new") return;
     setSheetSaving(true);
@@ -140,6 +163,7 @@ export function RfisScreen({ contractId, roles, noPermission }: RfisScreenProps)
       onCreate={(values) => void handleCreate(values)}
       onAnswer={(answerEl) => void handleAnswer(answerEl)}
       onCloseRfi={() => void handleClose()}
+      onUpdate={handleUpdate}
     />
   );
 }

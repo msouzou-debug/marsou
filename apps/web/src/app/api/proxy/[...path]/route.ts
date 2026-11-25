@@ -159,7 +159,10 @@ async function forward(request: NextRequest, context: ProxyContext, method: stri
     // Content-Disposition is a file even when it is `text/*` — a filed CSV
     // or note — so it never goes through `text()`, and its `nosniff` and
     // sandbox reach the browser: this route answers from the app's own
-    // origin, which is exactly where an HTML file must not run.
+    // origin, which is exactly where an HTML file must not run. The API's
+    // `inline` or `attachment` is forwarded as sent and never rewritten:
+    // «Προβολή» and «Λήψη» differ only by `?download=1`, which reaches the
+    // API in `request.nextUrl.search` like any other query.
     const bytes = await upstream.arrayBuffer();
     const responseHeaders: Record<string, string> = { "content-type": upstreamContentType };
     for (const name of FILE_HEADERS) {

@@ -33,6 +33,8 @@ import {
   Condition,
   QrLabel,
   ReplacementForecastRow,
+  assetDateIssues,
+  nicosiaToday,
 } from "@ecapital/shared";
 import { z } from "zod";
 import { AppError } from "../common/errors";
@@ -42,6 +44,7 @@ import { RolesGuard } from "../common/roles.guard";
 import { Needs } from "../permissions/needs.guard";
 import { MAX_FILE_BYTES, MIME_WHITELIST } from "../documents/earchive-contract";
 import type { AssetDocumentKindKey } from "../documents/dms-meta";
+import { assetBodyError, conditionAssessedAt } from "./asset-rules";
 import { AssetsService } from "./assets.service";
 
 /** A query string carries strings; the contract's numbers are coerced once. */
@@ -59,13 +62,27 @@ type AssetList = z.infer<typeof AssetList>;
 
 /**
  * R29: the technician records the band and, when the assessment was not made
- * at the moment they typed it, the day it was. `noteEl` is accepted and not
- * stored — see the service for why.
+ * at the moment they typed it, the day it was — a calendar day from the
+ * form's date field, or a full timestamp (`conditionAssessedAt` in
+ * asset-rules.ts says how each is stored; neither may be after today).
+ * `noteEl` is accepted and not stored — see the service for why.
  */
 const ConditionBody = z.object({
   condition: Condition,
-  assessedAt: z.string().datetime().optional(),
+  assessedAt: z.union([z.iso.date(), z.iso.datetime({ offset: true })]).optional(),
   noteEl: z.string().max(2000).optional(),
+});
+
+/**
+ * POST /assets: the contract, and the dates in order (UAT 25/11/2026). The
+ * rule's name rides on the issue's message, which `assetBodyError` turns
+ * into its sentence. A PATCH is checked in the service instead, against the
+ * dates already stored.
+ */
+const AssetCreateBody = AssetWrite.superRefine((value, ctx) => {
+  for (const issue of assetDateIssues(value, nicosiaToday())) {
+    ctx.addIssue({ code: "custom", path: [issue.field], message: issue.rule });
+  }
 });
 
 /** `AssetReading` minus the two the server owns: the id and who took it. */
@@ -229,12 +246,12 @@ export class AssetsController {
   @ApiOperation({ summary: "Record an asset; the database allocates its tag" })
   @ApiBody({ schema: jsonSchema(AssetWrite) as never })
   @ApiZodResponse(201, Asset, "The asset as stored, with the tag it was given")
-  @ApiZodError(400, "The body is not a valid asset")
+  @ApiZodError(400, "The body is not a valid asset, or its dates are out of order; the message names the field")
   @ApiZodError(403, "A read-only account, or a unit the caller may not write to")
   @ApiZodError(404, "A unit, area, parent, project or contract that is not this caller's")
   create(@Body() body: unknown): Promise<Asset> {
-    const parsed = AssetWrite.safeParse(body);
-    if (!parsed.success) throw AppError.badRequest("errors.assetNotValid");
+    const parsed = AssetCreateBody.safeParse(body);
+    if (!parsed.success) throw assetBodyError(parsed.error, body);
     return this.assets.create(parsed.data);
   }
 
@@ -248,13 +265,13 @@ export class AssetsController {
   @ApiParam({ name: "id", schema: { type: "string", format: "uuid" } })
   @ApiBody({ schema: jsonSchema(AssetWrite.partial()) as never })
   @ApiZodResponse(200, Asset, "The asset after the change")
-  @ApiZodError(400, "The body is not a valid change")
+  @ApiZodError(400, "The body is not a valid change, or it puts the dates out of order; the message names the field")
   @ApiZodError(403, "A read-only account, or a unit the caller may not write to")
   @ApiZodError(404, "No such asset, or an area, parent, project or contract outside its unit")
   @ApiZodError(422, "An attempt to move the asset's unit or change its class")
   update(@Param("id") id: string, @Body() body: unknown): Promise<Asset> {
     const parsed = AssetWrite.partial().safeParse(body);
-    if (!parsed.success) throw AppError.badRequest("errors.assetNotValid");
+    if (!parsed.success) throw assetBodyError(parsed.error, body);
     return this.assets.update(id, sentKeysOnly(parsed.data, body));
   }
 
@@ -270,13 +287,23 @@ export class AssetsController {
   @ApiParam({ name: "id", schema: { type: "string", format: "uuid" } })
   @ApiBody({ schema: jsonSchema(ConditionBody) as never })
   @ApiZodResponse(201, Asset, "The asset with its new band and the date it was assessed")
-  @ApiZodError(400, "The band is missing or is not one of A to E")
+  @ApiZodError(400, "The band is not one of A to E, or the date is not a date or is after today")
   @ApiZodError(403, "A role that does not assess condition, or a unit the caller may not write to")
   @ApiZodError(404, "No such asset, or none the caller may see")
   condition(@Param("id") id: string, @Body() body: unknown): Promise<Asset> {
     const parsed = ConditionBody.safeParse(body);
-    if (!parsed.success) throw AppError.badRequest("errors.assetConditionNotValid");
-    return this.assets.recordCondition(id, parsed.data);
+    if (!parsed.success) {
+      // Each half of the form has its own sentence: a bad date is not a bad band.
+      const field = parsed.error.issues[0]?.path[0];
+      throw AppError.badRequest(
+        field === "assessedAt" ? "errors.assetConditionDateNotValid" : "errors.assetConditionNotValid",
+      );
+    }
+    const now = new Date();
+    return this.assets.recordCondition(id, {
+      ...parsed.data,
+      assessedAt: conditionAssessedAt(parsed.data.assessedAt, nicosiaToday(now), now),
+    });
   }
 
   @Post(":id/readings")

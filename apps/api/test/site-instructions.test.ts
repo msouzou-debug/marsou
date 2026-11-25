@@ -1,5 +1,5 @@
 import type { INestApplication } from "@nestjs/common";
-import { ContractDetail, SiteInstruction, Variation } from "@ecapital/shared";
+import { ContractDetail, SiteInstruction, Variation, nicosiaDateOf } from "@ecapital/shared";
 import request from "supertest";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { USERS, bearer, createTestApp, tokenFor } from "./app";
@@ -232,5 +232,101 @@ describe("site instructions on a contract", () => {
       "UPDATE",
     ]);
     for (const entry of log.body) expect(entry.actorId).toBe("dev-estates-nicosia");
+  });
+
+  // ---------------------------------------------- editing one (UAT 25/11/2026) --
+
+  function daysAgo(days: number): string {
+    const date = new Date(`${nicosiaDateOf(new Date())}T00:00:00Z`);
+    date.setUTCDate(date.getUTCDate() - days);
+    return date.toISOString().slice(0, 10);
+  }
+
+  it("records the day an instruction was given, and refuses a day after today", async () => {
+    const { contract } = await makeContract(app, `si-day-${Date.now()}`);
+    const token = await tokenFor(app, USERS.estatesNicosia);
+    const given = await request(app.getHttpServer())
+      .post(`/contracts/${contract.id}/site-instructions`)
+      .set(bearer(token))
+      .send({ ...plain, issuedOn: daysAgo(3) });
+    expect(given.status).toBe(201);
+    expect(nicosiaDateOf(SiteInstruction.parse(given.body).issuedAt)).toBe(daysAgo(3));
+
+    const future = await request(app.getHttpServer())
+      .post(`/contracts/${contract.id}/site-instructions`)
+      .set(bearer(token))
+      .send({ ...plain, issuedOn: daysAgo(-1) });
+    expect(future.status).toBe(400);
+    expect(future.body.key).toBe("errors.dateInFuture");
+  });
+
+  it("corrects the text, the cost impact and the issue day, and the audit trail keeps it", async () => {
+    const { contractId, instruction } = await issued(`si-edit-${Date.now()}`);
+    const token = await tokenFor(app, USERS.estatesNicosia);
+    const edited = await request(app.getHttpServer())
+      .patch(`/contracts/${contractId}/site-instructions/${instruction.id}`)
+      .set(bearer(token))
+      .send({ textEl: "Μεταφέρετε τα υλικά στον νότιο χώρο.", costImpactFlag: true, issuedOn: daysAgo(2) });
+    expect(edited.status).toBe(200);
+    const after = SiteInstruction.parse(edited.body);
+    expect(after.textEl).toBe("Μεταφέρετε τα υλικά στον νότιο χώρο.");
+    expect(after.costImpactFlag).toBe(true);
+    expect(nicosiaDateOf(after.issuedAt)).toBe(daysAgo(2));
+    expect(after.issuedByName).toBe(instruction.issuedByName);
+    expect(after.number).toBe(instruction.number);
+
+    const future = await request(app.getHttpServer())
+      .patch(`/contracts/${contractId}/site-instructions/${instruction.id}`)
+      .set(bearer(token))
+      .send({ issuedOn: daysAgo(-1) });
+    expect(future.status).toBe(400);
+    expect(future.body.key).toBe("errors.dateInFuture");
+
+    const auditor = await tokenFor(app, USERS.auditor);
+    const log = await request(app.getHttpServer())
+      .get("/audit-log")
+      .query({ entity_type: "site_instruction", entity_id: instruction.id })
+      .set(bearer(auditor));
+    expect(log.body.map((e: { action: string }) => e.action).sort()).toEqual(["INSERT", "UPDATE"]);
+  });
+
+  it("refuses to edit an instruction once it has become a variation", async () => {
+    const { contractId, instruction } = await issued(`si-edit-settled-${Date.now()}`, costly);
+    const token = await tokenFor(app, USERS.estatesNicosia);
+    await request(app.getHttpServer())
+      .post(`/contracts/${contractId}/site-instructions/${instruction.id}/variation`)
+      .set(bearer(token));
+    const refused = await request(app.getHttpServer())
+      .patch(`/contracts/${contractId}/site-instructions/${instruction.id}`)
+      .set(bearer(token))
+      .send({ textEl: "Αργά πια." });
+    expect(refused.status).toBe(422);
+    expect(refused.body.key).toBe("errors.siteInstructionSettled");
+  });
+
+  it("refuses a bad body, a read-only account, and another unit", async () => {
+    const { contractId, instruction } = await issued(`si-edit-rls-${Date.now()}`);
+    const estates = await tokenFor(app, USERS.estatesNicosia);
+    const empty = await request(app.getHttpServer())
+      .patch(`/contracts/${contractId}/site-instructions/${instruction.id}`)
+      .set(bearer(estates))
+      .send({ textEl: "" });
+    expect(empty.status).toBe(400);
+    expect(empty.body.key).toBe("errors.siteInstructionNotValid");
+
+    const auditor = await tokenFor(app, USERS.auditor);
+    const refused = await request(app.getHttpServer())
+      .patch(`/contracts/${contractId}/site-instructions/${instruction.id}`)
+      .set(bearer(auditor))
+      .send({ textEl: "Δεν θα έπρεπε να περάσει." });
+    expect(refused.status).toBe(403);
+    expect(refused.body.key).toBe("errors.readOnlyAccount");
+
+    const larnaca = await tokenFor(app, USERS.engineerLarnaca);
+    const hidden = await request(app.getHttpServer())
+      .patch(`/contracts/${contractId}/site-instructions/${instruction.id}`)
+      .set(bearer(larnaca))
+      .send({ textEl: "Δεν θα έπρεπε να περάσει." });
+    expect(hidden.status).toBe(404);
   });
 });

@@ -3,6 +3,8 @@ import {
   WORK_ORDER_TRANSITIONS,
   WORK_ORDER_ACTION_TARGET,
   addHours,
+  agreementExpiryBand,
+  daysToExpiry,
   nextDueAfter,
   slaStateOf,
 } from "./maintenance";
@@ -44,5 +46,22 @@ describe("transitions", () => {
     }
     expect(WORK_ORDER_TRANSITIONS.COMPLETED).toEqual([]);
     expect(WORK_ORDER_TRANSITIONS.PAUSED).toEqual(["RESUME"]);
+  });
+});
+
+describe("agreement expiry", () => {
+  const today = "2026-11-25";
+  it("counts whole days to the end date, null without one", () => {
+    expect(daysToExpiry("2026-12-25", today)).toBe(30);
+    expect(daysToExpiry("2026-11-24", today)).toBe(-1);
+    expect(daysToExpiry(null, today)).toBeNull();
+  });
+  it("is EXPIRING from 90 days to the last day, EXPIRED after or when ENDED", () => {
+    expect(agreementExpiryBand("ACTIVE", "2027-02-24", today)).toBe("OK");
+    expect(agreementExpiryBand("ACTIVE", "2027-02-23", today)).toBe("EXPIRING");
+    expect(agreementExpiryBand("ACTIVE", today, today)).toBe("EXPIRING");
+    expect(agreementExpiryBand("ACTIVE", "2026-11-24", today)).toBe("EXPIRED");
+    expect(agreementExpiryBand("ENDED", "2030-01-01", today)).toBe("EXPIRED");
+    expect(agreementExpiryBand("ACTIVE", null, today)).toBe("OK");
   });
 });

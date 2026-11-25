@@ -85,6 +85,32 @@ export function InstructionsScreen({ contractId, roles, noPermission }: Instruct
     }
   }
 
+  /**
+   * UAT 25/11/2026: correcting an instruction that has not become a variation.
+   * The sheet goes back to its read view when this is true; a refusal
+   * (errors.siteInstructionSettled, errors.dateInFuture) is shown verbatim.
+   */
+  async function handleUpdate(values: InstructionFormValues): Promise<boolean> {
+    if (!selectedId || selectedId === "new") return false;
+    setSheetSaving(true);
+    setSheetApiError(undefined);
+    try {
+      await apiMutate<SiteInstruction>(
+        `/contracts/${encodeURIComponent(contractId)}/site-instructions/${encodeURIComponent(selectedId)}`,
+        "PATCH",
+        { textEl: values.textEl.trim(), costImpactFlag: values.costImpactFlag, issuedOn: values.issuedOn },
+        SiteInstructionSchema,
+      );
+      await refetchAll();
+      return true;
+    } catch (submitError) {
+      setSheetApiError(submitError instanceof ApiError ? submitError.message : String(submitError));
+      return false;
+    } finally {
+      setSheetSaving(false);
+    }
+  }
+
   // RULE (ADR-0017): only with cost impact, and only once — the API refuses
   // errors.noCostImpact / errors.alreadyLinked and this renders that
   // sentence verbatim (`ApiError.message` is already in the caller's
@@ -123,6 +149,7 @@ export function InstructionsScreen({ contractId, roles, noPermission }: Instruct
       creatingVariationId={creatingVariationId}
       onCreate={(values) => void handleCreate(values)}
       onCreateVariation={(instruction) => void handleCreateVariation(instruction)}
+      onUpdate={handleUpdate}
     />
   );
 }

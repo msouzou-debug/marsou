@@ -77,35 +77,131 @@ export const Asset = z.object({
 });
 export type Asset = z.infer<typeof Asset>;
 
+// UAT 25/11/2026: the limits below were the database's CHECKs alone (0017),
+// so a one-letter name or a 0-year life came back as one blanket «details
+// are incomplete». The contract now carries them, so the API names the
+// field before the insert. Dates are calendar days, `YYYY-MM-DD`: what an
+// `<input type=date>` gives and what the `date` columns hold.
+export const ASSET_LIMITS = {
+  nameMin: 2,
+  nameMax: 200,
+  lifeMin: 1,
+  lifeMax: 120,
+  yearMin: 1900,
+  yearMax: 2200,
+} as const;
+
+const AssetDay = z.iso.date();
+
 export const AssetWrite = Asset.omit({
   id: true,
   tag: true,
   createdAt: true,
   updatedAt: true,
-}).partial({
-  areaId: true,
-  manufacturer: true,
-  model: true,
-  serialNo: true,
-  installedDate: true,
-  commissionedDate: true,
-  sourceProjectId: true,
-  sourceContractId: true,
-  capitalCost: true,
-  warrantyEnd: true,
-  expectedLifeYears: true,
-  replacementYear: true,
-  replacementCostEst: true,
-  condition: true,
-  conditionAssessedAt: true,
-  parentAssetId: true,
-  servesAreaIds: true,
-  system: true,
-  costCentre: true,
-  sapAssetNo: true,
-  status: true,
-});
+})
+  .extend({
+    nameEl: z.string().trim().min(ASSET_LIMITS.nameMin).max(ASSET_LIMITS.nameMax),
+    installedDate: AssetDay.nullable(),
+    commissionedDate: AssetDay.nullable(),
+    warrantyEnd: AssetDay.nullable(),
+    capitalCost: z.number().min(0).nullable(),
+    expectedLifeYears: z.number().int().min(ASSET_LIMITS.lifeMin).max(ASSET_LIMITS.lifeMax).nullable(),
+    replacementYear: z.number().int().min(ASSET_LIMITS.yearMin).max(ASSET_LIMITS.yearMax).nullable(),
+    replacementCostEst: z.number().min(0).nullable(),
+  })
+  .partial({
+    areaId: true,
+    manufacturer: true,
+    model: true,
+    serialNo: true,
+    installedDate: true,
+    commissionedDate: true,
+    sourceProjectId: true,
+    sourceContractId: true,
+    capitalCost: true,
+    warrantyEnd: true,
+    expectedLifeYears: true,
+    replacementYear: true,
+    replacementCostEst: true,
+    condition: true,
+    conditionAssessedAt: true,
+    parentAssetId: true,
+    servesAreaIds: true,
+    system: true,
+    costCentre: true,
+    sapAssetNo: true,
+    status: true,
+  });
 export type AssetWrite = z.infer<typeof AssetWrite>;
+
+// RULE (UAT 25/11/2026, reported twice): an asset's dates run in order.
+// Commissioned on or after installation; the warranty ends on or after
+// installation and on or after commissioning; neither installation nor
+// commissioning is after today (Europe/Nicosia); the replacement year is
+// not before the year of installation. The form and the API both ask this
+// one function, so the two cannot disagree. A value that is not a calendar
+// day is the schema's to report, not this rule's: it is skipped here.
+export type AssetDateRule =
+  | "installedInFuture"
+  | "commissionedInFuture"
+  | "commissionedBeforeInstalled"
+  | "warrantyBeforeInstalled"
+  | "warrantyBeforeCommissioned"
+  | "replacementBeforeInstalled";
+
+export interface AssetDateIssue {
+  field: "installedDate" | "commissionedDate" | "warrantyEnd" | "replacementYear";
+  rule: AssetDateRule;
+}
+
+export interface AssetDates {
+  installedDate?: string | null;
+  commissionedDate?: string | null;
+  warrantyEnd?: string | null;
+  replacementYear?: number | null;
+}
+
+const CALENDAR_DAY = /^\d{4}-\d{2}-\d{2}$/;
+
+function calendarDay(value: unknown): string | null {
+  return typeof value === "string" && CALENDAR_DAY.test(value) ? value : null;
+}
+
+/** `today` is `YYYY-MM-DD` in Europe/Nicosia — see `nicosiaToday()`. */
+export function assetDateIssues(dates: AssetDates, today: string): AssetDateIssue[] {
+  const installed = calendarDay(dates.installedDate);
+  const commissioned = calendarDay(dates.commissionedDate);
+  const warranty = calendarDay(dates.warrantyEnd);
+  const issues: AssetDateIssue[] = [];
+  if (installed && installed > today) issues.push({ field: "installedDate", rule: "installedInFuture" });
+  if (commissioned && commissioned > today) {
+    issues.push({ field: "commissionedDate", rule: "commissionedInFuture" });
+  }
+  if (installed && commissioned && commissioned < installed) {
+    issues.push({ field: "commissionedDate", rule: "commissionedBeforeInstalled" });
+  }
+  if (warranty && installed && warranty < installed) {
+    issues.push({ field: "warrantyEnd", rule: "warrantyBeforeInstalled" });
+  } else if (warranty && commissioned && warranty < commissioned) {
+    issues.push({ field: "warrantyEnd", rule: "warrantyBeforeCommissioned" });
+  }
+  const year = dates.replacementYear;
+  if (installed && typeof year === "number" && year < Number(installed.slice(0, 4))) {
+    issues.push({ field: "replacementYear", rule: "replacementBeforeInstalled" });
+  }
+  return issues;
+}
+
+/** Today's calendar day in Cyprus, whatever zone the process runs in. */
+export function nicosiaToday(now: Date = new Date()): string {
+  // en-CA writes a date as YYYY-MM-DD.
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Nicosia",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(now);
+}
 
 // R28: O&M documents, certificates and the commissioning pack per asset —
 // filed with eArchive (ADR-0023), only the protocol number kept here.

@@ -49,7 +49,9 @@
     "changePhase": "Change phase",
     "downloadExcel": "Download Excel",
     "printPdf": "Print / PDF",
-    "open": "Open"
+    "open": "Open",
+    "view": "View",
+    "download": "Download"
   },
   "forms": {
     "required": "Fill in this field.",
@@ -60,7 +62,9 @@
     "emapRefFormat": "An eMAP reference is written CON-2026-0042.",
     "weightRange": "The value must be between 0 and 1.",
     "codeLength": "The code can have up to 8 characters.",
-    "positiveDays": "Days must be a whole number greater than zero."
+    "positiveDays": "Days must be a whole number greater than zero.",
+    "dateInFuture": "The date cannot be later than today.",
+    "dueBeforeRaised": "The due date cannot be before the date it was raised."
   },
   "components": {
     "passwordField": {
@@ -768,13 +772,19 @@
       "fields": {
         "question": "Question",
         "slaDays": "Due in (days)",
-        "answer": "Answer"
+        "answer": "Answer",
+        "number": "No.",
+        "raised": "Raised by",
+        "dueDate": "Due date",
+        "status": "Status"
       },
       "sheetTitle": "RFI {number}",
       "answeredOn": "Answered",
       "noAnswerYet": "No answer has been recorded yet.",
       "closeConfirmTitle": "Close this RFI?",
-      "closeConfirmConsequence": "The RFI closes and no further answer can be recorded against it."
+      "closeConfirmConsequence": "The RFI closes and no further answer can be recorded against it.",
+      "editTitle": "Edit RFI {number}",
+      "closedNoEdit": "This RFI is closed and can no longer be changed."
     },
     "s07c": {
       "title": "Site instructions",
@@ -790,10 +800,17 @@
       },
       "fields": {
         "text": "Instruction",
-        "costImpact": "Has a cost impact"
+        "costImpact": "Has a cost impact",
+        "number": "No.",
+        "issuedBy": "Issued by",
+        "issuedOn": "Date issued",
+        "variation": "Variation"
       },
       "createVariation": "Create variation",
-      "variationLink": "Variation {number}"
+      "variationLink": "Variation {number}",
+      "sheetTitle": "Site instruction {number}",
+      "editTitle": "Edit site instruction {number}",
+      "settledNoEdit": "This instruction has become a variation and can no longer be changed."
     },
     "s07d": {
       "title": "Defects",
@@ -817,11 +834,19 @@
         "targetProject": "Funding project",
         "status": "Status",
         "noArea": "No area selected",
-        "noProject": "Pick a project"
+        "noProject": "Pick a project",
+        "source": "Source",
+        "raisedOn": "Date found",
+        "raisedBy": "Recorded by",
+        "dueDate": "Due date",
+        "closed": "Closed"
       },
       "areaUnknownNote": "This area id did not match a name.",
       "fundedNeedsProject": "To mark a defect as funded, name the project paying for it. Funded with no project puts the cost on nobody's budget.",
-      "footerTotal": "Total"
+      "footerTotal": "Total",
+      "editTitle": "Edit defect",
+      "reopen": "Reopen",
+      "closedNoEdit": "This defect is closed and cannot be changed. Reopen it to make a correction."
     },
     "s24": {
       "title": "Contractors",
@@ -1591,9 +1616,23 @@
         "noParent": "None",
         "noProject": "None",
         "noContract": "None",
-        "noSystem": "None"
+        "noSystem": "None",
+        "sourceProjectHint": "Projects of the asset's unit",
+        "sourceContractHint": "Contracts of the asset's unit"
       },
-      "parentSearchPlaceholder": "Search an asset by tag or name"
+      "parentSearchPlaceholder": "Search an asset by tag or name",
+      "errors": {
+        "nameLength": "The name has 2 to 200 characters.",
+        "expectedLifeRange": "Expected life is a whole number of years from 1 to 120.",
+        "replacementYearRange": "The replacement year is between 1900 and 2200.",
+        "costNonNegative": "The amount cannot be negative.",
+        "installedInFuture": "The installation date cannot be after today.",
+        "commissionedInFuture": "The commissioning date cannot be after today.",
+        "commissionedBeforeInstalled": "Commissioning cannot be before the installation date.",
+        "warrantyBeforeInstalled": "The warranty end cannot be before the installation date.",
+        "warrantyBeforeCommissioned": "The warranty end cannot be before the commissioning date.",
+        "replacementBeforeInstalled": "The replacement year cannot be before the year of installation."
+      }
     },
     "s17b": {
       "title": "Asset labels"
@@ -2185,6 +2224,56 @@
           "nextDue": "Next date",
           "openOrder": "Open order"
         }
+      },
+      "tabs": {
+        "label": "Preventive maintenance views",
+        "dashboard": "All agreements",
+        "agreement": "By unit"
+      },
+      "dashboard": {
+        "intro": "Every maintenance agreement you can see, with its end date, the equipment it covers and this month's preventive visits. Filter by hospital, equipment type, contractor or expiry and open an agreement for its catalogue and programme.",
+        "kpiLabel": "Agreements summary",
+        "kpi": {
+          "active": "Agreements in force",
+          "activeOf": "of {total} in all",
+          "expiring": "Ending within 90 days",
+          "expiringHint": "Time to renew or retender",
+          "expired": "Expired",
+          "value": "Value of agreements in force",
+          "noValue": "{count, plural, one {# with no value recorded} other {# with no value recorded}}",
+          "pmDue": "PM visits this month",
+          "pmOverdue": "Overdue: {count}"
+        },
+        "searchPlaceholder": "Number, subject or contractor",
+        "filters": {
+          "unit": "Hospital",
+          "assetClass": "Equipment type",
+          "contractor": "Contractor",
+          "band": "Expiry"
+        },
+        "band": {
+          "OK": "In force",
+          "EXPIRING": "Ends in ≤ 90 days",
+          "EXPIRED": "Expired"
+        },
+        "columns": {
+          "unit": "Hospital",
+          "ref": "Agreement",
+          "contractor": "Contractor",
+          "classes": "Equipment type",
+          "systems": "Systems",
+          "start": "Start",
+          "end": "End",
+          "days": "Days to expiry",
+          "band": "Status of cover",
+          "value": "Value",
+          "assets": "Assets",
+          "schedules": "Programme lines",
+          "pmDue": "PM this month",
+          "pmOverdue": "Overdue PM"
+        },
+        "caption": "Maintenance agreements",
+        "empty": "No agreement matches the filters."
       }
     },
     "s21": {

@@ -27,7 +27,7 @@
  * | `skeletonRows`      | `number`                                          | `6`           | How many skeleton rows the `loading` state draws. |
  * | `onExport`          | `() => void`                                      | generic       | Fired by the export button. Leave it unset and the table exports what it shows itself (`table-export.ts`, `POST /exports/table`); set it only for a purpose-built workbook (S04, S09a, S21, the reports). |
  * | `onCellEdit`        | `(row: T, columnId: string, value: string) => void` | —           | Fired when `Enter` commits an inline edit. |
- * | `onRowOpen`         | `(row: T) => void`                                | —             | Fired by `Enter` on a focused row. |
+ * | `onRowOpen`         | `(row: T) => void`                                | —             | Fired by `Enter` on a focused row, or a click on it. |
  * | `onSelectionChange` | `(ids: string[]) => void`                         | —             | Fired whenever the checkbox selection changes. |
  * | `onRetry`           | `() => void`                                      | —             | Retry button in the `error` state; the button is hidden without it. |
  * | `totals`            | `Partial<Record<string, ReactNode>>`              | —             | A totals row under the body, keyed by column id; it never sorts with the rows (M6 reports). |
@@ -37,7 +37,7 @@
  * `defaultHidden`, `exportKind` (how the generic export writes the column;
  * read off the values when unset, `"none"` leaves it out).
  *
- * Keyboard: `↑`/`↓` move row focus, `Enter` opens the focused row, double-click
+ * Keyboard: `↑`/`↓` move row focus, `Enter` (or a click) opens the row, double-click
  * starts an inline edit on an `editable` cell, `Enter` saves it and `Esc`
  * cancels. Sortable headers are buttons and announce `aria-sort`.
  */
@@ -560,6 +560,22 @@ export function Table<T>({
                         onRowOpen?.(row.original);
                       }
                     }}
+                    // UAT 25/11/2026: a row that opens on Enter opens on a click
+                    // too. A click that lands on something of its own — a link,
+                    // a button, a checkbox, an editable cell — or that ends a
+                    // text selection is left to that, not taken as "open".
+                    onClick={
+                      onRowOpen
+                        ? (event) => {
+                            if (editing) return;
+                            const target = event.target as HTMLElement;
+                            if (target.closest("a, button, input, select, textarea, label, summary, [data-editable]")) return;
+                            if (typeof window !== "undefined" && window.getSelection()?.toString()) return;
+                            onRowOpen(row.original);
+                          }
+                        : undefined
+                    }
+                    className={onRowOpen ? "cursor-pointer" : undefined}
                     style={{ height: rowHeight, backgroundColor: index % 2 === 1 ? ZEBRA : undefined }}
                   >
                     {row.getVisibleCells().map((cell) => {
@@ -570,6 +586,7 @@ export function Table<T>({
                         <td
                           key={cell.id}
                           className={`border-b border-k-grey px-s-2 ${definition?.numeric ? "num whitespace-nowrap" : ""}`}
+                          data-editable={definition?.editable && onCellEdit && !readOnly ? "" : undefined}
                           onDoubleClick={() =>
                             startEdit(row.id, cell.column.id, definition?.accessor(row.original))
                           }

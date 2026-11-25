@@ -32,7 +32,7 @@
  * an operational copy, served by `GET /documents/:id/content`. The strip
  * shows the photos taken in this session (from the file itself) first, then
  * every filed image through that route; a filed PDF, zip or office file is
- * a line in the list under it, with «Άνοιγμα» to open it in a new tab.
+ * a line in the list under it, with «Προβολή» (a PDF in a new tab) and «Λήψη».
  */
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
@@ -57,7 +57,7 @@ import {
 import { PageTitle } from "@/components/app-shell";
 import { PhotoStrip } from "@/components/photo-strip";
 import { Timeline } from "@/components/timeline";
-import { documentContentHref } from "@/data/queries";
+import { documentContentHref, documentViewHref } from "@/data/queries";
 import { formatDateTime, formatEURorDash } from "@/lib/format";
 import { BandChip } from "@/screens/s18-work-orders/BandChip";
 import { EscalatedMark, PmDueChip, WorkOrderTimer } from "@/screens/s18-work-orders/WorkOrderTimer";
@@ -205,7 +205,7 @@ export function WorkOrderDetail(props: WorkOrderDetailProps) {
     try {
       const event = await onUpload(file, file.name);
       // A PDF or a zip is not a thumbnail: it shows in the list once the
-      // order is read back, with «Άνοιγμα».
+      // order is read back, with «Προβολή» and «Λήψη».
       if (isImageMime(file.type)) {
         const url = typeof URL.createObjectURL === "function" ? URL.createObjectURL(file) : "";
         const documentId = event ? event.documentId : null;
@@ -430,15 +430,21 @@ export function WorkOrderDetail(props: WorkOrderDetailProps) {
                     <span className="flex flex-wrap items-baseline gap-s-2">
                       <span className="text-k-ink">{e.documentTitle}</span>
                       {e.documentId && (
-                        <a
-                          href={documentContentHref(e.documentId)}
-                          target="_blank"
-                          rel="noopener"
-                          className="text-k-blue-deep underline"
-                        >
-                          {t("buttons.open")}
-                          <span className="sr-only"> {e.documentTitle}</span>
-                        </a>
+                        <>
+                          <a
+                            href={documentViewHref(e.documentId, e.documentMime)}
+                            target="_blank"
+                            rel="noopener"
+                            className="text-k-blue-deep underline"
+                          >
+                            {t("buttons.view")}
+                            <span className="sr-only"> {e.documentTitle}</span>
+                          </a>
+                          <a href={documentContentHref(e.documentId, { download: true })} className="text-k-blue-deep underline">
+                            {t("buttons.download")}
+                            <span className="sr-only"> {e.documentTitle}</span>
+                          </a>
+                        </>
                       )}
                     </span>
                     <span className="num text-k-text">

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, onTestFinished, vi, beforeEach } from "vitest";
 import type { ComponentProps } from "react";
-import { act, screen, waitFor } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { renderWithIntl } from "@/test/render";
 import { Table, type TableColumn } from "./Table";
@@ -193,6 +193,19 @@ describe("Table", () => {
 
     await userEvent.keyboard("{Enter}");
     expect(onRowOpen).toHaveBeenCalledWith(rows[1]);
+  });
+
+  it("opens a row on a click too, but not a click on a control inside it (UAT 25/11/2026)", async () => {
+    const onRowOpen = vi.fn();
+    renderTable({ onRowOpen, selectable: true });
+
+    const bodyRows = screen.getAllByRole("row").slice(1);
+    await userEvent.click(bodyRows[2].querySelectorAll("td")[1]);
+    expect(onRowOpen).toHaveBeenCalledWith(rows[2]);
+
+    onRowOpen.mockClear();
+    await userEvent.click(within(bodyRows[0]).getByRole("checkbox"));
+    expect(onRowOpen).not.toHaveBeenCalled();
   });
 
   it("does not start an inline edit while offline", async () => {

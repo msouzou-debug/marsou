@@ -1,5 +1,5 @@
 import type { INestApplication } from "@nestjs/common";
-import { ContractDetail, Rfi } from "@ecapital/shared";
+import { ContractDetail, Rfi, nicosiaDateOf } from "@ecapital/shared";
 import { Client } from "pg";
 import request from "supertest";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -335,5 +335,114 @@ describe("RFIs on a contract", () => {
       expect(entry.actorId).toBe("dev-estates-nicosia");
       expect(entry.orgUnitId).toBe("nicosia-general");
     }
+  });
+
+  // ---------------------------------------------- editing one (UAT 25/11/2026) --
+
+  /** A Nicosia calendar day this many days from the given instant. */
+  function dayFrom(iso: string, days: number): string {
+    const date = new Date(`${nicosiaDateOf(iso)}T00:00:00Z`);
+    date.setUTCDate(date.getUTCDate() + days);
+    return date.toISOString().slice(0, 10);
+  }
+
+  it("corrects the question and the due date, and the audit trail keeps both", async () => {
+    const { contractId, rfi } = await raised(`rfi-edit-${Date.now()}`);
+    const token = await tokenFor(app, USERS.estatesNicosia);
+    const dueDate = dayFrom(rfi.raisedAt, 10);
+    const edited = await request(app.getHttpServer())
+      .patch(`/contracts/${contractId}/rfis/${rfi.id}`)
+      .set(bearer(token))
+      .send({ questionEl: "Ποιο πρότυπο πυραντοχής ισχύει για τις πόρτες του διαδρόμου;", dueDate });
+    expect(edited.status).toBe(200);
+    const after = Rfi.parse(edited.body);
+    expect(after.questionEl).toBe("Ποιο πρότυπο πυραντοχής ισχύει για τις πόρτες του διαδρόμου;");
+    // Due by the end of that day in Nicosia; who raised it, and when, unchanged.
+    expect(nicosiaDateOf(after.slaDueAt)).toBe(dueDate);
+    expect(Date.parse(after.slaDueAt)).toBeGreaterThan(Date.parse(rfi.slaDueAt));
+    expect(after.slaHours).toBeGreaterThanOrEqual(9 * 24);
+    expect(after.raisedAt).toBe(rfi.raisedAt);
+    expect(after.raisedByName).toBe(rfi.raisedByName);
+    expect(after.number).toBe(rfi.number);
+
+    // Sending the same due date again moves nothing.
+    const same = await request(app.getHttpServer())
+      .patch(`/contracts/${contractId}/rfis/${rfi.id}`)
+      .set(bearer(token))
+      .send({ dueDate });
+    expect(Rfi.parse(same.body).slaDueAt).toBe(after.slaDueAt);
+
+    const auditor = await tokenFor(app, USERS.auditor);
+    const log = await request(app.getHttpServer())
+      .get("/audit-log")
+      .query({ entity_type: "rfi", entity_id: rfi.id })
+      .set(bearer(auditor));
+    expect(log.body.map((e: { action: string }) => e.action).sort()).toEqual(["INSERT", "UPDATE"]);
+  });
+
+  it("allows the day it was raised as the due date and refuses the day before", async () => {
+    const { contractId, rfi } = await raised(`rfi-edit-due-${Date.now()}`);
+    const token = await tokenFor(app, USERS.estatesNicosia);
+    const sameDay = await request(app.getHttpServer())
+      .patch(`/contracts/${contractId}/rfis/${rfi.id}`)
+      .set(bearer(token))
+      .send({ dueDate: dayFrom(rfi.raisedAt, 0) });
+    expect(sameDay.status).toBe(200);
+
+    const before = await request(app.getHttpServer())
+      .patch(`/contracts/${contractId}/rfis/${rfi.id}`)
+      .set(bearer(token))
+      .send({ dueDate: dayFrom(rfi.raisedAt, -1) });
+    expect(before.status).toBe(422);
+    expect(before.body.key).toBe("errors.rfiDueBeforeRaised");
+  });
+
+  it("refuses a body that is not a change, and an edit to a closed RFI", async () => {
+    const { contractId, rfi } = await raised(`rfi-edit-closed-${Date.now()}`);
+    const token = await tokenFor(app, USERS.estatesNicosia);
+    const bad = await request(app.getHttpServer())
+      .patch(`/contracts/${contractId}/rfis/${rfi.id}`)
+      .set(bearer(token))
+      .send({ questionEl: "", dueDate: "30/11/2026" });
+    expect(bad.status).toBe(400);
+    expect(bad.body.key).toBe("errors.rfiUpdateNotValid");
+
+    // Answered is still editable; closed is not.
+    await request(app.getHttpServer())
+      .post(`/contracts/${contractId}/rfis/${rfi.id}/answer`)
+      .set(bearer(token))
+      .send({ answerEl: "Το EN 1634-1, E30." });
+    const whileAnswered = await request(app.getHttpServer())
+      .patch(`/contracts/${contractId}/rfis/${rfi.id}`)
+      .set(bearer(token))
+      .send({ questionEl: "Ποιο πρότυπο ισχύει για τα κουφώματα;" });
+    expect(whileAnswered.status).toBe(200);
+    await request(app.getHttpServer())
+      .post(`/contracts/${contractId}/rfis/${rfi.id}/close`)
+      .set(bearer(token));
+    const closed = await request(app.getHttpServer())
+      .patch(`/contracts/${contractId}/rfis/${rfi.id}`)
+      .set(bearer(token))
+      .send({ questionEl: "Αργά πια." });
+    expect(closed.status).toBe(422);
+    expect(closed.body.key).toBe("errors.rfiClosedNoEdit");
+  });
+
+  it("refuses the edit to a read-only account and hides it from another unit", async () => {
+    const { contractId, rfi } = await raised(`rfi-edit-rls-${Date.now()}`);
+    const auditor = await tokenFor(app, USERS.auditor);
+    const refused = await request(app.getHttpServer())
+      .patch(`/contracts/${contractId}/rfis/${rfi.id}`)
+      .set(bearer(auditor))
+      .send({ questionEl: "Δεν θα έπρεπε να περάσει." });
+    expect(refused.status).toBe(403);
+    expect(refused.body.key).toBe("errors.readOnlyAccount");
+
+    const larnaca = await tokenFor(app, USERS.engineerLarnaca);
+    const hidden = await request(app.getHttpServer())
+      .patch(`/contracts/${contractId}/rfis/${rfi.id}`)
+      .set(bearer(larnaca))
+      .send({ questionEl: "Δεν θα έπρεπε να περάσει." });
+    expect(hidden.status).toBe(404);
   });
 });

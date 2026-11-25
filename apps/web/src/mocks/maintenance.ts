@@ -12,6 +12,8 @@
 import type {
   BacklogItem,
   BacklogSummaryRow,
+  MaintenanceAgreementList,
+  MaintenanceAgreementRow,
   MaintenanceContract,
   MaintenanceSummary,
   PmGenerationResult,
@@ -65,6 +67,86 @@ export function buildMaintenanceContract(overrides: Partial<MaintenanceContract>
     systemsCount: 3,
     createdAt: "2026-10-01T08:00:00.000Z",
     updatedAt: "2026-10-01T08:00:00.000Z",
+    ...overrides,
+  };
+}
+
+/** One row of GET /maintenance/agreements (S18b dashboard). */
+export function buildMaintenanceAgreementRow(overrides: Partial<MaintenanceAgreementRow> = {}): MaintenanceAgreementRow {
+  return {
+    id: AGREEMENT,
+    orgUnitId: UNIT,
+    ref: "Α.Ο 42/24",
+    titleEl: "Συντήρηση ηλεκτρομηχανολογικών εγκαταστάσεων",
+    contractorId: "ctr-1",
+    contractorName: "Δείγμα Η/Μ Συντήρηση Λτδ",
+    startDate: "2026-01-01",
+    endDate: "2031-12-31",
+    status: "ACTIVE",
+    contractValue: 6_000_000,
+    daysToExpiry: 1862,
+    expiryBand: "OK",
+    assetClasses: ["ELECTRICAL", "FIRE", "HVAC"],
+    systemsCount: 48,
+    pmSchedulesCount: 12,
+    assetsCount: 31,
+    pmDueThisMonth: 4,
+    pmOverdue: 1,
+    ...overrides,
+  };
+}
+
+/**
+ * GET /maintenance/agreements — one of each band: Nicosia in force,
+ * Larnaca 40 days from its end, Paphos past it, with no value recorded.
+ */
+export function buildMaintenanceAgreementList(overrides: Partial<MaintenanceAgreementList> = {}): MaintenanceAgreementList {
+  return {
+    items: [
+      buildMaintenanceAgreementRow({
+        id: "mc-3",
+        orgUnitId: "paphos-general",
+        ref: "Α.Ο 19/22",
+        contractorId: "ctr-2",
+        contractorName: "Δείγμα Ψυκτικά Λτδ",
+        startDate: "2022-10-01",
+        endDate: "2026-09-30",
+        status: "ENDED",
+        contractValue: null,
+        daysToExpiry: -56,
+        expiryBand: "EXPIRED",
+        assetClasses: ["HVAC"],
+        systemsCount: 12,
+        pmSchedulesCount: 6,
+        assetsCount: 3,
+        pmDueThisMonth: 0,
+        pmOverdue: 0,
+      }),
+      buildMaintenanceAgreementRow({
+        id: "mc-2",
+        orgUnitId: "larnaca-general",
+        ref: "Α.Ο 17/25",
+        contractorId: "ctr-2",
+        contractorName: "Δείγμα Ψυκτικά Λτδ",
+        startDate: "2024-01-04",
+        endDate: "2027-01-04",
+        contractValue: 850_000,
+        daysToExpiry: 40,
+        expiryBand: "EXPIRING",
+        assetClasses: ["HVAC", "MEDICAL_GAS"],
+        systemsCount: 8,
+        pmSchedulesCount: 5,
+        assetsCount: 9,
+        pmDueThisMonth: 2,
+        pmOverdue: 2,
+      }),
+      buildMaintenanceAgreementRow(),
+    ],
+    contractors: [
+      { id: "ctr-1", name: "Δείγμα Η/Μ Συντήρηση Λτδ" },
+      { id: "ctr-2", name: "Δείγμα Ψυκτικά Λτδ" },
+    ],
+    today: "2026-11-25",
     ...overrides,
   };
 }

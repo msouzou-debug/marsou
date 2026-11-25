@@ -1,6 +1,6 @@
 // S18a, S19 — the filed photos and papers on a work order, split for the
 // screen: what a browser can draw goes in the PhotoStrip, the rest (a PDF,
-// a zip, an office file) is a line with «Άνοιγμα».
+// a zip, an office file) is a line with «Προβολή» and «Λήψη».
 import type { WorkOrderEvent } from "@ecapital/shared";
 import type { Photo } from "@/components/photo-strip";
 import { documentContentHref } from "@/data/queries";

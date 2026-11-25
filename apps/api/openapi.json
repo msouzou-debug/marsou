@@ -2632,7 +2632,9 @@
                     ]
                   },
                   "nameEl": {
-                    "type": "string"
+                    "type": "string",
+                    "minLength": 2,
+                    "maxLength": 200
                   },
                   "assetClass": {
                     "type": "string",
@@ -2668,15 +2670,27 @@
                     ]
                   },
                   "installedDate": {
-                    "type": [
-                      "string",
-                      "null"
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "date",
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                      },
+                      {
+                        "type": "null"
+                      }
                     ]
                   },
                   "commissionedDate": {
-                    "type": [
-                      "string",
-                      "null"
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "date",
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                      },
+                      {
+                        "type": "null"
+                      }
                     ]
                   },
                   "sourceProjectId": {
@@ -2692,23 +2706,34 @@
                     ]
                   },
                   "capitalCost": {
-                    "type": [
-                      "number",
-                      "null"
+                    "anyOf": [
+                      {
+                        "type": "number",
+                        "minimum": 0
+                      },
+                      {
+                        "type": "null"
+                      }
                     ]
                   },
                   "warrantyEnd": {
-                    "type": [
-                      "string",
-                      "null"
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "date",
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                      },
+                      {
+                        "type": "null"
+                      }
                     ]
                   },
                   "expectedLifeYears": {
                     "anyOf": [
                       {
                         "type": "integer",
-                        "minimum": -9007199254740991,
-                        "maximum": 9007199254740991
+                        "minimum": 1,
+                        "maximum": 120
                       },
                       {
                         "type": "null"
@@ -2719,8 +2744,8 @@
                     "anyOf": [
                       {
                         "type": "integer",
-                        "minimum": -9007199254740991,
-                        "maximum": 9007199254740991
+                        "minimum": 1900,
+                        "maximum": 2200
                       },
                       {
                         "type": "null"
@@ -2728,9 +2753,14 @@
                     ]
                   },
                   "replacementCostEst": {
-                    "type": [
-                      "number",
-                      "null"
+                    "anyOf": [
+                      {
+                        "type": "number",
+                        "minimum": 0
+                      },
+                      {
+                        "type": "null"
+                      }
                     ]
                   },
                   "criticality": {
@@ -3076,7 +3106,7 @@
             }
           },
           "400": {
-            "description": "The body is not a valid asset",
+            "description": "The body is not a valid asset, or its dates are out of order; the message names the field",
             "content": {
               "application/json": {
                 "schema": {
@@ -4886,7 +4916,9 @@
                     ]
                   },
                   "nameEl": {
-                    "type": "string"
+                    "type": "string",
+                    "minLength": 2,
+                    "maxLength": 200
                   },
                   "assetClass": {
                     "type": "string",
@@ -4922,15 +4954,27 @@
                     ]
                   },
                   "installedDate": {
-                    "type": [
-                      "string",
-                      "null"
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "date",
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                      },
+                      {
+                        "type": "null"
+                      }
                     ]
                   },
                   "commissionedDate": {
-                    "type": [
-                      "string",
-                      "null"
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "date",
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                      },
+                      {
+                        "type": "null"
+                      }
                     ]
                   },
                   "sourceProjectId": {
@@ -4946,23 +4990,34 @@
                     ]
                   },
                   "capitalCost": {
-                    "type": [
-                      "number",
-                      "null"
+                    "anyOf": [
+                      {
+                        "type": "number",
+                        "minimum": 0
+                      },
+                      {
+                        "type": "null"
+                      }
                     ]
                   },
                   "warrantyEnd": {
-                    "type": [
-                      "string",
-                      "null"
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "date",
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                      },
+                      {
+                        "type": "null"
+                      }
                     ]
                   },
                   "expectedLifeYears": {
                     "anyOf": [
                       {
                         "type": "integer",
-                        "minimum": -9007199254740991,
-                        "maximum": 9007199254740991
+                        "minimum": 1,
+                        "maximum": 120
                       },
                       {
                         "type": "null"
@@ -4973,8 +5028,8 @@
                     "anyOf": [
                       {
                         "type": "integer",
-                        "minimum": -9007199254740991,
-                        "maximum": 9007199254740991
+                        "minimum": 1900,
+                        "maximum": 2200
                       },
                       {
                         "type": "null"
@@ -4982,9 +5037,14 @@
                     ]
                   },
                   "replacementCostEst": {
-                    "type": [
-                      "number",
-                      "null"
+                    "anyOf": [
+                      {
+                        "type": "number",
+                        "minimum": 0
+                      },
+                      {
+                        "type": "null"
+                      }
                     ]
                   },
                   "criticality": {
@@ -5324,7 +5384,7 @@
             }
           },
           "400": {
-            "description": "The body is not a valid change",
+            "description": "The body is not a valid change, or it puts the dates out of order; the message names the field",
             "content": {
               "application/json": {
                 "schema": {
@@ -5505,9 +5565,18 @@
                     ]
                   },
                   "assessedAt": {
-                    "type": "string",
-                    "format": "date-time",
-                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "date",
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                      },
+                      {
+                        "type": "string",
+                        "format": "date-time",
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                      }
+                    ]
                   },
                   "noteEl": {
                     "type": "string",
@@ -5772,7 +5841,7 @@
             }
           },
           "400": {
-            "description": "The band is missing or is not one of A to E",
+            "description": "The band is not one of A to E, or the date is not a date or is after today",
             "content": {
               "application/json": {
                 "schema": {
@@ -8134,6 +8203,18 @@
             }
           },
           {
+            "name": "download",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "1"
+              ]
+            },
+            "description": "1 sends the file as an attachment, to be saved rather than shown"
+          },
+          {
             "name": "Accept-Language",
             "in": "header",
             "required": false,
@@ -8328,7 +8409,7 @@
             "bearer": []
           }
         ],
-        "summary": "The bytes of a filed document, for a preview",
+        "summary": "The bytes of a filed document, for a preview or a download",
         "tags": [
           "documents"
         ]
@@ -9103,6 +9184,365 @@
           }
         ],
         "summary": "S18's tiles over the caller's units, or one of them",
+        "tags": [
+          "maintenance"
+        ]
+      }
+    },
+    "/maintenance/agreements": {
+      "get": {
+        "operationId": "MaintenanceController_agreements",
+        "parameters": [
+          {
+            "name": "q",
+            "required": false,
+            "in": "query",
+            "description": "Reference, title or contractor; case- and accent-insensitive",
+            "schema": {}
+          },
+          {
+            "name": "band",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "OK",
+                  "EXPIRING",
+                  "EXPIRED"
+                ]
+              }
+            }
+          },
+          {
+            "name": "contractorId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "name": "assetClass",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "description": "Register class an active catalogue line maps to; repeat for several"
+          },
+          {
+            "name": "orgUnitId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "description": "Unit ids; repeat for several"
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "el"
+            },
+            "description": "el or en. Greek when the header is absent."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The rows, the contractors to filter by, and the date the days were counted from",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "orgUnitId": {
+                            "type": "string"
+                          },
+                          "ref": {
+                            "type": "string"
+                          },
+                          "titleEl": {
+                            "type": "string"
+                          },
+                          "contractorId": {
+                            "type": "string"
+                          },
+                          "contractorName": {
+                            "type": "string"
+                          },
+                          "startDate": {
+                            "type": "string"
+                          },
+                          "endDate": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "ACTIVE",
+                              "ENDED"
+                            ]
+                          },
+                          "contractValue": {
+                            "anyOf": [
+                              {
+                                "type": "number",
+                                "minimum": 0
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "daysToExpiry": {
+                            "anyOf": [
+                              {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "expiryBand": {
+                            "type": "string",
+                            "enum": [
+                              "OK",
+                              "EXPIRING",
+                              "EXPIRED"
+                            ]
+                          },
+                          "assetClasses": {
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "enum": [
+                                "BUILDING_FABRIC",
+                                "HVAC",
+                                "ELECTRICAL",
+                                "MEDICAL_GAS",
+                                "WATER",
+                                "FIRE",
+                                "LIFT",
+                                "BIOMEDICAL",
+                                "IT",
+                                "OTHER"
+                              ]
+                            }
+                          },
+                          "systemsCount": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "pmSchedulesCount": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "assetsCount": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "pmDueThisMonth": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "pmOverdue": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "orgUnitId",
+                          "ref",
+                          "titleEl",
+                          "contractorId",
+                          "contractorName",
+                          "startDate",
+                          "endDate",
+                          "status",
+                          "contractValue",
+                          "daysToExpiry",
+                          "expiryBand",
+                          "assetClasses",
+                          "systemsCount",
+                          "pmSchedulesCount",
+                          "assetsCount",
+                          "pmDueThisMonth",
+                          "pmOverdue"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "contractors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "name"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "today": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "items",
+                    "contractors",
+                    "today"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A filter that is not one of the allowed values",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No token, or a token that does not verify",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "A role the matrix gives no read of maintenance agreements",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "S18b's dashboard: every agreement the caller may see, with cover, expiry and PM counts",
         "tags": [
           "maintenance"
         ]
@@ -50524,6 +50964,306 @@
         ]
       }
     },
+    "/contracts/{id}/rfis/{rid}": {
+      "patch": {
+        "operationId": "RfisController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "rid",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "el"
+            },
+            "description": "el or en. Greek when the header is absent."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "questionEl": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "dueDate": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The RFI after the change",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "contractId": {
+                      "type": "string"
+                    },
+                    "orgUnitId": {
+                      "type": "string"
+                    },
+                    "number": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "questionEl": {
+                      "type": "string"
+                    },
+                    "answerEl": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "raisedById": {
+                      "type": "string"
+                    },
+                    "raisedByName": {
+                      "type": "string"
+                    },
+                    "raisedAt": {
+                      "type": "string"
+                    },
+                    "answeredById": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "answeredByName": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "answeredAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "slaDueAt": {
+                      "type": "string"
+                    },
+                    "slaHours": {
+                      "type": "integer",
+                      "exclusiveMinimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "OPEN",
+                        "ANSWERED",
+                        "CLOSED"
+                      ]
+                    },
+                    "slaState": {
+                      "type": "string",
+                      "enum": [
+                        "GREEN",
+                        "AMBER",
+                        "RED",
+                        "BREACHED"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "contractId",
+                    "orgUnitId",
+                    "number",
+                    "questionEl",
+                    "answerEl",
+                    "raisedById",
+                    "raisedByName",
+                    "raisedAt",
+                    "answeredById",
+                    "answeredByName",
+                    "answeredAt",
+                    "slaDueAt",
+                    "slaHours",
+                    "status",
+                    "slaState"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The body is not a valid change",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "A read-only account, or a role that does not run projects",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such contract or RFI",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The RFI is closed, or the due date is before the day it was raised",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Correct an RFI's question or due date while it is not closed",
+        "tags": [
+          "site log"
+        ]
+      }
+    },
     "/contracts/{id}/rfis/{rid}/answer": {
       "post": {
         "operationId": "RfisController_answer",
@@ -51270,6 +52010,9 @@
                   },
                   "costImpactFlag": {
                     "type": "boolean"
+                  },
+                  "issuedOn": {
+                    "type": "string"
                   }
                 },
                 "required": [
@@ -51343,7 +52086,7 @@
             }
           },
           "400": {
-            "description": "The body is not a valid instruction",
+            "description": "The body is not a valid instruction, or its issue day is after today",
             "content": {
               "application/json": {
                 "schema": {
@@ -51445,6 +52188,263 @@
           }
         ],
         "summary": "Issue a site instruction; the API numbers it",
+        "tags": [
+          "site log"
+        ]
+      }
+    },
+    "/contracts/{id}/site-instructions/{sid}": {
+      "patch": {
+        "operationId": "SiteInstructionsController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "sid",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "el"
+            },
+            "description": "el or en. Greek when the header is absent."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "textEl": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "costImpactFlag": {
+                    "type": "boolean"
+                  },
+                  "issuedOn": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The instruction after the change",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "contractId": {
+                      "type": "string"
+                    },
+                    "orgUnitId": {
+                      "type": "string"
+                    },
+                    "number": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "textEl": {
+                      "type": "string"
+                    },
+                    "issuedById": {
+                      "type": "string"
+                    },
+                    "issuedByName": {
+                      "type": "string"
+                    },
+                    "issuedAt": {
+                      "type": "string"
+                    },
+                    "costImpactFlag": {
+                      "type": "boolean"
+                    },
+                    "variationId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "contractId",
+                    "orgUnitId",
+                    "number",
+                    "textEl",
+                    "issuedById",
+                    "issuedByName",
+                    "issuedAt",
+                    "costImpactFlag",
+                    "variationId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The body is not a valid change, or its issue day is after today",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "A read-only account, or a role that does not run projects",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such contract or instruction",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The instruction has already been turned into a variation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Correct a site instruction that has not become a variation",
         "tags": [
           "site log"
         ]
@@ -52057,6 +53057,9 @@
                       "null"
                     ]
                   },
+                  "raisedOn": {
+                    "type": "string"
+                  },
                   "orgUnitId": {
                     "default": null,
                     "anyOf": [
@@ -52241,7 +53244,7 @@
             }
           },
           "400": {
-            "description": "The body is not a valid defect, or names no unit and no parent",
+            "description": "The body is not a valid defect, names no unit and no parent, or was found after today",
             "content": {
               "application/json": {
                 "schema": {
@@ -52820,6 +53823,9 @@
                       "IN_PROGRESS",
                       "CLOSED"
                     ]
+                  },
+                  "raisedOn": {
+                    "type": "string"
                   }
                 },
                 "additionalProperties": false
@@ -52983,7 +53989,7 @@
             }
           },
           "400": {
-            "description": "The body is not a valid change",
+            "description": "The body is not a valid change, or the day it was found is after today",
             "content": {
               "application/json": {
                 "schema": {
@@ -53079,7 +54085,7 @@
             }
           },
           "422": {
-            "description": "Funded with no project to fund it from",
+            "description": "Funded with no project to fund it from, or a closed defect that is not being reopened",
             "content": {
               "application/json": {
                 "schema": {
