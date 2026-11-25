@@ -839,6 +839,13 @@ export const rfi = ecapital.table(
     slaDueAt: timestamp("sla_due_at", { withTimezone: true }).notNull(),
     slaHours: integer("sla_hours").notNull(),
     status: rfiStatus("status").notNull().default("OPEN"),
+    // 0030, owner decision 25/11/2026: eCapital sends no e-mail. Who the RFI
+    // went to, the address the engineer used in Outlook and the day it left.
+    // Nullable: every RFI before 0030 has none; the API requires the name on
+    // a new one.
+    recipientName: text("recipient_name"),
+    recipientEmail: text("recipient_email"),
+    sentOn: date("sent_on"),
     createdAt,
     updatedAt,
   },
@@ -1360,6 +1367,8 @@ export const documentKind = ecapital.enum("document_kind", [
   // M5 (0022): a photograph or the contractor's report on a work order.
   // ADR-0031 §11.
   "WORK_ORDER_DOCUMENT",
+  // 0030: an RFI's sent e-mail or the reply to it (owner decision 25/11/2026).
+  "RFI_EVIDENCE",
 ]);
 export const dmsOutboxStatus = ecapital.enum("dms_outbox_status", [
   "QUEUED",
@@ -1778,6 +1787,18 @@ export const assetDocumentKind = ecapital.enum("asset_document_kind", [
   "PHOTO",
 ]);
 
+// 0030, owner decision 25/11/2026: SAP's sixteen fixed-asset classes, the
+// reference table `asset.sapAssetClass` points at. No org_unit_id: the same
+// rows apply in every unit, like `budgetCode`.
+export const sapAssetClass = ecapital.table("sap_asset_class", {
+  code: text("code").primaryKey(),
+  nameEl: text("name_el").notNull(),
+  nameEn: text("name_en").notNull(),
+  active: boolean("active").notNull().default(true),
+  createdAt,
+  updatedAt,
+});
+
 export const asset = ecapital.table(
   "asset",
   {
@@ -1817,6 +1838,9 @@ export const asset = ecapital.table(
     system: permitSystem("system"),
     costCentre: text("cost_centre"),
     sapAssetNo: text("sap_asset_no"),
+    // 0030: SAP's fixed-asset class, «111042». Prefilled from `assetClass`
+    // by the default mapping and overridable; null where nobody has said.
+    sapAssetClass: text("sap_asset_class").references(() => sapAssetClass.code),
     status: assetStatus("status").notNull().default("IN_SERVICE"),
     createdAt,
     updatedAt,

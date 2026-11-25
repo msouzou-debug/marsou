@@ -24,7 +24,15 @@
 // warranty not before either, neither installation nor commissioning after
 // today in Nicosia, and no replacement before the year of installation.
 import { z } from "zod";
-import { ASSET_LIMITS, AssetClass, Criticality, PermitSystem, assetDateIssues, nicosiaToday } from "@ecapital/shared";
+import {
+  ASSET_LIMITS,
+  AssetClass,
+  Criticality,
+  PermitSystem,
+  SapAssetClassCode,
+  assetDateIssues,
+  nicosiaToday,
+} from "@ecapital/shared";
 
 export interface AssetFormValues {
   nameEl: string;
@@ -46,6 +54,9 @@ export interface AssetFormValues {
   criticality: number;
   system: PermitSystem | null;
   servesAreaIds: string[];
+  // Owner decision 25/11/2026: SAP's fixed-asset class, prefilled from the
+  // asset class (`defaultSapAssetClass`) and overridable; null is none.
+  sapAssetClass: string | null;
 }
 
 export interface AssetCreateFormValues extends AssetFormValues {
@@ -79,6 +90,7 @@ const sharedFields = {
   criticality: Criticality,
   system: PermitSystem.nullable(),
   servesAreaIds: z.array(z.string()),
+  sapAssetClass: SapAssetClassCode.nullable(),
 };
 
 /** The date rules, each message under the field it is about. */

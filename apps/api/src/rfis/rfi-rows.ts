@@ -77,6 +77,35 @@ export function dueWindowOn(raisedAt: Date, dueDate: string): { dueAt: Date; hou
   return { dueAt, hours };
 }
 
+/**
+ * Owner decision 25/11/2026: the day the RFI left by e-mail. RULE (owner,
+ * UAT 25/11/2026, the site-log date rule): it is not before the day the RFI
+ * was raised and not after today, both read as calendar days in Nicosia. On
+ * a new RFI the day it was raised is today, so today is the only day it can
+ * carry; an RFI recorded first and e-mailed later gets its day by an edit.
+ * The zod schema already refuses a day after today (errors.dateInFuture);
+ * this is the half only the row can answer.
+ */
+export function sentOnBeforeRaised(raisedAt: Date, sentOn: string | null | undefined): boolean {
+  return typeof sentOn === "string" && sentOn < nicosiaDateOf(raisedAt);
+}
+
+/**
+ * The type an RFI's evidence is filed under. An Outlook message saved to
+ * disk is a `.msg`, which browsers send as `application/vnd.ms-outlook`, as
+ * `application/octet-stream` or as nothing at all; a `.eml` arrives as
+ * `message/rfc822` or as octet-stream too. Both are on eArchive's whitelist
+ * under one name each, so the extension decides for these two and the
+ * browser's (or the caller's) word decides for everything else — which the
+ * store then holds to the whitelist (`errors.documentMimeRejected`).
+ */
+export function evidenceMime(filename: string, declared: string): string {
+  const extension = /\.([A-Za-z0-9]{1,5})$/.exec(filename.trim())?.[1]?.toLowerCase();
+  if (extension === "msg") return "application/vnd.ms-outlook";
+  if (extension === "eml") return "message/rfc822";
+  return declared.trim().toLowerCase();
+}
+
 export interface RfiRow {
   id: string;
   contractId: string;
@@ -93,6 +122,10 @@ export interface RfiRow {
   slaDueAt: Date;
   slaHours: number;
   status: Rfi["status"];
+  recipientName: string | null;
+  recipientEmail: string | null;
+  /** A `date` column: drizzle hands it back as yyyy-mm-dd. */
+  sentOn: string | null;
 }
 
 export function toRfi(row: RfiRow, now: Date): Rfi {
@@ -114,5 +147,8 @@ export function toRfi(row: RfiRow, now: Date): Rfi {
     status: row.status,
     // Computed here and never stored (ADR-0017).
     slaState: slaState(row.slaDueAt, row.slaHours, clockAt(row.answeredAt, now)),
+    recipientName: row.recipientName,
+    recipientEmail: row.recipientEmail,
+    sentOn: row.sentOn,
   };
 }

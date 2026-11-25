@@ -66,6 +66,9 @@
     "rfiUpdateNotValid": "The change to the RFI is not valid. The question cannot be empty and the due date must be a date.",
     "rfiClosedNoEdit": "This RFI is closed and can no longer be changed. Raise a new one if you need another clarification.",
     "rfiDueBeforeRaised": "The due date cannot be before the day the RFI was raised. Pick that day or a later one.",
+    "rfiRecipientNeeded": "Write who the RFI was sent to, in at most 200 characters, and try again.",
+    "rfiRecipientEmailNotValid": "The recipient's e-mail address is not valid. Correct it or leave the field empty.",
+    "rfiSentBeforeRaised": "The sent date cannot be before the day the RFI was raised. Pick that day or a later one.",
     "siteInstructionNotFound": "There is no such site instruction on this contract. Reload the page and pick one from the list.",
     "siteInstructionNotValid": "The site instruction is missing something. Write the instruction and say whether it carries a cost.",
     "noCostImpact": "This site instruction carries no cost, so there is nothing to turn into a variation. If it does cost something, correct the cost impact flag first.",
@@ -210,6 +213,7 @@
     "assetParentNotFound": "The parent asset was not found in this unit. Pick an asset of the same unit.",
     "assetDocumentAlreadyLinked": "That document is already linked to this asset. Open the asset's folder instead of uploading it again.",
     "assetDocumentKindNotValid": "Say what kind of document this is. Pick one of the kinds the asset folder takes and try again.",
+    "assetSapClassNotFound": "That SAP asset class does not exist or is no longer in use. Pick a class from the list.",
     "efinanceFailed": "eFinance did not answer as expected ({code}: {detail}). Try again shortly.",
     "efinanceMissingBudgetCode": "The contract has no budget code, so it cannot be sent to eFinance. Fill it in first.",
     "efinanceMissingVendorCode": "The contractor has no SAP vendor code, so the contract cannot be sent to eFinance. Fill it in on the contractor first.",
@@ -590,6 +594,7 @@
     "system": "System",
     "costCentre": "Cost centre",
     "sapAssetNo": "SAP asset number",
+    "sapAssetClass": "SAP asset class",
     "status": "Status"
   },
   "efinance": {
@@ -861,6 +866,7 @@
       "tag": "Tag",
       "assetName": "Asset",
       "assetClass": "Asset class",
+      "sapAssetClass": "SAP asset class",
       "criticality": "Criticality",
       "condition": "Condition",
       "installedYear": "Installed",

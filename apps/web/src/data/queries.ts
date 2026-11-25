@@ -34,7 +34,9 @@ import {
   QrLabel,
   ReplacementForecastRow,
   Rfi,
+  RfiDocument,
   RoleCatalogue,
+  SapAssetClass,
   ShutdownPermit,
   SiteInstruction,
   SystemFeed,
@@ -201,6 +203,21 @@ export function useRfis(contractId: string) {
     queryKey: ["rfis", contractId],
     queryFn: () => proxyFetch(`/contracts/${encodeURIComponent(contractId)}/rfis`, z.array(Rfi)),
     retry: false,
+  });
+}
+
+// S07b's read view: the sent e-mails and replies filed against one RFI
+// (owner decision 25/11/2026). Fetched only while the sheet shows an RFI.
+export function useRfiDocuments(contractId: string, rfiId: string | null) {
+  return useQuery({
+    queryKey: ["rfi-documents", contractId, rfiId],
+    queryFn: () =>
+      proxyFetch(
+        `/contracts/${encodeURIComponent(contractId)}/rfis/${encodeURIComponent(rfiId ?? "")}/documents`,
+        z.array(RfiDocument),
+      ),
+    retry: false,
+    enabled: !!rfiId,
   });
 }
 
@@ -617,6 +634,8 @@ export interface AssetsListQuery {
   criticality?: number;
   condition?: Condition;
   status?: AssetStatus;
+  /** A SAP class code, or `NONE` for the assets with none (owner decision 25/11/2026). */
+  sapAssetClass?: string;
   q?: string;
   sort?: "tag" | "nameEl" | "criticality" | "condition" | "replacementYear" | "updatedAt";
   dir?: "asc" | "desc";
@@ -632,6 +651,7 @@ export function assetsApiPath(query: AssetsListQuery): string {
   if (query.criticality) params.set("criticality", String(query.criticality));
   if (query.condition) params.set("condition", query.condition);
   if (query.status) params.set("status", query.status);
+  if (query.sapAssetClass) params.set("sapAssetClass", query.sapAssetClass);
   if (query.q?.trim()) params.set("q", query.q.trim());
   params.set("sort", query.sort ?? "tag");
   params.set("dir", query.dir ?? "asc");
@@ -647,6 +667,22 @@ export function useAssets(query: AssetsListQuery) {
     queryFn: () => proxyFetch(assetsApiPath(query), z.object({ items: z.array(AssetListRow), total: z.number().int() })),
     retry: false,
   });
+}
+
+// S16a's filter, S17a's select (owner decision 25/11/2026): SAP's sixteen
+// fixed-asset classes. Reference data that changes about never.
+export function useSapAssetClasses() {
+  return useQuery({
+    queryKey: ["sap-asset-classes"],
+    queryFn: () => proxyFetch("/assets/sap-classes", z.array(SapAssetClass)),
+    retry: false,
+    staleTime: 60 * 60 * 1000,
+  });
+}
+
+/** «111042 — Κλιματισμός», the way SAP's own screens show a class. */
+export function sapClassLabel(code: string, name: string | null | undefined): string {
+  return name ? `${code} — ${name}` : code;
 }
 
 // S17 detail, S17a's own prefill.

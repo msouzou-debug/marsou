@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { screen } from "@testing-library/react";
+import { fireEvent, screen } from "@testing-library/react";
 import { renderWithIntl } from "@/test/render";
 import { Assets } from "./Assets";
 
@@ -23,6 +23,9 @@ const ROW = {
   areaId: "area-1",
   areaNameEl: "Θάλαμος 214",
   orgUnitNameEl: "Νοσοκομείο Λευκωσίας",
+  sapAssetClass: "111042",
+  sapAssetClassNameEl: "Κλιματισμός",
+  sapAssetClassNameEn: "Air-conditioning",
   priorityRank: 3,
 };
 
@@ -33,6 +36,7 @@ const NO_FILTERS = {
   criticality: 0 as const,
   condition: "" as const,
   status: "" as const,
+  sapAssetClass: "",
   q: "",
 };
 
@@ -141,5 +145,61 @@ describe("Assets", () => {
     );
     expect(screen.queryByRole("link", { name: /Εκτύπωση ετικετών/ })).not.toBeInTheDocument();
     expect(screen.getByTitle("Εκτύπωση ετικετών")).toBeInTheDocument();
+  });
+
+  // Owner decision 25/11/2026: one register, every SAP class.
+  const SAP_CLASSES = [
+    { code: "111030", nameEl: "Ιατρικός εξοπλισμός", nameEn: "Medical Equipment", active: true },
+    { code: "111042", nameEl: "Κλιματισμός", nameEn: "Air-conditioning", active: true },
+  ];
+
+  it("shows the SAP class as «code — name», and a dash for an asset with none", () => {
+    renderWithIntl(
+      <Assets
+        data={{ items: [ROW, { ...ROW, id: "a2", tag: "NGH-OTH-0002", sapAssetClass: null, sapAssetClassNameEl: null, sapAssetClassNameEn: null }], total: 2 }}
+        state="default"
+        filters={NO_FILTERS}
+        orgUnits={[]}
+        onFilters={vi.fn()}
+        canWrite={true}
+        canViewForecast={false}
+        noPermission={<div />}
+        sapClasses={SAP_CLASSES}
+      />,
+    );
+    const header = screen.getByRole("columnheader", { name: /Κατηγορία SAP/ });
+    const columnIndex = Array.from(header.parentElement!.children).indexOf(header);
+    const rowOf = (tag: string) =>
+      screen.getAllByText(tag).map((el) => el.closest("tr")).find((tr): tr is HTMLTableRowElement => tr !== null)!;
+    expect(rowOf("NGH-HVAC-0001").children[columnIndex].textContent).toBe("111042 — Κλιματισμός");
+    expect(rowOf("NGH-OTH-0002").children[columnIndex].textContent).toBe("—");
+  });
+
+  it("filters by SAP class, including the assets with none", () => {
+    const onFilters = vi.fn();
+    renderWithIntl(
+      <Assets
+        data={{ items: [ROW], total: 1 }}
+        state="default"
+        filters={NO_FILTERS}
+        orgUnits={[]}
+        onFilters={onFilters}
+        canWrite={true}
+        canViewForecast={false}
+        noPermission={<div />}
+        sapClasses={SAP_CLASSES}
+      />,
+    );
+    const select = screen.getByLabelText("Κατηγορία παγίου SAP");
+    expect(Array.from((select as HTMLSelectElement).options).map((o) => o.textContent)).toEqual([
+      "Όλα",
+      "111030 — Ιατρικός εξοπλισμός",
+      "111042 — Κλιματισμός",
+      "Χωρίς κατηγορία SAP",
+    ]);
+    fireEvent.change(select, { target: { value: "111030" } });
+    expect(onFilters).toHaveBeenCalledWith({ ...NO_FILTERS, sapAssetClass: "111030" });
+    fireEvent.change(select, { target: { value: "NONE" } });
+    expect(onFilters).toHaveBeenCalledWith({ ...NO_FILTERS, sapAssetClass: "NONE" });
   });
 });

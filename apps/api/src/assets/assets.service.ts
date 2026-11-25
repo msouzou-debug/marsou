@@ -32,10 +32,12 @@ import {
   type Condition,
   type QrLabel,
   type ReplacementForecastRow,
+  type SapAssetClass,
   assetDateIssues,
+  defaultSapAssetClass,
   nicosiaToday,
 } from "@ecapital/shared";
-import { and, asc, desc, eq, inArray, isNotNull, sql, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNotNull, isNull, sql, type SQL } from "drizzle-orm";
 import { UUID, callerUserId } from "../common/actor";
 import { AppError } from "../common/errors";
 import {
@@ -101,6 +103,9 @@ export class AssetsService {
     if (query.criticality) filters.push(eq(schema.asset.criticality, query.criticality));
     if (query.condition) filters.push(eq(schema.asset.condition, query.condition));
     if (query.status) filters.push(eq(schema.asset.status, query.status));
+    // Owner decision 25/11/2026: SAP's class, or NONE for the unclassed.
+    if (query.sapAssetClass === "NONE") filters.push(isNull(schema.asset.sapAssetClass));
+    else if (query.sapAssetClass) filters.push(eq(schema.asset.sapAssetClass, query.sapAssetClass));
     if (query.q?.trim()) {
       // Tag, name, serial and SAP asset number, case-insensitively. The tag
       // is what a technician types after reading a sticker, so it matches on
@@ -141,10 +146,13 @@ export class AssetsService {
         asset: schema.asset,
         areaNameEl: schema.area.nameEl,
         orgUnitNameEl: schema.orgUnit.nameEl,
+        sapNameEl: schema.sapAssetClass.nameEl,
+        sapNameEn: schema.sapAssetClass.nameEn,
       })
       .from(schema.asset)
       .innerJoin(schema.orgUnit, eq(schema.orgUnit.id, schema.asset.orgUnitId))
       .leftJoin(schema.area, eq(schema.area.id, schema.asset.areaId))
+      .leftJoin(schema.sapAssetClass, eq(schema.sapAssetClass.code, schema.asset.sapAssetClass))
       .where(where)
       // Second key so a page boundary is stable when the first key ties.
       .orderBy(order, asc(schema.asset.tag))
@@ -152,9 +160,31 @@ export class AssetsService {
       .offset((query.page - 1) * query.pageSize);
 
     return {
-      items: rows.map((row) => toListRow(row.asset, row.areaNameEl, row.orgUnitNameEl)),
+      items: rows.map((row) =>
+        toListRow(row.asset, row.areaNameEl, row.orgUnitNameEl, row.sapNameEl, row.sapNameEn),
+      ),
       total,
     };
+  }
+
+  /**
+   * Owner decision 25/11/2026: SAP's fixed-asset classes, for the form's
+   * select and the register's filter. Reference data every signed-in user
+   * reads (0030 `sap_asset_class_read`), in SAP's own order — by code.
+   */
+  async sapClasses(): Promise<SapAssetClass[]> {
+    const tx = currentTx();
+    if (!tx) throw AppError.internal();
+    const rows = await tx.db
+      .select({
+        code: schema.sapAssetClass.code,
+        nameEl: schema.sapAssetClass.nameEl,
+        nameEn: schema.sapAssetClass.nameEn,
+        active: schema.sapAssetClass.active,
+      })
+      .from(schema.sapAssetClass)
+      .orderBy(asc(schema.sapAssetClass.code));
+    return rows;
   }
 
   // ----------------------------------------------------------- the write --
@@ -176,6 +206,11 @@ export class AssetsService {
       input.sourceProjectId ?? null,
       input.sourceContractId ?? null,
     );
+    // Owner decision 25/11/2026: left out, the SAP class is the default for
+    // the asset class; sent as null, the asset has none (the user's choice).
+    const sapAssetClass =
+      input.sapAssetClass === undefined ? defaultSapAssetClass(input.assetClass) : input.sapAssetClass;
+    await this.checkSapClass(sapAssetClass);
 
     const allocated = await tx.db.execute(
       sql`select ecapital.allocate_asset_tag(${input.orgUnitId}::text, ${input.assetClass}::ecapital.asset_class) as tag`,
@@ -215,6 +250,7 @@ export class AssetsService {
           system: input.system ?? null,
           costCentre: input.costCentre ?? null,
           sapAssetNo: input.sapAssetNo ?? null,
+          sapAssetClass,
           status: input.status ?? "IN_SERVICE",
         })
         .returning();
@@ -314,6 +350,10 @@ export class AssetsService {
     if (patch.system !== undefined) values.system = patch.system ?? null;
     if (patch.costCentre !== undefined) values.costCentre = patch.costCentre ?? null;
     if (patch.sapAssetNo !== undefined) values.sapAssetNo = patch.sapAssetNo ?? null;
+    if (patch.sapAssetClass !== undefined && patch.sapAssetClass !== existing.sapAssetClass) {
+      await this.checkSapClass(patch.sapAssetClass ?? null);
+      values.sapAssetClass = patch.sapAssetClass ?? null;
+    }
     if (patch.status !== undefined) values.status = patch.status;
 
     try {
@@ -435,6 +475,16 @@ export class AssetsService {
       .from(schema.orgUnit)
       .where(eq(schema.orgUnit.id, row.orgUnitId))
       .limit(1);
+
+    const sapClass = row.sapAssetClass
+      ? (
+          await tx.db
+            .select({ nameEl: schema.sapAssetClass.nameEl, nameEn: schema.sapAssetClass.nameEn })
+            .from(schema.sapAssetClass)
+            .where(eq(schema.sapAssetClass.code, row.sapAssetClass))
+            .limit(1)
+        )[0]
+      : undefined;
 
     // Null area_id is the common case — a chiller on the roof and a main LV
     // board belong to the building and not to a room (CAPEX-01 §4).
@@ -597,6 +647,8 @@ export class AssetsService {
       buildingCode: place?.buildingCode ?? null,
       floorCode: place?.floorCode ?? null,
       orgUnitNameEl: unitRow?.nameEl ?? "",
+      sapAssetClassNameEl: sapClass?.nameEl ?? null,
+      sapAssetClassNameEn: sapClass?.nameEn ?? null,
       sourceProjectCode: project?.code ?? null,
       sourceContractRef: contract?.ref ?? null,
       parentTag: parent?.tag ?? null,
@@ -758,10 +810,16 @@ export class AssetsService {
     ];
     if (orgUnitId) filters.push(eq(schema.asset.orgUnitId, orgUnitId));
 
+    // Owner decision 25/11/2026: by SAP class too, so finance reads the
+    // figure in SAP's own classes. The unclassed are a group of their own
+    // (null) and sort last within a year.
     const rows = await tx.db
       .select({
         orgUnitId: schema.asset.orgUnitId,
         orgUnitNameEl: schema.orgUnit.nameEl,
+        sapAssetClass: schema.asset.sapAssetClass,
+        sapAssetClassNameEl: schema.sapAssetClass.nameEl,
+        sapAssetClassNameEn: schema.sapAssetClass.nameEn,
         year: schema.asset.replacementYear,
         assets: sql<number>`count(*)::int`,
         estimatedCost: sql<string>`coalesce(sum(${schema.asset.replacementCostEst}), 0)`,
@@ -769,13 +827,28 @@ export class AssetsService {
       })
       .from(schema.asset)
       .innerJoin(schema.orgUnit, eq(schema.orgUnit.id, schema.asset.orgUnitId))
+      .leftJoin(schema.sapAssetClass, eq(schema.sapAssetClass.code, schema.asset.sapAssetClass))
       .where(and(...filters))
-      .groupBy(schema.asset.orgUnitId, schema.orgUnit.nameEl, schema.asset.replacementYear)
-      .orderBy(asc(schema.orgUnit.nameEl), asc(schema.asset.replacementYear));
+      .groupBy(
+        schema.asset.orgUnitId,
+        schema.orgUnit.nameEl,
+        schema.asset.replacementYear,
+        schema.asset.sapAssetClass,
+        schema.sapAssetClass.nameEl,
+        schema.sapAssetClass.nameEn,
+      )
+      .orderBy(
+        asc(schema.orgUnit.nameEl),
+        asc(schema.asset.replacementYear),
+        sql`${schema.asset.sapAssetClass} asc nulls last`,
+      );
 
     return rows.map((row) => ({
       orgUnitId: row.orgUnitId,
       orgUnitNameEl: row.orgUnitNameEl,
+      sapAssetClass: row.sapAssetClass,
+      sapAssetClassNameEl: row.sapAssetClassNameEl,
+      sapAssetClassNameEn: row.sapAssetClassNameEn,
       year: row.year as number,
       assets: row.assets,
       estimatedCost: Number(row.estimatedCost),
@@ -935,6 +1008,24 @@ export class AssetsService {
     }
   }
 
+  /**
+   * A SAP class is one of the reference rows and still in use. An unknown
+   * or retired one is the caller's mistake (400), said before the foreign
+   * key would say it less clearly. An unchanged class is never re-checked,
+   * so retiring a class does not block edits to the assets that carry it.
+   */
+  private async checkSapClass(code: string | null): Promise<void> {
+    const tx = currentTx();
+    if (!tx) throw AppError.internal();
+    if (!code) return;
+    const rows = await tx.db
+      .select({ code: schema.sapAssetClass.code })
+      .from(schema.sapAssetClass)
+      .where(and(eq(schema.sapAssetClass.code, code), eq(schema.sapAssetClass.active, true)))
+      .limit(1);
+    if (!rows.length) throw AppError.badRequest("errors.assetSapClassNotFound");
+  }
+
   private origin(): string {
     return this.config.corsOrigins[0] ?? "http://127.0.0.1:3000";
   }
@@ -997,6 +1088,7 @@ export function toAsset(row: AssetRow): Asset {
     system: row.system,
     costCentre: row.costCentre,
     sapAssetNo: row.sapAssetNo,
+    sapAssetClass: row.sapAssetClass,
     status: row.status,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
@@ -1007,6 +1099,8 @@ function toListRow(
   row: AssetRow,
   areaNameEl: string | null,
   orgUnitNameEl: string,
+  sapAssetClassNameEl: string | null,
+  sapAssetClassNameEn: string | null,
 ): AssetListRow {
   return {
     id: row.id,
@@ -1022,6 +1116,9 @@ function toListRow(
     areaId: row.areaId,
     areaNameEl,
     orgUnitNameEl,
+    sapAssetClass: row.sapAssetClass,
+    sapAssetClassNameEl,
+    sapAssetClassNameEn,
     priorityRank: priorityRank(row.criticality, row.condition as Condition | null, row.status),
   };
 }
@@ -1093,6 +1190,7 @@ interface SnakeAssetRow {
   system: AssetRow["system"];
   cost_centre: string | null;
   sap_asset_no: string | null;
+  sap_asset_class: string | null;
   status: AssetRow["status"];
   created_at: Date | string;
   updated_at: Date | string;
@@ -1136,6 +1234,7 @@ function fromSnakeCase(row: SnakeAssetRow): AssetRow {
     system: row.system,
     costCentre: row.cost_centre,
     sapAssetNo: row.sap_asset_no,
+    sapAssetClass: row.sap_asset_class ?? null,
     status: row.status,
     createdAt: asDate(row.created_at) as Date,
     updatedAt: asDate(row.updated_at) as Date,

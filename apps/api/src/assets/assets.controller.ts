@@ -33,6 +33,7 @@ import {
   Condition,
   QrLabel,
   ReplacementForecastRow,
+  SapAssetClass,
   assetDateIssues,
   nicosiaToday,
 } from "@ecapital/shared";
@@ -162,6 +163,11 @@ export class AssetsController {
   @ApiQuery({ name: "criticality", required: false, description: "1 to 5; 1 is life-critical." })
   @ApiQuery({ name: "condition", required: false, description: "A to E; A is as new." })
   @ApiQuery({ name: "status", required: false })
+  @ApiQuery({
+    name: "sapAssetClass",
+    required: false,
+    description: "A SAP fixed-asset class code, e.g. 111042, or NONE for the assets with none.",
+  })
   @ApiQuery({ name: "q", required: false, description: "Tag, name, serial or SAP asset number." })
   @ApiQuery({ name: "sort", required: false })
   @ApiQuery({ name: "dir", required: false })
@@ -174,6 +180,19 @@ export class AssetsController {
     const parsed = ListQuery.safeParse(query ?? {});
     if (!parsed.success) throw AppError.badRequest("errors.assetQueryNotValid");
     return this.assets.list(parsed.data);
+  }
+
+  /**
+   * Owner decision 25/11/2026: one register for every SAP class. The
+   * sixteen classes, for the form's select and the register's filter;
+   * reference data every signed-in user reads (0030). Declared before `:id`.
+   */
+  @Get("sap-classes")
+  @ApiOperation({ summary: "SAP's fixed-asset classes, by code" })
+  @ApiZodResponse(200, z.array(SapAssetClass), "Every class, active or retired, by code")
+  @ApiZodError(401, "No token, or a token that does not verify")
+  sapClasses(): Promise<SapAssetClass[]> {
+    return this.assets.sapClasses();
   }
 
   /**
@@ -200,7 +219,11 @@ export class AssetsController {
   @ApiQuery({ name: "from", required: true, description: "First year, e.g. 2027" })
   @ApiQuery({ name: "to", required: true, description: "Last year, e.g. 2035" })
   @ApiQuery({ name: "orgUnitId", required: false })
-  @ApiZodResponse(200, z.array(ReplacementForecastRow), "One row per unit per year with assets due")
+  @ApiZodResponse(
+    200,
+    z.array(ReplacementForecastRow),
+    "One row per unit, year and SAP class with assets due",
+  )
   @ApiZodError(400, "The years are missing, not years, or the wrong way round")
   @ApiZodError(401, "No token, or a token that does not verify")
   forecast(@Query() query: unknown): Promise<ReplacementForecastRow[]> {

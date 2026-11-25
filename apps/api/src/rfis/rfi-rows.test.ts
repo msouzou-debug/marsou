@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { clockAt, dueWindowOn, slaState, slaWindow } from "./rfi-rows";
+import {
+  clockAt,
+  dueWindowOn,
+  evidenceMime,
+  sentOnBeforeRaised,
+  slaState,
+  slaWindow,
+} from "./rfi-rows";
 
 /**
  * R09 — the SLA band, tested as what it is: arithmetic on two timestamps. No
@@ -107,5 +114,37 @@ describe("dueWindowOn (UAT 25/11/2026)", () => {
 
   it("refuses a due date before the day it was raised", () => {
     expect(dueWindowOn(raised, "2026-11-19")).toBeNull();
+  });
+});
+
+describe("sentOnBeforeRaised (owner decision 25/11/2026)", () => {
+  // 23:30 UTC on 19/11 is already 20/11 in Nicosia (UTC+2 in November).
+  const raisedLate = new Date("2026-11-19T23:30:00Z");
+
+  it("allows the Nicosia day it was raised and any later one", () => {
+    expect(sentOnBeforeRaised(raisedLate, "2026-11-20")).toBe(false);
+    expect(sentOnBeforeRaised(raisedLate, "2026-11-25")).toBe(false);
+  });
+
+  it("refuses a day before it, read in Nicosia and not in UTC", () => {
+    expect(sentOnBeforeRaised(raisedLate, "2026-11-19")).toBe(true);
+  });
+
+  it("has nothing to say about a sent day nobody gave", () => {
+    expect(sentOnBeforeRaised(raisedLate, null)).toBe(false);
+    expect(sentOnBeforeRaised(raisedLate, undefined)).toBe(false);
+  });
+});
+
+describe("evidenceMime", () => {
+  it("files a .msg and a .eml by their extension, whatever the browser said", () => {
+    expect(evidenceMime("RFI 3.msg", "application/octet-stream")).toBe("application/vnd.ms-outlook");
+    expect(evidenceMime("RFI 3.MSG", "")).toBe("application/vnd.ms-outlook");
+    expect(evidenceMime("reply.eml", "application/octet-stream")).toBe("message/rfc822");
+  });
+
+  it("keeps the declared type for anything else, for the whitelist to judge", () => {
+    expect(evidenceMime("rfi.pdf", "Application/PDF ")).toBe("application/pdf");
+    expect(evidenceMime("plan.dwg", "application/octet-stream")).toBe("application/octet-stream");
   });
 });

@@ -771,6 +771,16 @@ export async function assetLifecycleWorkbook(report: AssetLifecycleReport, i18n:
     { key: "assetName", width: 40, input: (r) => r.nameEl },
     { key: "unit", width: 30, input: (r) => r.orgUnitName },
     { key: "assetClass", width: 22, input: (r) => words.global(`assetClass.${r.assetClass}`) },
+    {
+      key: "sapAssetClass",
+      width: 34,
+      input: (r) =>
+        r.sapAssetClass
+          ? r.sapAssetClassNameEl
+            ? `${r.sapAssetClass} — ${r.sapAssetClassNameEl}`
+            : r.sapAssetClass
+          : null,
+    },
     { key: "criticality", width: 11, fmt: INT, input: (r) => r.criticality },
     { key: "condition", width: 11, input: (r) => r.condition },
     { key: "installedYear", width: 12, fmt: INT, input: (r) => r.installedYear },

@@ -29,7 +29,7 @@ import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import { Printer } from "lucide-react";
 import { nicosiaToday, type AssetDetail as AssetDetailType, type AssetDocumentKind, type Condition } from "@ecapital/shared";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { AssetBreadcrumb, type AssetBreadcrumbSegment } from "@/components/asset-breadcrumb";
 import { ConditionChip } from "@/components/condition-chip";
 import { CostBar } from "@/components/cost-bar";
@@ -37,7 +37,7 @@ import { CriticalityChip } from "@/components/criticality-chip";
 import { LabelSheet } from "@/components/label-sheet";
 import { PageTitle } from "@/components/app-shell";
 import { Timeline } from "@/components/timeline";
-import { documentContentHref, documentViewHref } from "@/data/queries";
+import { documentContentHref, documentViewHref, sapClassLabel } from "@/data/queries";
 import { formatDate, formatEURorDash, formatInt } from "@/lib/format";
 
 export type AssetDetailState = "default" | "loading" | "error" | "noPermission" | "offline";
@@ -144,6 +144,7 @@ export function AssetDetail(props: AssetDetailProps) {
     onSubmitDocument,
   } = props;
   const t = useTranslations();
+  const locale = useLocale();
   const [fileInputKey, setFileInputKey] = useState(0);
 
   if (state === "noPermission") return <>{noPermission}</>;
@@ -227,6 +228,15 @@ export function AssetDetail(props: AssetDetailProps) {
               />
               <Fact label={t("screens.s17.facts.costCentre")} value={asset.costCentre ?? t("common.notAvailable")} />
               <Fact label={t("screens.s17.facts.sapAssetNo")} value={asset.sapAssetNo ?? t("common.notAvailable")} />
+              {/* Owner decision 25/11/2026: SAP's fixed-asset class, «111042 — Κλιματισμός». */}
+              <Fact
+                label={t("screens.s17.facts.sapAssetClass")}
+                value={
+                  asset.sapAssetClass
+                    ? sapClassLabel(asset.sapAssetClass, locale === "en" ? (asset.sapAssetClassNameEn ?? asset.sapAssetClassNameEl) : asset.sapAssetClassNameEl)
+                    : t("common.notAvailable")
+                }
+              />
               {asset.system && <Fact label={t("screens.s17.facts.system")} value={t(`permitSystem.${asset.system}`)} />}
               {asset.parentTag && (
                 <Fact

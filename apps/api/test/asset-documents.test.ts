@@ -277,12 +277,14 @@ describe("an asset's papers, its label and the forecast", () => {
     const token = await tokenFor(app, USERS.admin);
     // The forecast is a sum over the unit's whole register, which other
     // suites add to: measure what this test's two assets change, not the sum.
+    // Both are HVAC, so both land in SAP's air-conditioning row (0030).
     const forecast = async () => {
       const response = await request(app.getHttpServer())
         .get("/assets/replacement-forecast?from=2042&to=2042&orgUnitId=nicosia-general")
         .set(bearer(token));
       expect(response.status).toBe(200);
-      return response.body as { assets: number; estimatedCost: number }[];
+      return (response.body as { sapAssetClass: string | null; assets: number; estimatedCost: number }[])
+        .filter((row) => row.sapAssetClass === "111042");
     };
     const [was = { assets: 0, estimatedCost: 0 }] = await forecast();
     const live = await makeAsset({ replacementYear: 2042, replacementCostEst: 1000 });
@@ -297,6 +299,38 @@ describe("an asset's papers, its label and the forecast", () => {
     expect(now[0].assets).toBe(was.assets + 1);
     expect(now[0].estimatedCost).toBeCloseTo(was.estimatedCost + 1000, 2);
     expect(live.id).toBeDefined();
+  });
+
+  it("splits the forecast by SAP asset class, with the unclassed in a row of their own", async () => {
+    // Owner decision 25/11/2026: the figure reaches finance in SAP's classes.
+    const token = await tokenFor(app, USERS.admin);
+    const forecast = async () => {
+      const response = await request(app.getHttpServer())
+        .get("/assets/replacement-forecast?from=2043&to=2043&orgUnitId=nicosia-general")
+        .set(bearer(token));
+      expect(response.status).toBe(200);
+      return response.body as {
+        sapAssetClass: string | null;
+        sapAssetClassNameEl: string | null;
+        assets: number;
+        estimatedCost: number;
+      }[];
+    };
+    const count = (rows: { sapAssetClass: string | null; assets: number }[], code: string | null) =>
+      rows.find((row) => row.sapAssetClass === code)?.assets ?? 0;
+    const was = await forecast();
+    await makeAsset({ assetClass: "BIOMEDICAL", replacementYear: 2043, replacementCostEst: 500 });
+    await makeAsset({ assetClass: "IT", replacementYear: 2043, replacementCostEst: 300 });
+    await makeAsset({ assetClass: "OTHER", replacementYear: 2043, replacementCostEst: 200 });
+    const now = await forecast();
+    expect(count(now, "111030")).toBe(count(was, "111030") + 1);
+    expect(count(now, "111050")).toBe(count(was, "111050") + 1);
+    expect(count(now, null)).toBe(count(was, null) + 1);
+    expect(now.find((row) => row.sapAssetClass === "111030")?.sapAssetClassNameEl).toBe(
+      "Ιατρικός εξοπλισμός",
+    );
+    // The unclassed sort last.
+    expect(now[now.length - 1].sapAssetClass).toBeNull();
   });
 
   it("refuses a year range that is the wrong way round", async () => {

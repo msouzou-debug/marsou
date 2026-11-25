@@ -18,6 +18,7 @@
  * NO PATIENT DATA. Machines, rooms, dates and money.
  */
 import { createHash } from "node:crypto";
+import { defaultSapAssetClass } from "@ecapital/shared";
 import { and, eq, sql } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { assetDocumentSourceRef, buildAssetDocumentMeta } from "../documents/dms-meta";
@@ -116,6 +117,9 @@ export async function seedAssetRegister(db: Db): Promise<AssetSeedSummary> {
       system: fixture.system,
       costCentre: fixture.costCentre,
       sapAssetNo: fixture.sapAssetNo,
+      // 0030: the default SAP class for the asset class, as the form
+      // prefills it and the migration backfilled the register.
+      sapAssetClass: defaultSapAssetClass(fixture.assetClass),
       status: fixture.status,
     };
 

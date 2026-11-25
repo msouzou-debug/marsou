@@ -25,6 +25,9 @@ export function buildRfis(now: Date = new Date("2026-09-19T09:00:00.000Z")): Rfi
       slaHours: 7 * 24,
       status: "OPEN",
       slaState: "BREACHED",
+      recipientName: null,
+      recipientEmail: null,
+      sentOn: null,
     },
     {
       id: "rfi-2",
@@ -43,6 +46,9 @@ export function buildRfis(now: Date = new Date("2026-09-19T09:00:00.000Z")): Rfi
       slaHours: 7 * 24,
       status: "OPEN",
       slaState: "GREEN",
+      recipientName: "Μάριος Ανδρέου, Αρχιτεκτονικό γραφείο",
+      recipientEmail: "m.andreou@architects.example",
+      sentOn: null,
     },
     {
       id: "rfi-3",
@@ -61,6 +67,9 @@ export function buildRfis(now: Date = new Date("2026-09-19T09:00:00.000Z")): Rfi
       slaHours: 7 * 24,
       status: "CLOSED",
       slaState: "GREEN",
+      recipientName: "Δοκιμαστική Εργοληπτική Λτδ",
+      recipientEmail: null,
+      sentOn: "2026-08-21",
     },
   ];
 }

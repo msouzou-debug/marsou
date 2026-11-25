@@ -56,7 +56,8 @@ describe("migrations", () => {
     expect(result.applied).toContain("0025_delay_extensions_claims");
     expect(result.applied).toContain("0027_unit_people");
     expect(result.applied).toContain("0028_project_cashflow_plan");
-    expect(result.lastMigrationId).toBe("0028_project_cashflow_plan");
+    expect(result.applied).toContain("0030_rfi_recipient_and_sap_asset_class");
+    expect(result.lastMigrationId).toBe("0030_rfi_recipient_and_sap_asset_class");
 
     const client = new Client({ connectionString: targetUrl });
     await client.connect();
@@ -124,6 +125,7 @@ describe("migrations", () => {
       "risk",
       "role_mapping",
       "role_permission",
+      "sap_asset_class",
       "schema_migration",
       "shutdown_permit",
       "shutdown_permit_area",
@@ -167,6 +169,7 @@ describe("migrations", () => {
     expect(result.skipped).toContain("0025_delay_extensions_claims");
     expect(result.skipped).toContain("0027_unit_people");
     expect(result.skipped).toContain("0028_project_cashflow_plan");
+    expect(result.skipped).toContain("0030_rfi_recipient_and_sap_asset_class");
     expect(await snapshot(targetUrl)).toEqual(before);
   });
 
@@ -975,17 +978,24 @@ describe("migrations", () => {
           where schemaname = 'ecapital' and tablename = 'document' order by policyname`,
       );
       // 0022 (ADR-0031 §11) adds one narrow INSERT-only policy: a
-      // work-order document, by whoever may work the order. Nothing else.
+      // work-order document, by whoever may work the order. 0030 adds its
+      // twin for an RFI's evidence, by whoever may write the RFI log
+      // (owner decision 25/11/2026). Nothing else.
       expect(doc.map((d) => d.policyname)).toEqual([
+        "document_insert_rfi",
         "document_insert_work_order",
         "document_read",
         "document_write",
       ]);
-      expect(doc[0].with_check).toContain("work_order");
-      expect(doc[0].with_check).toContain("can_work_work_order");
+      expect(doc[0].with_check).toContain("'rfi'");
+      expect(doc[0].with_check).toContain("RFI_EVIDENCE");
+      expect(doc[0].with_check).toContain("can_manage_site_log");
       expect(doc[0].qual).toBeNull();
-      expect(doc[1].qual).toContain("can_read_unit");
-      expect(doc[2].with_check).toContain("can_manage_document");
+      expect(doc[1].with_check).toContain("work_order");
+      expect(doc[1].with_check).toContain("can_work_work_order");
+      expect(doc[1].qual).toBeNull();
+      expect(doc[2].qual).toContain("can_read_unit");
+      expect(doc[3].with_check).toContain("can_manage_document");
     } finally {
       await client.end();
     }
@@ -1011,6 +1021,132 @@ describe("migrations", () => {
       await client.end();
     }
   });
+
+  /**
+   * Owner decisions of 25/11/2026. Run on its own database, the 0012 way:
+   * everything before 0030, a register with one asset of every eCapital
+   * class, then 0030 — twice, with a choice somebody made by hand in between.
+   */
+  it("0030 seeds SAP's sixteen classes, backfills the register and keeps a later choice", async () => {
+    const legacyDb = "ecapital_migration_0030_test";
+    const legacyUrl = adminUrl.replace(/\/postgres$/, `/${legacyDb}`);
+
+    const admin = new Client({ connectionString: adminUrl });
+    await admin.connect();
+    await admin.query(`drop database if exists ${legacyDb}`);
+    await admin.query(`create database ${legacyDb}`);
+    await admin.end();
+
+    const client = new Client({ connectionString: legacyUrl });
+    await client.connect();
+    try {
+      const files = readMigrations();
+      const before = files.filter((m) => m.id < "0030");
+      const zeroZeroThreeZero = files.find((m) => m.id === "0030_rfi_recipient_and_sap_asset_class");
+      expect(zeroZeroThreeZero).toBeDefined();
+
+      await client.query("create schema if not exists ecapital");
+      for (const migration of before) await client.query(migration.sql);
+
+      await client.query(`
+        insert into ecapital.org_unit (id, code, name_el, name_en, type, directorate, entity_code)
+        values ('nicosia-general', 'NGH', 'Γενικό Νοσοκομείο Λευκωσίας', 'Nicosia General Hospital', 'HOSPITAL', 'LEFKOSIAS', 'NGH')
+        on conflict (id) do nothing`);
+      const classes = [
+        "BUILDING_FABRIC",
+        "HVAC",
+        "ELECTRICAL",
+        "MEDICAL_GAS",
+        "WATER",
+        "FIRE",
+        "LIFT",
+        "BIOMEDICAL",
+        "IT",
+        "OTHER",
+      ];
+      for (const [i, assetClass] of classes.entries()) {
+        await client.query(
+          `insert into ecapital.asset (org_unit_id, tag, name_el, asset_class, criticality)
+           values ('nicosia-general', $1, $2, $3::ecapital.asset_class, 3)`,
+          [`NGH-T30-${String(i + 1).padStart(4, "0")}`, `Πάγιο ${assetClass}`, assetClass],
+        );
+      }
+
+      await client.query(zeroZeroThreeZero!.sql);
+
+      // 1. The sixteen classes, by code, with Greek and English names.
+      const { rows: sap } = await client.query<{ code: string; name_el: string; active: boolean }>(
+        "select code, name_el, active from ecapital.sap_asset_class order by code",
+      );
+      expect(sap.map((r) => r.code)).toEqual([
+        "111020", "111025", "111030", "111032", "111040", "111042", "111046", "111048",
+        "111050", "111052", "111054", "111056", "111058", "111062", "111066", "111120",
+      ]);
+      expect(sap.every((r) => r.active)).toBe(true);
+      expect(sap.find((r) => r.code === "111120")?.name_el).toBe("Πάγια υπό κατασκευή");
+
+      // 2. The backfill follows the default mapping; OTHER stays unclassed.
+      const mapped = async () => {
+        const { rows } = await client.query<{ asset_class: string; sap_asset_class: string | null }>(
+          "select asset_class::text, sap_asset_class from ecapital.asset order by tag",
+        );
+        return Object.fromEntries(rows.map((r) => [r.asset_class, r.sap_asset_class]));
+      };
+      expect(await mapped()).toEqual({
+        BUILDING_FABRIC: "111020",
+        HVAC: "111042",
+        ELECTRICAL: "111062",
+        MEDICAL_GAS: "111062",
+        WATER: "111062",
+        FIRE: "111058",
+        LIFT: "111040",
+        BIOMEDICAL: "111030",
+        IT: "111050",
+        OTHER: null,
+      });
+
+      // 3. A choice made by hand survives a second run, which changes nothing.
+      await client.query(
+        "update ecapital.asset set sap_asset_class = '111054' where asset_class = 'IT'",
+      );
+      await client.query(
+        "update ecapital.asset set sap_asset_class = '111025' where asset_class = 'OTHER'",
+      );
+      await client.query(zeroZeroThreeZero!.sql);
+      const again = await mapped();
+      expect(again.IT).toBe("111054");
+      expect(again.OTHER).toBe("111025");
+      expect(again.HVAC).toBe("111042");
+      const { rows: count } = await client.query<{ n: string }>(
+        "select count(*)::text as n from ecapital.sap_asset_class",
+      );
+      expect(Number(count[0].n)).toBe(16);
+
+      // 4. A code that is not SAP's is refused by the foreign key.
+      await expect(
+        client.query("update ecapital.asset set sap_asset_class = '999999' where asset_class = 'LIFT'"),
+      ).rejects.toThrow(/foreign key/);
+
+      // 5. The RFI columns and the RFI evidence kind exist.
+      const { rows: columns } = await client.query<{ column_name: string }>(
+        `select column_name from information_schema.columns
+          where table_schema = 'ecapital' and table_name = 'rfi'
+            and column_name in ('recipient_name', 'recipient_email', 'sent_on') order by column_name`,
+      );
+      expect(columns.map((c) => c.column_name)).toEqual(["recipient_email", "recipient_name", "sent_on"]);
+      const { rows: kinds } = await client.query<{ enumlabel: string }>(
+        `select e.enumlabel from pg_enum e join pg_type t on t.oid = e.enumtypid
+          where t.typname = 'document_kind' and e.enumlabel = 'RFI_EVIDENCE'`,
+      );
+      expect(kinds).toHaveLength(1);
+    } finally {
+      await client.end();
+      const cleanup = new Client({ connectionString: adminUrl });
+      await cleanup.connect();
+      await cleanup.query(`drop database if exists ${legacyDb}`);
+      await cleanup.end();
+    }
+  }, 180_000);
 
   it("gives the application role no way to change the audit log", async () => {
     const client = new Client({ connectionString: targetUrl });

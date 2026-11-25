@@ -23,6 +23,8 @@ export const DocumentRecord = z.object({
     "ASSET_DOCUMENT",
     // M5 (ADR-0031 §11): a photograph or the contractor's report on a work order.
     "WORK_ORDER_DOCUMENT",
+    // 0030 (owner decision 25/11/2026): an RFI's sent e-mail or the reply.
+    "RFI_EVIDENCE",
   ]),
   titleEl: z.string(),
   filename: z.string(),

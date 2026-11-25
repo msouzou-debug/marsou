@@ -26,6 +26,43 @@ export const AssetClass = z.enum([
 ]);
 export type AssetClass = z.infer<typeof AssetClass>;
 
+// Owner decision 25/11/2026: one register for every SAP fixed-asset class,
+// no second tool. SAP's class is a six-digit code from a reference table
+// (`ecapital.sap_asset_class`, migration 0030) that every signed-in user can
+// read; an asset points at one, or at none.
+export const SapAssetClassCode = z.string().regex(/^\d{6}$/);
+
+export const SapAssetClass = z.object({
+  code: SapAssetClassCode,
+  nameEl: z.string(),
+  nameEn: z.string(),
+  active: z.boolean(),
+});
+export type SapAssetClass = z.infer<typeof SapAssetClass>;
+
+/**
+ * RULE (owner decision 25/11/2026): the SAP class an eCapital class starts
+ * from. It prefills the asset form and backfilled the register in migration
+ * 0030 (`ecapital.default_sap_asset_class`, the same table in SQL); the user
+ * can always choose another. OTHER has no default: nobody can guess it.
+ */
+export const SAP_ASSET_CLASS_BY_ASSET_CLASS: Record<AssetClass, string | null> = {
+  BUILDING_FABRIC: "111020",
+  HVAC: "111042",
+  ELECTRICAL: "111062",
+  MEDICAL_GAS: "111062",
+  WATER: "111062",
+  FIRE: "111058",
+  LIFT: "111040",
+  BIOMEDICAL: "111030",
+  IT: "111050",
+  OTHER: null,
+};
+
+export function defaultSapAssetClass(assetClass: AssetClass): string | null {
+  return SAP_ASSET_CLASS_BY_ASSET_CLASS[assetClass] ?? null;
+}
+
 // RULE (§2 Maximo row): criticality 1–5 per asset; PM frequency and SLA
 // response time derive from it in M5. 1 = life-critical, 5 = cosmetic.
 export const Criticality = z.number().int().min(1).max(5);
@@ -71,6 +108,8 @@ export const Asset = z.object({
   system: PermitSystem.nullable(), // what a shutdown of it interrupts
   costCentre: z.string().nullable(),
   sapAssetNo: z.string().nullable(),
+  // SAP's fixed-asset class code, «111042» (owner decision 25/11/2026).
+  sapAssetClass: SapAssetClassCode.nullable(),
   status: AssetStatus,
   createdAt: z.string(),
   updatedAt: z.string(),
@@ -130,6 +169,9 @@ export const AssetWrite = Asset.omit({
     system: true,
     costCentre: true,
     sapAssetNo: true,
+    // Left out of a create, the API fills the default for the asset class
+    // (`defaultSapAssetClass`); sent as null, the asset has none.
+    sapAssetClass: true,
     status: true,
   });
 export type AssetWrite = z.infer<typeof AssetWrite>;
@@ -249,6 +291,9 @@ export const AssetDetail = Asset.extend({
   buildingCode: z.string().nullable(),
   floorCode: z.string().nullable(),
   orgUnitNameEl: z.string(),
+  // The SAP class's names, for the detail screen (null when none is set).
+  sapAssetClassNameEl: z.string().nullable(),
+  sapAssetClassNameEn: z.string().nullable(),
   sourceProjectCode: z.string().nullable(),
   sourceContractRef: z.string().nullable(),
   parentTag: z.string().nullable(),
@@ -281,6 +326,8 @@ export const AssetListQuery = z.object({
   criticality: z.number().int().min(1).max(5).optional(),
   condition: Condition.optional(),
   status: AssetStatus.optional(),
+  // A SAP class code, or `NONE` for the assets nobody has classed yet.
+  sapAssetClass: z.union([SapAssetClassCode, z.literal("NONE")]).optional(),
   q: z.string().optional(), // tag, name, serial, SAP asset no
   sort: z.enum(["tag", "nameEl", "criticality", "condition", "replacementYear", "updatedAt"]).default("tag"),
   dir: z.enum(["asc", "desc"]).default("asc"),
@@ -301,9 +348,12 @@ export const AssetListRow = Asset.pick({
   warrantyEnd: true,
   orgUnitId: true,
   areaId: true,
+  sapAssetClass: true,
 }).extend({
   areaNameEl: z.string().nullable(),
   orgUnitNameEl: z.string(),
+  sapAssetClassNameEl: z.string().nullable(),
+  sapAssetClassNameEn: z.string().nullable(),
   // S21 (M5) sorts by criticality × condition; the rank is server-side so
   // every list agrees. 1 = most urgent.
   priorityRank: z.number().int().nullable(),
@@ -323,9 +373,14 @@ export type QrLabel = z.infer<typeof QrLabel>;
 
 // R30, lean: replacement forecast by year per unit, from `replacementYear`
 // and `replacementCostEst`. Feeds the capital pipeline (CAPEX-01 §2 item 2).
+// Owner decision 25/11/2026: split by SAP fixed-asset class as well, so the
+// figure reaches finance in SAP's own classes; null is the assets with none.
 export const ReplacementForecastRow = z.object({
   orgUnitId: z.string(),
   orgUnitNameEl: z.string(),
+  sapAssetClass: SapAssetClassCode.nullable(),
+  sapAssetClassNameEl: z.string().nullable(),
+  sapAssetClassNameEn: z.string().nullable(),
   year: z.number().int(),
   assets: z.number().int(),
   estimatedCost: z.number(),

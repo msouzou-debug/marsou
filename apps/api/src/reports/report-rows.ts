@@ -195,6 +195,9 @@ export interface LifecycleAsset {
   orgUnitId: string;
   orgUnitName: string;
   assetClass: string;
+  /** SAP's fixed-asset class; absent is the same as null. */
+  sapAssetClass?: string | null;
+  sapAssetClassNameEl?: string | null;
   criticality: number;
   condition: string | null;
   installedDate: string | null;
@@ -230,6 +233,8 @@ export function assetLifecycleRow(
     orgUnitId: asset.orgUnitId,
     orgUnitName: asset.orgUnitName,
     assetClass: asset.assetClass,
+    sapAssetClass: asset.sapAssetClass ?? null,
+    sapAssetClassNameEl: asset.sapAssetClassNameEl ?? null,
     criticality: asset.criticality,
     condition: asset.condition,
     installedYear,

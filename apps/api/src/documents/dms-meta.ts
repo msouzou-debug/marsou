@@ -427,6 +427,68 @@ export function buildWorkOrderDocumentMeta(
   });
 }
 
+/**
+ * Owner decision 25/11/2026: eCapital sends no e-mail. The engineer sends an
+ * RFI from Outlook and files the sent message, or the reply, against it.
+ * Either is correspondence on a contract, so it files under «Συμβάσεις» with
+ * the contractor as counterparty, the same as a variation.
+ */
+export const RFI_DOC_TYPE = "Αλληλογραφία αιτήματος διευκρίνισης";
+
+/** `rfi_doc:<rfi_id>:<n>`, the nth paper on this RFI. Same reasoning as an asset's. */
+export function rfiDocumentSourceRef(rfiId: string, n: number): string {
+  return `rfi_doc:${rfiId}:${n}`;
+}
+
+export interface RfiDocumentFacts {
+  rfiId: string;
+  contractId: string;
+  contractRef: string | null;
+  number: number;
+  questionEl: string;
+  recipientName: string | null;
+  n: number;
+  letterDate: string;
+  contractor: ContractorFacts | null;
+  unit: UnitFacts;
+  approvals: PersonAction[];
+}
+
+/**
+ * The subject leads with the RFI's number on the contract — «ΑΔ 3» is what
+ * a site meeting calls it — then the contract's reference, the recipient
+ * and the question, cut to fit.
+ */
+export function buildRfiDocumentMeta(
+  facts: RfiDocumentFacts,
+  files: DmsFile[],
+  origin: string,
+): DmsMetaBody {
+  const label = `Αίτημα διευκρίνισης ${facts.number}`;
+  return checked({
+    ...commonFacts(facts.unit),
+    source_module: "rfi_document",
+    source_ref: rfiDocumentSourceRef(facts.rfiId, facts.n),
+    source_url: deepLink(origin, `/contracts/${facts.contractId}/rfis`),
+    doc_type: RFI_DOC_TYPE,
+    subject: subject([
+      RFI_DOC_TYPE,
+      label,
+      facts.contractRef ?? "",
+      facts.recipientName ?? "",
+      facts.questionEl.slice(0, 200),
+    ]),
+    sender_ref: `${facts.contractRef ?? facts.contractId}/ΑΔ-${facts.number}`.slice(0, 120),
+    letter_date: facts.letterDate,
+    category: "Συμβάσεις",
+    counterparties: facts.contractor ? [vendorCounterparty(facts.contractor)] : [],
+    amount: 0,
+    related: [],
+    approvals: approvalsOf(facts.approvals),
+    files,
+  });
+}
+
 export function buildAssetDocumentMeta(
   facts: AssetDocumentFacts,
   files: DmsFile[],

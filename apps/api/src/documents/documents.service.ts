@@ -36,9 +36,11 @@ import {
   buildAssetDocumentMeta,
   buildAwardMeta,
   buildBusinessCaseMeta,
+  buildRfiDocumentMeta,
   buildVariationMeta,
   buildWorkOrderDocumentMeta,
   businessCaseSourceRef,
+  rfiDocumentSourceRef,
   variationSourceRef,
   workOrderDocumentSourceRef,
 } from "./dms-meta";
@@ -476,6 +478,90 @@ export class DocumentsService {
     });
   }
 
+  /**
+   * Owner decision 25/11/2026: eCapital sends no e-mail. The engineer sends
+   * the RFI from Outlook and files the sent message here — or, later, the
+   * reply. The nth paper on the RFI, numbered like an asset's, and the same
+   * one-transaction rule as everything else in this file (ADR-0023).
+   *
+   * The `document` row is written under `document_insert_rfi` (0030):
+   * whoever may write the RFI log may file its evidence. An RFI in a unit
+   * the caller may not see never reaches here — the RFI service answers 404
+   * first.
+   */
+  async fileRfiDocument(
+    rfi: {
+      id: string;
+      contractId: string;
+      number: number;
+      questionEl: string;
+      recipientName: string | null;
+      orgUnitId: string;
+    },
+    upload: UploadInput,
+  ): Promise<DocumentRecord> {
+    const tx = currentTx();
+    if (!tx) throw AppError.internal();
+
+    const [facts] = await tx.db
+      .select({
+        contractRef: schema.contract.ref,
+        unitCode: schema.orgUnit.code,
+        unitName: schema.orgUnit.nameEl,
+        contractorId: schema.contractor.id,
+        contractorName: schema.contractor.name,
+        contractorVat: schema.contractor.vatNumber,
+        contractorReg: schema.contractor.registrationNo,
+        contractorSap: schema.contractor.sapVendorId,
+      })
+      .from(schema.contract)
+      .innerJoin(schema.orgUnit, eq(schema.orgUnit.id, schema.contract.orgUnitId))
+      .innerJoin(schema.contractor, eq(schema.contractor.id, schema.contract.contractorId))
+      .where(eq(schema.contract.id, rfi.contractId))
+      .limit(1);
+    if (!facts) throw AppError.notFound("errors.contractNotFound");
+
+    const n = await this.nextVersion("rfi", rfi.id);
+    const stored = await this.store.put({
+      bytes: upload.bytes,
+      filename: upload.filename,
+      mime: upload.mime,
+      prefix: `rfi/${rfi.id}`,
+    });
+    const files = [mainFile(stored)];
+    const meta = buildRfiDocumentMeta(
+      {
+        rfiId: rfi.id,
+        contractId: rfi.contractId,
+        contractRef: facts.contractRef,
+        number: rfi.number,
+        questionEl: rfi.questionEl,
+        recipientName: rfi.recipientName,
+        n,
+        letterDate: dateOnly(new Date()),
+        contractor: contractorOf(facts),
+        unit: unitOf(facts.unitCode, facts.unitName),
+        approvals: await this.recordedBy("rfi", rfi.id),
+      },
+      files,
+      this.origin(),
+    );
+
+    return this.persist({
+      orgUnitId: rfi.orgUnitId,
+      entityType: "rfi",
+      entityId: rfi.id,
+      kind: "RFI_EVIDENCE",
+      titleEl: upload.titleEl?.trim() || meta.subject,
+      sourceRef: rfiDocumentSourceRef(rfi.id, n),
+      sourceModule: "rfi_document",
+      version: n,
+      stored,
+      meta,
+      files,
+    });
+  }
+
   /** Everything the three routes already hold, listed for a screen. */
   async listFor(entityType: string, entityId: string): Promise<DocumentRecord[]> {
     const tx = currentTx();
@@ -557,7 +643,13 @@ export class DocumentsService {
     orgUnitId: string;
     entityType: string;
     entityId: string;
-    kind: "AWARD_DECISION" | "BUSINESS_CASE" | "VARIATION" | "ASSET_DOCUMENT" | "WORK_ORDER_DOCUMENT";
+    kind:
+      | "AWARD_DECISION"
+      | "BUSINESS_CASE"
+      | "VARIATION"
+      | "ASSET_DOCUMENT"
+      | "WORK_ORDER_DOCUMENT"
+      | "RFI_EVIDENCE";
     titleEl: string;
     sourceRef: string;
     sourceModule: string;

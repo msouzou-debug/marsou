@@ -24,6 +24,7 @@ import { Condition, type AssetLifecycleReport, type AssetLifecycleRow } from "@e
 import { ConditionChip } from "@/components/condition-chip";
 import { CriticalityChip, type CriticalityValue } from "@/components/criticality-chip";
 import { Table, type TableColumn } from "@/components/table";
+import { sapClassLabel } from "@/data/queries";
 import { formatDecimal, formatInt } from "@/lib/format";
 import { DASH, eurOrDash, pctOrDash } from "../cells";
 import { EMPTY, tableState, type BodyProps } from "./types";
@@ -66,6 +67,13 @@ export function AssetLifecycleBody({ report, state, onExport, onRetry }: BodyPro
       headerKey: `${P}.columns.assetClass`,
       accessor: (r) => r.assetClass,
       cell: (r) => (t.has(`assetClass.${r.assetClass}`) ? t(`assetClass.${r.assetClass}`) : r.assetClass),
+    },
+    {
+      // Owner decision 25/11/2026: SAP's class beside eCapital's.
+      id: "sapAssetClass",
+      headerKey: `${P}.columns.sapAssetClass`,
+      accessor: (r) => r.sapAssetClass ?? "",
+      cell: (r) => (r.sapAssetClass ? sapClassLabel(r.sapAssetClass, r.sapAssetClassNameEl) : DASH),
     },
     { id: "criticality", headerKey: `${P}.columns.criticality`, accessor: (r) => r.criticality, cell: (r) => <CriticalityChip value={criticality(r.criticality)} /> },
     {

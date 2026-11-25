@@ -30,6 +30,7 @@ function toFormValues(asset: AssetDetail): AssetFormValues {
     criticality: asset.criticality,
     system: asset.system,
     servesAreaIds: asset.servesAreaIds,
+    sapAssetClass: asset.sapAssetClass,
   };
 }
 

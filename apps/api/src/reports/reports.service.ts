@@ -466,6 +466,8 @@ export class ReportsService {
         orgUnitId: a.orgUnitId,
         orgUnitName: schema.orgUnit.nameEl,
         assetClass: a.assetClass,
+        sapAssetClass: a.sapAssetClass,
+        sapAssetClassNameEl: schema.sapAssetClass.nameEl,
         criticality: a.criticality,
         condition: a.condition,
         installedDate: a.installedDate,
@@ -477,6 +479,7 @@ export class ReportsService {
       })
       .from(a)
       .innerJoin(schema.orgUnit, eq(schema.orgUnit.id, a.orgUnitId))
+      .leftJoin(schema.sapAssetClass, eq(schema.sapAssetClass.code, a.sapAssetClass))
       .where(and(...filters));
 
     const ids = assets.map((row) => row.assetId);
