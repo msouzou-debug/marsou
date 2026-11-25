@@ -8,6 +8,7 @@ import {
   DefectStatus,
   DefectUpdate,
   RiskBand,
+  isOnlyFutureDateIssue,
 } from "@ecapital/shared";
 import { z } from "zod";
 import { AppError } from "../common/errors";
@@ -110,12 +111,16 @@ export class DefectsController {
   @ApiOperation({ summary: "Record a defect; a handover defect takes its due date from the contract" })
   @ApiBody({ schema: jsonSchema(DefectCreateBody) as never })
   @ApiZodResponse(201, Defect, "The defect as stored, OPEN, raised by the caller")
-  @ApiZodError(400, "The body is not a valid defect, or names no unit and no parent")
+  @ApiZodError(400, "The body is not a valid defect, names no unit and no parent, or was found after today")
   @ApiZodError(403, "A read-only account, or a role that may not raise this kind of defect")
   @ApiZodError(404, "No such contract or project, or none the caller may see")
   create(@Body() body: unknown): Promise<Defect> {
     const parsed = DefectCreateBody.safeParse(body);
-    if (!parsed.success) throw AppError.badRequest("errors.defectNotValid");
+    if (!parsed.success) {
+      throw AppError.badRequest(
+        isOnlyFutureDateIssue(parsed.error) ? "errors.dateInFuture" : "errors.defectNotValid",
+      );
+    }
     return this.defects.create(parsed.data);
   }
 
@@ -124,13 +129,17 @@ export class DefectsController {
   @ApiParam({ name: "id", schema: { type: "string", format: "uuid" } })
   @ApiBody({ schema: jsonSchema(DefectUpdate) as never })
   @ApiZodResponse(200, Defect, "The defect after the change")
-  @ApiZodError(400, "The body is not a valid change")
+  @ApiZodError(400, "The body is not a valid change, or the day it was found is after today")
   @ApiZodError(403, "A read-only account, or a role that may not write this defect")
   @ApiZodError(404, "No such defect, or none the caller may see")
-  @ApiZodError(422, "Funded with no project to fund it from")
+  @ApiZodError(422, "Funded with no project to fund it from, or a closed defect that is not being reopened")
   update(@Param("id") id: string, @Body() body: unknown): Promise<Defect> {
     const parsed = DefectUpdate.safeParse(body);
-    if (!parsed.success) throw AppError.badRequest("errors.defectNotValid");
+    if (!parsed.success) {
+      throw AppError.badRequest(
+        isOnlyFutureDateIssue(parsed.error) ? "errors.dateInFuture" : "errors.defectNotValid",
+      );
+    }
     return this.defects.update(id, sentKeysOnly(parsed.data, body));
   }
 }

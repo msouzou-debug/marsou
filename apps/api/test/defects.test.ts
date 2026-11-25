@@ -4,6 +4,7 @@ import {
   Defect,
   DefectBacklogRow,
   ProjectDetail,
+  nicosiaDateOf,
 } from "@ecapital/shared";
 import request from "supertest";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -422,5 +423,75 @@ describe("defects", () => {
       expect(entry.actorId).toBe("dev-technician-nicosia");
       expect(entry.orgUnitId).toBe("nicosia-general");
     }
+  });
+
+  // ------------------------------------- closed and found-on (UAT 25/11/2026) --
+
+  function daysAgo(days: number): string {
+    const date = new Date(`${nicosiaDateOf(new Date())}T00:00:00Z`);
+    date.setUTCDate(date.getUTCDate() - days);
+    return date.toISOString().slice(0, 10);
+  }
+
+  it("refuses to edit a closed defect, and lets it be reopened on its own", async () => {
+    const created = await post(USERS.estatesNicosia, {
+      ...inspection,
+      descriptionEl: `Έλλειψη κλειστή ${Date.now()}`,
+      orgUnitId: "nicosia-general",
+    });
+    const token = await tokenFor(app, USERS.estatesNicosia);
+    const patch = (body: Record<string, unknown>) =>
+      request(app.getHttpServer()).patch(`/defects/${created.body.id}`).set(bearer(token)).send(body);
+
+    expect((await patch({ status: "CLOSED" })).status).toBe(200);
+
+    const edit = await patch({ descriptionEl: "Αλλαγή μετά το κλείσιμο" });
+    expect(edit.status).toBe(422);
+    expect(edit.body.key).toBe("errors.defectClosed");
+    // Reopening and changing something else in the same breath is still an edit.
+    const sneaky = await patch({ status: "OPEN", riskBand: "LOW" });
+    expect(sneaky.status).toBe(422);
+    expect(sneaky.body.key).toBe("errors.defectClosed");
+
+    const reopened = await patch({ status: "OPEN" });
+    expect(reopened.status).toBe(200);
+    const after = await patch({ descriptionEl: "Αλλαγή αφού άνοιξε ξανά" });
+    expect(after.status).toBe(200);
+    expect(Defect.parse(after.body).descriptionEl).toBe("Αλλαγή αφού άνοιξε ξανά");
+  });
+
+  it("records the day a defect was found, and refuses a day after today", async () => {
+    const created = await post(USERS.estatesNicosia, {
+      ...inspection,
+      descriptionEl: `Έλλειψη παλαιότερης επιθεώρησης ${Date.now()}`,
+      orgUnitId: "nicosia-general",
+      raisedOn: daysAgo(5),
+    });
+    expect(created.status).toBe(201);
+    expect(nicosiaDateOf(Defect.parse(created.body).raisedAt)).toBe(daysAgo(5));
+
+    const future = await post(USERS.estatesNicosia, {
+      ...inspection,
+      descriptionEl: `Έλλειψη από το μέλλον ${Date.now()}`,
+      orgUnitId: "nicosia-general",
+      raisedOn: daysAgo(-1),
+    });
+    expect(future.status).toBe(400);
+    expect(future.body.key).toBe("errors.dateInFuture");
+
+    const token = await tokenFor(app, USERS.estatesNicosia);
+    const moved = await request(app.getHttpServer())
+      .patch(`/defects/${created.body.id}`)
+      .set(bearer(token))
+      .send({ raisedOn: daysAgo(7) });
+    expect(moved.status).toBe(200);
+    expect(nicosiaDateOf(Defect.parse(moved.body).raisedAt)).toBe(daysAgo(7));
+
+    const movedToFuture = await request(app.getHttpServer())
+      .patch(`/defects/${created.body.id}`)
+      .set(bearer(token))
+      .send({ raisedOn: daysAgo(-2) });
+    expect(movedToFuture.status).toBe(400);
+    expect(movedToFuture.body.key).toBe("errors.dateInFuture");
   });
 });

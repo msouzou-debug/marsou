@@ -1,12 +1,13 @@
 import { Injectable } from "@nestjs/common";
-import type { Rfi, RfiAnswer, RfiCreate } from "@ecapital/shared";
+import type { Rfi, RfiAnswer, RfiCreate, RfiUpdate } from "@ecapital/shared";
+import { nicosiaDateOf } from "@ecapital/shared";
 import { and, desc, eq, sql } from "drizzle-orm";
 import { UUID, callerUserId } from "../common/actor";
 import { AppError } from "../common/errors";
 import { INSUFFICIENT_PRIVILEGE, CHECK_VIOLATION, sqlState } from "../common/sql-error";
 import { currentTx } from "../db/client";
 import * as schema from "../db/schema";
-import { type RfiRow, slaWindow, toRfi } from "./rfi-rows";
+import { type RfiRow, dueWindowOn, slaWindow, toRfi } from "./rfi-rows";
 
 /**
  * M1 — the RFI log (R09). Αίτημα διευκρίνισης: a question about the works,
@@ -78,6 +79,58 @@ export class RfisService {
     } catch (error) {
       this.writeError(error);
     }
+  }
+
+  /**
+   * UAT 25/11/2026: correcting an RFI — its question and its due date — for
+   * as long as it is not closed. Who raised it and when, and the answer, are
+   * not changed here: the first two are the record, the answer has its own
+   * route. The audit trigger on ecapital.rfi (migration 0006) keeps the old
+   * and new values of every change, like every other write on the table.
+   *
+   * RULE (UAT 25/11/2026): a CLOSED RFI is settled correspondence and is not
+   * edited — 422 errors.rfiClosedNoEdit. A new question is a new RFI.
+   *
+   * RULE (owner, UAT 25/11/2026): the due date is not before the day the RFI
+   * was raised — 422 errors.rfiDueBeforeRaised. A due date the caller sends
+   * unchanged is left alone, so saving the question does not move the clock.
+   */
+  async update(
+    contractId: string,
+    rfiId: string,
+    input: Partial<RfiUpdate>,
+    now: Date,
+  ): Promise<Rfi> {
+    const tx = currentTx();
+    if (!tx) throw AppError.internal();
+    await this.contractOf(contractId);
+    await this.row(contractId, rfiId);
+    const existing = await this.one(contractId, rfiId, now);
+    if (existing.status === "CLOSED") throw AppError.unprocessable("errors.rfiClosedNoEdit");
+
+    const values: { questionEl?: string; slaDueAt?: Date; slaHours?: number } = {};
+    if (input.questionEl !== undefined && input.questionEl !== existing.questionEl) {
+      values.questionEl = input.questionEl;
+    }
+    if (input.dueDate !== undefined && input.dueDate !== nicosiaDateOf(existing.slaDueAt)) {
+      const window = dueWindowOn(new Date(existing.raisedAt), input.dueDate);
+      if (!window) throw AppError.unprocessable("errors.rfiDueBeforeRaised");
+      values.slaDueAt = window.dueAt;
+      values.slaHours = window.hours;
+    }
+    if (Object.keys(values).length === 0) return existing;
+
+    try {
+      const touched = await tx.db
+        .update(schema.rfi)
+        .set({ ...values, updatedAt: sql`now()` })
+        .where(eq(schema.rfi.id, rfiId))
+        .returning({ id: schema.rfi.id });
+      if (!touched.length) throw AppError.forbidden("errors.readOnlyAccount");
+    } catch (error) {
+      this.writeError(error);
+    }
+    return this.one(contractId, rfiId, now);
   }
 
   /**

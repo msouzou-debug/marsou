@@ -1,9 +1,10 @@
-import { Body, Controller, Get, HttpCode, Param, Post, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, HttpCode, Param, Patch, Post, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiBody, ApiOperation, ApiParam, ApiTags } from "@nestjs/swagger";
-import { Rfi, RfiAnswer, RfiCreate } from "@ecapital/shared";
+import { Rfi, RfiAnswer, RfiCreate, RfiUpdate } from "@ecapital/shared";
 import { z } from "zod";
 import { AppError } from "../common/errors";
 import { ApiZodError, ApiZodResponse, jsonSchema } from "../common/openapi";
+import { sentKeysOnly } from "../common/patch";
 import { RolesGuard } from "../common/roles.guard";
 import { RfisService } from "./rfis.service";
 
@@ -49,6 +50,31 @@ export class RfisController {
     const parsed = RfiCreate.safeParse(body);
     if (!parsed.success) throw AppError.badRequest("errors.rfiNotValid");
     return this.rfis.create(id, parsed.data, new Date());
+  }
+
+  /**
+   * UAT 25/11/2026: the same write as raising one (the rfisInstructions row,
+   * enforced by the row policy, ADR-0010). Refused on a CLOSED RFI and for a
+   * due date before the day it was raised; see the service.
+   */
+  @Patch("contracts/:id/rfis/:rid")
+  @ApiOperation({ summary: "Correct an RFI's question or due date while it is not closed" })
+  @ApiParam({ name: "id", schema: { type: "string", format: "uuid" } })
+  @ApiParam({ name: "rid", schema: { type: "string", format: "uuid" } })
+  @ApiBody({ schema: jsonSchema(RfiUpdate) as never })
+  @ApiZodResponse(200, Rfi, "The RFI after the change")
+  @ApiZodError(400, "The body is not a valid change")
+  @ApiZodError(403, "A read-only account, or a role that does not run projects")
+  @ApiZodError(404, "No such contract or RFI")
+  @ApiZodError(422, "The RFI is closed, or the due date is before the day it was raised")
+  update(
+    @Param("id") id: string,
+    @Param("rid") rid: string,
+    @Body() body: unknown,
+  ): Promise<Rfi> {
+    const parsed = RfiUpdate.safeParse(body);
+    if (!parsed.success) throw AppError.badRequest("errors.rfiUpdateNotValid");
+    return this.rfis.update(id, rid, sentKeysOnly(parsed.data, body), new Date());
   }
 
   /** RULE (ADR-0017): the answerer may be the raiser; see the service. */

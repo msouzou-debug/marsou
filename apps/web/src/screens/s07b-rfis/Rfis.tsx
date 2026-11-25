@@ -13,7 +13,9 @@
  * | state        | RfisScreenState     | The five states (build brief §6).                                  |
  * | roles        | AppRole[]           | `canWriteRfis(roles)` — the «Προσθήκη», answer and «Ολοκλήρωση» gate. |
  * | now          | Date?               | Injectable "now" for `SlaChip`'s tests and preview.                 |
- * | selectedId / onSelect / sheetSaving / sheetApiError / onCreate / onAnswer / onCloseRfi / onRetry | — | Wired by `RfisScreen`. |
+ * | selectedId / onSelect / sheetSaving / sheetApiError / onCreate / onAnswer / onCloseRfi / onUpdate / onRetry | — | Wired by `RfisScreen`. |
+ *
+ * A row opens the sheet's read view on a click or on Enter (UAT 25/11/2026).
  *
  * RULE (ADR-0017): a breach is a state, never a block — nothing here checks
  * `slaState` before allowing an answer or a close.
@@ -27,7 +29,7 @@ import { SlaChip } from "@/components/sla-chip";
 import { Table, type TableColumn } from "@/components/table";
 import { formatDate } from "@/lib/format";
 import { ContractTabs } from "@/screens/s07-contract/ContractTabs";
-import type { RfiFormValues } from "./schema";
+import type { RfiEditFormValues, RfiFormValues } from "./schema";
 import { RfiSheet } from "./RfiSheet";
 
 export type RfisScreenState = "default" | "loading" | "empty" | "error" | "noPermission" | "offline";
@@ -46,6 +48,8 @@ export interface RfisProps {
   onCreate: (values: RfiFormValues) => void;
   onAnswer: (answerEl: string) => void;
   onCloseRfi: () => void;
+  /** UAT 25/11/2026: `PATCH .../rfis/:rid`; resolves true once saved. Omitted (or offline), no «Επεξεργασία». */
+  onUpdate?: (values: RfiEditFormValues) => Promise<boolean>;
 }
 
 export function Rfis({
@@ -62,6 +66,7 @@ export function Rfis({
   onCreate,
   onAnswer,
   onCloseRfi,
+  onUpdate,
 }: RfisProps) {
   const t = useTranslations();
 
@@ -159,6 +164,7 @@ export function Rfis({
 
       {sheetOpen && (
         <RfiSheet
+          key={selectedId}
           open
           rfi={selectedRfi}
           canWrite={canWrite}
@@ -168,6 +174,7 @@ export function Rfis({
           onCreate={onCreate}
           onAnswer={onAnswer}
           onCloseRfi={onCloseRfi}
+          onUpdate={state === "offline" ? undefined : onUpdate}
         />
       )}
     </>

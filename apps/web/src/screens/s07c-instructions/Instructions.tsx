@@ -14,6 +14,9 @@
  * | instructions | SiteInstruction[]?      | Ignored in `noPermission` \| `loading` \| `error`.                  |
  * | state        | InstructionsScreenState | The five states.                                                    |
  * | roles        | AppRole[]               | `canWriteSiteInstructions(roles)`.                                  |
+ * | onUpdate     | (values) => Promise<boolean>? | UAT 25/11/2026: «Επεξεργασία» in the sheet; omitted or offline, none. |
+ *
+ * A row opens the sheet's read view on a click or on Enter (UAT 25/11/2026).
  *
  * RULE (ADR-0017): only a cost-impact instruction may become a variation,
  * and only once — the API refuses `errors.noCostImpact` / `errors.alreadyLinked`
@@ -47,6 +50,7 @@ export interface InstructionsProps {
   creatingVariationId?: string | null;
   onCreate: (values: InstructionFormValues) => void;
   onCreateVariation: (instruction: SiteInstruction) => void;
+  onUpdate?: (values: InstructionFormValues) => Promise<boolean>;
 }
 
 export function Instructions({
@@ -63,6 +67,7 @@ export function Instructions({
   creatingVariationId,
   onCreate,
   onCreateVariation,
+  onUpdate,
 }: InstructionsProps) {
   const t = useTranslations();
 
@@ -200,6 +205,7 @@ export function Instructions({
 
       {sheetOpen && (
         <InstructionSheet
+          key={selectedId}
           open
           instruction={selectedInstruction}
           variationNumber={selectedInstruction?.variationId ? variationNumberOf(selectedInstruction.variationId) : undefined}
@@ -210,6 +216,7 @@ export function Instructions({
           onClose={() => onSelect(null)}
           onCreate={onCreate}
           onCreateVariation={() => selectedInstruction && onCreateVariation(selectedInstruction)}
+          onUpdate={state === "offline" ? undefined : onUpdate}
         />
       )}
     </>

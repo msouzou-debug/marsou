@@ -1,5 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
-import { screen } from "@testing-library/react";
+import { fireEvent, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { nicosiaDateOf } from "@ecapital/shared";
+import { formatDate } from "@/lib/format";
 import { renderWithIntl } from "@/test/render";
 import { buildContractDetail } from "../s07-contract/fixture";
 import { buildInstructions } from "./fixture";
@@ -78,5 +81,85 @@ describe("Instructions — R09, ADR-0017", () => {
       <Instructions contract={contractWithVariation} instructions={instructions} state="default" noPermission={noPermission} roles={["technician"]} onSelect={vi.fn()} onCreate={vi.fn()} onCreateVariation={vi.fn()} />,
     );
     expect(screen.queryByRole("button", { name: "Προσθήκη" })).not.toBeInTheDocument();
+  });
+});
+
+describe("Instructions — detail and edit (UAT 25/11/2026)", () => {
+  const unlinked = instructions.find((i) => !i.variationId && i.costImpactFlag)!;
+  const linked = instructions.find((i) => i.variationId)!;
+
+  function renderSelected(selectedId: string | null, props: Partial<Parameters<typeof Instructions>[0]> = {}) {
+    return renderWithIntl(
+      <Instructions
+        contract={contractWithVariation}
+        instructions={instructions}
+        state="default"
+        noPermission={noPermission}
+        roles={["project_engineer"]}
+        selectedId={selectedId}
+        onSelect={vi.fn()}
+        onCreate={vi.fn()}
+        onCreateVariation={vi.fn()}
+        onUpdate={vi.fn().mockResolvedValue(true)}
+        {...props}
+      />,
+    );
+  }
+
+  it("opens an instruction when its row is clicked, but not from its create-variation button", async () => {
+    const user = userEvent.setup();
+    const onSelect = vi.fn();
+    const onCreateVariation = vi.fn();
+    renderSelected(null, { onSelect, onCreateVariation });
+    const row = screen.getByText(unlinked.textEl).closest("tr")!;
+    await user.click(row);
+    expect(onSelect).toHaveBeenCalledWith(unlinked.id);
+
+    onSelect.mockClear();
+    await user.click(within(row).getByRole("button", { name: "Δημιουργία τροποποίησης" }));
+    expect(onCreateVariation).toHaveBeenCalled();
+    expect(onSelect).not.toHaveBeenCalled();
+  });
+
+  it("shows every field, and no «Επεξεργασία» once it has become a variation", () => {
+    renderSelected(linked.id);
+    const dialog = within(screen.getByRole("dialog", { name: `Οδηγία εργοταξίου ${linked.number}` }));
+    expect(dialog.getByText(linked.textEl)).toBeInTheDocument();
+    expect(dialog.getByText(linked.issuedByName)).toBeInTheDocument();
+    expect(dialog.getByText(formatDate(linked.issuedAt))).toBeInTheDocument();
+    expect(dialog.getByText("Τροποποίηση 4")).toBeInTheDocument();
+    expect(dialog.queryByRole("button", { name: "Επεξεργασία" })).not.toBeInTheDocument();
+    expect(dialog.getByText("Η οδηγία έχει γίνει τροποποίηση σύμβασης και δεν αλλάζει πια.")).toBeInTheDocument();
+  });
+
+  it("offers no «Επεξεργασία» to a role that only reads the log", () => {
+    renderSelected(unlinked.id, { roles: ["finance"] });
+    expect(within(screen.getByRole("dialog")).queryByRole("button", { name: "Επεξεργασία" })).not.toBeInTheDocument();
+  });
+
+  it("edits the text and issue day, refusing a day after today", async () => {
+    const user = userEvent.setup();
+    const onUpdate = vi.fn().mockResolvedValue(true);
+    renderSelected(unlinked.id, { onUpdate });
+    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Επεξεργασία" }));
+
+    const dialog = within(screen.getByRole("dialog", { name: `Επεξεργασία οδηγίας εργοταξίου ${unlinked.number}` }));
+    const issuedOn = dialog.getByLabelText("Ημερομηνία έκδοσης");
+    expect(issuedOn).toHaveValue(nicosiaDateOf(unlinked.issuedAt));
+
+    const tomorrow = new Date(`${nicosiaDateOf(new Date())}T00:00:00Z`);
+    tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
+    fireEvent.change(issuedOn, { target: { value: tomorrow.toISOString().slice(0, 10) } });
+    await user.click(dialog.getByRole("button", { name: "Αποθήκευση" }));
+    expect(onUpdate).not.toHaveBeenCalled();
+    expect(await dialog.findByText("Η ημερομηνία δεν μπορεί να είναι μεταγενέστερη της σημερινής.")).toBeInTheDocument();
+
+    const text = dialog.getByLabelText("Οδηγία");
+    await user.clear(text);
+    await user.type(text, "Δύο σειρές ηχομονωτικών πάνελ.");
+    fireEvent.change(issuedOn, { target: { value: "2026-07-01" } });
+    await user.click(dialog.getByRole("button", { name: "Αποθήκευση" }));
+    expect(onUpdate).toHaveBeenCalledWith({ textEl: "Δύο σειρές ηχομονωτικών πάνελ.", costImpactFlag: true, issuedOn: "2026-07-01" });
+    expect(await screen.findByRole("dialog", { name: `Οδηγία εργοταξίου ${unlinked.number}` })).toBeInTheDocument();
   });
 });

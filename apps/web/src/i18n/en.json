@@ -60,7 +60,9 @@
     "emapRefFormat": "An eMAP reference is written CON-2026-0042.",
     "weightRange": "The value must be between 0 and 1.",
     "codeLength": "The code can have up to 8 characters.",
-    "positiveDays": "Days must be a whole number greater than zero."
+    "positiveDays": "Days must be a whole number greater than zero.",
+    "dateInFuture": "The date cannot be later than today.",
+    "dueBeforeRaised": "The due date cannot be before the date it was raised."
   },
   "components": {
     "passwordField": {
@@ -764,13 +766,19 @@
       "fields": {
         "question": "Question",
         "slaDays": "Due in (days)",
-        "answer": "Answer"
+        "answer": "Answer",
+        "number": "No.",
+        "raised": "Raised by",
+        "dueDate": "Due date",
+        "status": "Status"
       },
       "sheetTitle": "RFI {number}",
       "answeredOn": "Answered",
       "noAnswerYet": "No answer has been recorded yet.",
       "closeConfirmTitle": "Close this RFI?",
-      "closeConfirmConsequence": "The RFI closes and no further answer can be recorded against it."
+      "closeConfirmConsequence": "The RFI closes and no further answer can be recorded against it.",
+      "editTitle": "Edit RFI {number}",
+      "closedNoEdit": "This RFI is closed and can no longer be changed."
     },
     "s07c": {
       "title": "Site instructions",
@@ -786,10 +794,17 @@
       },
       "fields": {
         "text": "Instruction",
-        "costImpact": "Has a cost impact"
+        "costImpact": "Has a cost impact",
+        "number": "No.",
+        "issuedBy": "Issued by",
+        "issuedOn": "Date issued",
+        "variation": "Variation"
       },
       "createVariation": "Create variation",
-      "variationLink": "Variation {number}"
+      "variationLink": "Variation {number}",
+      "sheetTitle": "Site instruction {number}",
+      "editTitle": "Edit site instruction {number}",
+      "settledNoEdit": "This instruction has become a variation and can no longer be changed."
     },
     "s07d": {
       "title": "Defects",
@@ -813,11 +828,19 @@
         "targetProject": "Funding project",
         "status": "Status",
         "noArea": "No area selected",
-        "noProject": "Pick a project"
+        "noProject": "Pick a project",
+        "source": "Source",
+        "raisedOn": "Date found",
+        "raisedBy": "Recorded by",
+        "dueDate": "Due date",
+        "closed": "Closed"
       },
       "areaUnknownNote": "This area id did not match a name.",
       "fundedNeedsProject": "To mark a defect as funded, name the project paying for it. Funded with no project puts the cost on nobody's budget.",
-      "footerTotal": "Total"
+      "footerTotal": "Total",
+      "editTitle": "Edit defect",
+      "reopen": "Reopen",
+      "closedNoEdit": "This defect is closed and cannot be changed. Reopen it to make a correction."
     },
     "s24": {
       "title": "Contractors",

@@ -50524,6 +50524,306 @@
         ]
       }
     },
+    "/contracts/{id}/rfis/{rid}": {
+      "patch": {
+        "operationId": "RfisController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "rid",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "el"
+            },
+            "description": "el or en. Greek when the header is absent."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "questionEl": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "dueDate": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The RFI after the change",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "contractId": {
+                      "type": "string"
+                    },
+                    "orgUnitId": {
+                      "type": "string"
+                    },
+                    "number": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "questionEl": {
+                      "type": "string"
+                    },
+                    "answerEl": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "raisedById": {
+                      "type": "string"
+                    },
+                    "raisedByName": {
+                      "type": "string"
+                    },
+                    "raisedAt": {
+                      "type": "string"
+                    },
+                    "answeredById": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "answeredByName": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "answeredAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "slaDueAt": {
+                      "type": "string"
+                    },
+                    "slaHours": {
+                      "type": "integer",
+                      "exclusiveMinimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "OPEN",
+                        "ANSWERED",
+                        "CLOSED"
+                      ]
+                    },
+                    "slaState": {
+                      "type": "string",
+                      "enum": [
+                        "GREEN",
+                        "AMBER",
+                        "RED",
+                        "BREACHED"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "contractId",
+                    "orgUnitId",
+                    "number",
+                    "questionEl",
+                    "answerEl",
+                    "raisedById",
+                    "raisedByName",
+                    "raisedAt",
+                    "answeredById",
+                    "answeredByName",
+                    "answeredAt",
+                    "slaDueAt",
+                    "slaHours",
+                    "status",
+                    "slaState"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The body is not a valid change",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "A read-only account, or a role that does not run projects",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such contract or RFI",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The RFI is closed, or the due date is before the day it was raised",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Correct an RFI's question or due date while it is not closed",
+        "tags": [
+          "site log"
+        ]
+      }
+    },
     "/contracts/{id}/rfis/{rid}/answer": {
       "post": {
         "operationId": "RfisController_answer",
@@ -51270,6 +51570,9 @@
                   },
                   "costImpactFlag": {
                     "type": "boolean"
+                  },
+                  "issuedOn": {
+                    "type": "string"
                   }
                 },
                 "required": [
@@ -51343,7 +51646,7 @@
             }
           },
           "400": {
-            "description": "The body is not a valid instruction",
+            "description": "The body is not a valid instruction, or its issue day is after today",
             "content": {
               "application/json": {
                 "schema": {
@@ -51445,6 +51748,263 @@
           }
         ],
         "summary": "Issue a site instruction; the API numbers it",
+        "tags": [
+          "site log"
+        ]
+      }
+    },
+    "/contracts/{id}/site-instructions/{sid}": {
+      "patch": {
+        "operationId": "SiteInstructionsController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "sid",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "el"
+            },
+            "description": "el or en. Greek when the header is absent."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "textEl": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "costImpactFlag": {
+                    "type": "boolean"
+                  },
+                  "issuedOn": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The instruction after the change",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "contractId": {
+                      "type": "string"
+                    },
+                    "orgUnitId": {
+                      "type": "string"
+                    },
+                    "number": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "textEl": {
+                      "type": "string"
+                    },
+                    "issuedById": {
+                      "type": "string"
+                    },
+                    "issuedByName": {
+                      "type": "string"
+                    },
+                    "issuedAt": {
+                      "type": "string"
+                    },
+                    "costImpactFlag": {
+                      "type": "boolean"
+                    },
+                    "variationId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "contractId",
+                    "orgUnitId",
+                    "number",
+                    "textEl",
+                    "issuedById",
+                    "issuedByName",
+                    "issuedAt",
+                    "costImpactFlag",
+                    "variationId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The body is not a valid change, or its issue day is after today",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "A read-only account, or a role that does not run projects",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such contract or instruction",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The instruction has already been turned into a variation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Correct a site instruction that has not become a variation",
         "tags": [
           "site log"
         ]
@@ -52057,6 +52617,9 @@
                       "null"
                     ]
                   },
+                  "raisedOn": {
+                    "type": "string"
+                  },
                   "orgUnitId": {
                     "default": null,
                     "anyOf": [
@@ -52241,7 +52804,7 @@
             }
           },
           "400": {
-            "description": "The body is not a valid defect, or names no unit and no parent",
+            "description": "The body is not a valid defect, names no unit and no parent, or was found after today",
             "content": {
               "application/json": {
                 "schema": {
@@ -52820,6 +53383,9 @@
                       "IN_PROGRESS",
                       "CLOSED"
                     ]
+                  },
+                  "raisedOn": {
+                    "type": "string"
                   }
                 },
                 "additionalProperties": false
@@ -52983,7 +53549,7 @@
             }
           },
           "400": {
-            "description": "The body is not a valid change",
+            "description": "The body is not a valid change, or the day it was found is after today",
             "content": {
               "application/json": {
                 "schema": {
@@ -53079,7 +53645,7 @@
             }
           },
           "422": {
-            "description": "Funded with no project to fund it from",
+            "description": "Funded with no project to fund it from, or a closed defect that is not being reopened",
             "content": {
               "application/json": {
                 "schema": {

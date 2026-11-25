@@ -6,6 +6,7 @@
  * ask the same function rather than three implementations of it.
  */
 import type { Rfi, SlaState } from "@ecapital/shared";
+import { endOfNicosiaDay, nicosiaDateOf } from "@ecapital/shared";
 
 const HOUR_MS = 3_600_000;
 
@@ -55,6 +56,25 @@ export function clockAt(answeredAt: Date | null, now: Date): Date {
 export function slaWindow(raisedAt: Date, slaDays: number): { dueAt: Date; hours: number } {
   const hours = slaDays * 24;
   return { dueAt: new Date(raisedAt.getTime() + hours * HOUR_MS), hours };
+}
+
+/**
+ * UAT 25/11/2026: the due date an editor picks, as the SLA window it means.
+ * A due date is a day, so the promise runs to the end of that day in Nicosia
+ * — «by 30/11» means by the end of 30/11, not by the minute the RFI happened
+ * to be raised. The window is counted from the raise, in whole hours rounded
+ * up, and is never shorter than an hour (the CHECK in migration 0006).
+ *
+ * RULE (owner, UAT 25/11/2026): a due date is not before the day the RFI was
+ * raised. That answer is null and the service refuses it with
+ * errors.rfiDueBeforeRaised. The same day is allowed: an RFI raised at nine
+ * and due by the end of the day is a promise someone can keep.
+ */
+export function dueWindowOn(raisedAt: Date, dueDate: string): { dueAt: Date; hours: number } | null {
+  if (dueDate < nicosiaDateOf(raisedAt)) return null;
+  const dueAt = endOfNicosiaDay(dueDate);
+  const hours = Math.max(1, Math.ceil((dueAt.getTime() - raisedAt.getTime()) / HOUR_MS));
+  return { dueAt, hours };
 }
 
 export interface RfiRow {
