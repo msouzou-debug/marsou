@@ -308,3 +308,22 @@ describe("proxy route — document content passthrough", () => {
     expect(res.headers.get("content-disposition")).toBe("attachment; filename*=UTF-8''report.pdf");
   });
 });
+
+// OWNER UAT 25/11/2026: S14 marks an item read with a POST the API answers
+// 204, and the proxy used to throw building a 204 with an empty-string body,
+// so every opened inbox item logged a 500.
+describe("proxy route — a 204 from the API", () => {
+  it("forwards 204 No Content as 204 with no body", async () => {
+    vi.mocked(getSession).mockResolvedValue({ token: "tok-1", me: {} as Me, matrix: ROLE_MATRIX });
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(null, { status: 204 })));
+
+    const req = new NextRequest(new URL("http://localhost:3000/api/proxy/inbox/abc/read"), {
+      method: "POST",
+      headers: { origin: "http://localhost:3000" },
+    });
+    const res = await POST(req, context(["inbox", "abc", "read"]));
+
+    expect(res.status).toBe(204);
+    expect(await res.text()).toBe("");
+  });
+});

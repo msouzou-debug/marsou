@@ -8,9 +8,12 @@ This screen lists every work permit for a system shutdown, with its status, ICRA
 2. Press "Add" to start a new shutdown request.
 3. Open a row to see the permit's facts, affected areas, approvals and history.
 4. From the record, press "Start work" once the planned window opens, "Close out" once the work is done, or "Print" for the A4 sheet.
+5. While the permit is a draft or has been returned with comments, press "Edit" to change the same fields as the request. After editing you complete the ICRA again and submit the permit; it keeps the same reference. Every change is recorded in the history.
 
 ## What can go wrong
 
 - **The permit shows a work window breach.** Work carried on past the planned end. Notify the head of estates and close the permit as soon as you can.
 - **You do not see "Start work".** The permit must be approved first and the planned window must have started; the reason shows above the button.
+- **You do not see "Edit".** A permit under approval changes only once the approver returns it with comments. An approved permit can no longer change; for any change, raise a new request.
+- **An approval line says no approver is appointed.** The unit has nobody for that role. An administrator decides it instead, or appoints an approver in User management.
 - **You cannot close the permit.** The closeout checklist must be fully complete and the clinical owner must accept it.

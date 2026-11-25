@@ -130,7 +130,12 @@ export class PermitsController {
     return this.permits.auditOf(id);
   }
 
-  /** RULE: only while DRAFT — which is also where a RETURNED permit lands. */
+  /**
+   * RULE: only while DRAFT — which is also where a RETURNED permit lands.
+   * Same permission as raising one; the row's audit trigger records every
+   * change (R42). Once submitted, a change is either a return with comments
+   * or, after approval, a new request (OWNER UAT 25/11/2026).
+   */
   @Patch(":id")
   @Needs("permitRequest", "WRITE")
   @ApiOperation({ summary: "Change a draft shutdown request" })
@@ -195,7 +200,7 @@ export class PermitsController {
   @ApiBody({ schema: jsonSchema(ApprovalDecisionWrite) as never })
   @ApiZodResponse(200, ShutdownPermit, "The permit after the decision")
   @ApiZodError(400, "The body is not a valid decision")
-  @ApiZodError(403, "This line is waiting on somebody else")
+  @ApiZodError(403, "This line is waiting on somebody else, or the caller's role may not decide a line of this kind")
   @ApiZodError(404, "No such permit or approval line")
   @ApiZodError(409, "The caller is the permit's own requester (ADR-0015's segregation, admin included)")
   @ApiZodError(422, "The line has been decided already, or the permit is not in review")

@@ -13,4 +13,7 @@ This wizard records a new system shutdown request step by step: which systems an
 
 - **An area is missing from the list.** The list only shows the areas of the unit you picked in step 1.
 - **An area will not come off the list.** It is indirectly affected by a system you chose; the label names which system.
-- **You lost connection halfway through the request.** The request is already saved as a draft. Open it again from the permits list to carry on.
+- **You lost connection halfway through the request.** The request is already saved as a draft. Open it again from the permits list and press "Edit" to carry on.
+- **A save is refused.** The reason shows in red under the wizard, on whichever step you are on, and the wizard does not move on to the ICRA until the save succeeds.
+- **The request was returned with comments.** The edit opens with the approver's name and comment at the top. Correct the request, complete the ICRA again and submit it. If you change the areas or the kind of work, the earlier ICRA no longer counts.
+- **The edit says the permit cannot change.** A permit under approval is changed only after the approver returns it; an approved permit never changes, so raise a new request.

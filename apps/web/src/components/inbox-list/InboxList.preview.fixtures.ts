@@ -16,6 +16,7 @@ export const ITEMS = [
     ],
     href: "/permits/1",
     decidable: true,
+    note: null,
   },
   {
     id: "v1",
@@ -34,5 +35,6 @@ export const ITEMS = [
     ],
     href: "/contracts/1/variations",
     decidable: false,
+    note: null,
   },
 ];

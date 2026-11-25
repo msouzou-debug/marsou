@@ -59,4 +59,17 @@ describe("WizardShell", () => {
     expect(onStepChange).toHaveBeenCalledWith(2);
     expect(onNext).toHaveBeenCalledOnce();
   });
+
+  // OWNER UAT 25/11/2026: S12's checklist was clipped by `overflow-hidden`
+  // and its last controls could never be ticked.
+  it("lets a step body taller than the desktop cap scroll instead of clipping it", () => {
+    renderWithIntl(
+      <WizardShell steps={steps} current={2} canContinue={false} onBack={() => {}} onNext={() => {}}>
+        <p>step body</p>
+      </WizardShell>,
+    );
+    const body = screen.getByTestId("wizard-body");
+    expect(body.className).toContain("desktop:overflow-y-auto");
+    expect(body.className).not.toContain("overflow-hidden");
+  });
 });

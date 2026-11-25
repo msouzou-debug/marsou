@@ -6,6 +6,7 @@
 // Owns `usePermit` and every mutation: `POST /permits/:id/transition`
 // (ACTIVE, CLOSED, REJECTED) and `POST /permits/:id/approvals/:approvalId/decide`.
 import { useEffect, useState, type ReactNode } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import type { AppRole, CloseoutChecklist as CloseoutChecklistValue, Me, OrgUnit, ShutdownPermit } from "@ecapital/shared";
 import { ShutdownPermit as ShutdownPermitSchema } from "@ecapital/shared";
 import { ApiError, apiMutate } from "@/data/client";
@@ -49,6 +50,7 @@ const EMPTY_CLOSEOUT: CloseoutChecklistValue = {
 
 export function PermitDetailScreen({ permitId, roles, me, orgUnits, noPermission }: PermitDetailScreenProps) {
   const { data, error, isLoading, refetch } = usePermit(permitId);
+  const queryClient = useQueryClient();
   const online = useOnlineStatus();
 
   const [closeoutOpen, setCloseoutOpen] = useState(false);
@@ -77,11 +79,16 @@ export function PermitDetailScreen({ permitId, roles, me, orgUnits, noPermission
     await refetch();
   }
 
+  // OWNER UAT 25/11/2026: a refusal is said in a sentence, never swallowed.
+  const [startWorkError, setStartWorkError] = useState<string | undefined>(undefined);
+  const [decideError, setDecideError] = useState<{ approvalId: string; message: string } | undefined>(undefined);
+
   async function handleStartWork(): Promise<void> {
+    setStartWorkError(undefined);
     try {
       await transition({ to: "ACTIVE" });
-    } catch {
-      /* the button's own disabled/title already covers the expected refusal; a surprise one shows nowhere yet — flagged for a toast in a follow-up */
+    } catch (startError) {
+      setStartWorkError(startError instanceof ApiError ? startError.message : String(startError));
     }
   }
 
@@ -124,13 +131,23 @@ export function PermitDetailScreen({ permitId, roles, me, orgUnits, noPermission
   }
 
   async function handleDecide(approvalId: string, decision: "APPROVED" | "RETURNED" | "REJECTED", comment?: string): Promise<void> {
-    await apiMutate(
-      `/permits/${encodeURIComponent(permitId)}/approvals/${encodeURIComponent(approvalId)}/decide`,
-      "POST",
-      { decision, commentEl: comment ?? null },
-      ShutdownPermitSchema,
-    );
-    await refetch();
+    setDecideError(undefined);
+    try {
+      await apiMutate(
+        `/permits/${encodeURIComponent(permitId)}/approvals/${encodeURIComponent(approvalId)}/decide`,
+        "POST",
+        { decision, commentEl: comment ?? null },
+        ShutdownPermitSchema,
+      );
+    } catch (decisionError) {
+      setDecideError({
+        approvalId,
+        message: decisionError instanceof ApiError ? decisionError.message : String(decisionError),
+      });
+      return;
+    }
+    // The inbox badge and S14's list read the same lines.
+    await Promise.all([refetch(), queryClient.invalidateQueries({ queryKey: ["inbox"] })]);
   }
 
   return (
@@ -160,6 +177,8 @@ export function PermitDetailScreen({ permitId, roles, me, orgUnits, noPermission
       onSubmitReject={() => void submitReject()}
       onCancelReject={() => setRejectOpen(false)}
       onDecide={(approvalId, decision, comment) => void handleDecide(approvalId, decision, comment)}
+      decideError={decideError}
+      startWorkError={startWorkError}
     />
   );
 }

@@ -446,6 +446,12 @@ export const InboxItem = z.object({
   // What the panel's buttons do: permit approval lines take a decision here;
   // variations and certificates link out to their own screens for now.
   decidable: z.boolean(),
+  // OWNER UAT 25/11/2026: one sentence, in the caller's language, that says
+  // why this item is here or why it cannot be decided from the panel — a
+  // permit returned to its requester, a line with nobody appointed to it, a
+  // line the caller's role may not decide. The panel shows it; null when the
+  // three facts already say everything.
+  note: z.string().nullable().default(null),
 });
 export type InboxItem = z.infer<typeof InboxItem>;
 

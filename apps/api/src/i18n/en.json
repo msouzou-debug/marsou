@@ -268,7 +268,8 @@
     "claimDocumentKindNeeded": "Choose what the document is: the claim letter, a reply or a lawyer's letter.",
     "businessCaseMissing": "The project cannot leave the Idea phase without a filed business case. File it on the project and try again.",
     "tableExportNotValid": "The export is incomplete or goes over the 20,000-row limit. Narrow the table with the screen's filters and try again.",
-    "bodyTooLarge": "You sent more than the system takes in one request. Narrow it down with the screen's filters and try again."
+    "bodyTooLarge": "You sent more than the system takes in one request. Narrow it down with the screen's filters and try again.",
+    "permitDecisionRoleMissing": "Your role does not let you decide this approval line. An administrator can assign it to someone else or decide it."
   },
   "exceptions": {
     "milestoneSlip": "Milestone {milestone} on {project} ({unit}) is {days} days behind its baseline date.",
@@ -527,7 +528,14 @@
       "period": "Period",
       "rooms": "Rooms",
       "classAndSystems": "Class {class} · {systems}",
-      "roleSuffix": "(as {role})"
+      "roleSuffix": "(as {role})",
+      "comment": "Approver's comment"
+    },
+    "returnedWhat": "Returned for correction: {ref} — {title}",
+    "notes": {
+      "unassigned": "No approver is appointed for this role in the unit. Decide it as administrator, or appoint an approver in User management.",
+      "roleMissing": "This line is assigned to you, but your role does not let you decide it. Ask an administrator to assign it to someone else.",
+      "returned": "{name} returned the request with comments. Open it, correct it and submit it again."
     }
   },
   "asset": {

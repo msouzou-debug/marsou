@@ -46,6 +46,7 @@ import {
   type PermitRow,
 } from "./permit-rows";
 import { PermissionsService } from "../permissions/permissions.service";
+import { mayDecideLine } from "./line-needs";
 import { approvalSlaWindow } from "./permit-sla";
 import { durationHours, routeFor, type RouteLine } from "./routing";
 
@@ -299,10 +300,26 @@ export class PermitsService {
       }
     }
 
+    // RULE (OWNER UAT 25/11/2026, editing a returned request): the stored
+    // ICRA was worked out over a set of rooms and a kind of work. When either
+    // changes, the class is no longer the class of this request, so it is
+    // cleared and the submission asks for the wizard again
+    // (`errors.permitIcraRequired`) rather than routing on a stale answer.
+    const before = existing.icra
+      ? new Set((await this.areasOf(id)).map((area) => area.areaId))
+      : null;
+    const areasMoved =
+      before !== null &&
+      affected !== null &&
+      (affected.length !== before.size || affected.some((area) => !before.has(area.areaId)));
+    const workMoved = input.workKind !== undefined && input.workKind !== existing.workKind;
+    const icraStale = existing.icra !== null && (areasMoved || workMoved);
+
     try {
       const touched = await tx.db
         .update(schema.shutdownPermit)
         .set({
+          ...(icraStale ? { icra: null, icraClass: null, surrounding: [] } : {}),
           projectId: input.projectId === undefined ? existing.projectId : input.projectId,
           contractId: input.contractId === undefined ? existing.contractId : input.contractId,
           titleEl: input.titleEl ?? existing.titleEl,
@@ -694,13 +711,18 @@ export class PermitsService {
     // The administrator standing in for a missing approver is an identity
     // rule (ADR-0026 Errata), not a row of the matrix (ADR-0033). Everyone
     // else decides only their own line, and only while the matrix gives
-    // their role APPROVE on the clinical approval row.
+    // their role APPROVE on a row that line accepts (`LINE_NEEDS`: the
+    // clinical row for the clinical lines, and the request row as well for
+    // the estates head's TECHNICAL and SAFETY lines — OWNER UAT 25/11/2026).
     const isAdmin = tx.context.roles.includes("admin");
     if (!isAdmin && line.approverId !== caller) {
       throw AppError.forbidden("errors.permitDecisionNotYours");
     }
-    if (!isAdmin && !this.permissions.allowedHere("permitClinical", "APPROVE")) {
-      throw AppError.forbidden("errors.permitDecisionNotYours");
+    if (
+      !isAdmin &&
+      !mayDecideLine(line.role, (area, level) => this.permissions.allowedHere(area, level))
+    ) {
+      throw AppError.forbidden("errors.permitDecisionRoleMissing");
     }
     if (input.decision !== "APPROVED" && !input.commentEl?.trim()) {
       throw AppError.unprocessable("errors.permitCommentRequired");

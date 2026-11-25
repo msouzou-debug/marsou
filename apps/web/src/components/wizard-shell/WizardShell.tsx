@@ -30,11 +30,13 @@ export interface WizardStep {
  * Autosave itself is the caller's job (UI instructions §4): WizardShell only
  * tells the caller a step boundary was crossed, via onStepChange.
  *
- * RULE: the step body never scrolls on desktop at 1440x900. At that size the
- * shell chrome (56px top bar + step rail header + footer buttons) leaves
- * about 560px for the body — the class below caps it there and hides
- * overflow, so callers must design each step's content to fit within that
- * height rather than relying on a scrollbar.
+ * RULE: the footer buttons never leave the screen on desktop at 1440x900. At
+ * that size the shell chrome (56px top bar + step rail header + footer
+ * buttons) leaves about 560px for the body — the class below caps it there.
+ * Callers should still design a step to fit, but a step that cannot (S12's
+ * controls checklist, up to 29 rows) scrolls inside the cap: content that is
+ * clipped out of reach is a dead end, never a layout choice (OWNER UAT
+ * 25/11/2026).
  *
  * State: default only — WizardShell holds no data of its own to be loading,
  * empty, erroring, offline, or without permission; those apply to the step
@@ -121,9 +123,15 @@ export function WizardShell({
       </nav>
 
       <div className="flex-1">
-        {/* RULE: fixed max height on desktop so the step body never scrolls
-            at 1440x900 (UI instructions §4). Caller content must fit inside. */}
-        <div className="desktop:max-h-[560px] desktop:overflow-hidden">{children}</div>
+        {/* RULE: fixed max height on desktop so the buttons below stay on
+            screen at 1440x900 (UI instructions §4). OWNER UAT 25/11/2026: the
+            body used to be `overflow-hidden`, which cut off whatever did not
+            fit — S12's checklist runs to 29 controls, the 6th onwards could
+            never be ticked, and «Συνέχεια» stayed disabled for good. A body
+            taller than the cap now scrolls inside it instead of vanishing. */}
+        <div data-testid="wizard-body" className="desktop:max-h-[560px] desktop:overflow-y-auto">
+          {children}
+        </div>
 
         <div className="mt-s-6 flex items-center justify-between border-t border-k-grey pt-s-4">
           <button

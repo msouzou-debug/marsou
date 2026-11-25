@@ -1452,7 +1452,13 @@
         "plannedEnd": "Planned end",
         "ilsmTriggers": "Are fire or escape systems affected?",
         "contingencyPlan": "Contingency plan"
-      }
+      },
+      "notEditableInReview": "The request is being approved and cannot be changed. If it needs a change, ask the approver to return it with comments.",
+      "notEditableApproved": "The permit has been approved and can no longer change. For any change, raise a new request.",
+      "backToPermit": "Back to the permit",
+      "newRequest": "New request",
+      "returnedBy": "{name} returned the request with comments",
+      "returnedHint": "Correct what is needed, complete the ICRA again and submit it. The permit keeps the same reference."
     },
     "s11detail": {
       "facts": "Facts",
@@ -1492,7 +1498,16 @@
         "rejected": "rejected",
         "breached": "breached the work window",
         "closed": "closed the permit"
-      }
+      },
+      "edit": {
+        "inReview": "The request is being approved and cannot be changed. If it needs a change, the approver returns it with comments.",
+        "approved": "The permit has been approved and can no longer change. For any change, raise a new request."
+      },
+      "returned": {
+        "title": "{name} returned the request with comments",
+        "hint": "Press «Edit», correct the request, complete the ICRA again and submit it."
+      },
+      "unassigned": "No approver is appointed for this role in the unit. An administrator decides it instead, or appoints an approver in User management."
     },
     "s12": {
       "title": "ICRA for permit {ref}",
@@ -1503,7 +1518,9 @@
         "submit": "Submit"
       },
       "affectedAreasTitle": "Affected areas",
-      "surroundingTitle": "Surrounding areas"
+      "surroundingTitle": "Surrounding areas",
+      "acknowledgeProgress": "Tick «Acknowledged» on every control to continue: {done} of {total}.",
+      "acknowledgedAll": "You have acknowledged every control ({total}). Press «Continue»."
     },
     "s13": {
       "headerTitle": "PERMIT TO WORK",
@@ -1518,7 +1535,8 @@
         "move": "Move",
         "open": "Open",
         "forward": "Forward to next"
-      }
+      },
+      "decideFailed": "The decision was not recorded. Check the connection and try again."
     },
     "s15": {
       "title": "Disruption calendar",

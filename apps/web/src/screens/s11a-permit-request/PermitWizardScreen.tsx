@@ -33,6 +33,7 @@
  * control for the indirect ones at all.
  */
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import type { AppRole, IlsmTrigger, OrgUnit, PermitSystem, ShutdownPermit, ShutdownPermitDraft } from "@ecapital/shared";
@@ -123,7 +124,9 @@ export function PermitWizardScreen({ mode, permitId, roles, orgUnits, defaultOrg
       // local time (the 19/09/2026 screenshot's bug, on the way back in).
       plannedStart: p.plannedStart ? isoInstantToLocalInput(p.plannedStart) : "",
       plannedEnd: p.plannedEnd ? isoInstantToLocalInput(p.plannedEnd) : "",
-      ilsmTriggers: [],
+      // OWNER UAT 25/11/2026: was `[]`, so the first save of an edit
+      // silently dropped the ILSM triggers (and the Safety line with them).
+      ilsmTriggers: p.ilsm?.triggers ?? [],
       contingencyPlanEl: p.contingencyPlanEl ?? "",
     });
   }
@@ -140,7 +143,14 @@ export function PermitWizardScreen({ mode, permitId, roles, orgUnits, defaultOrg
     overview: true,
   };
 
-  async function persist(currentDraft: PermitWizardDraft): Promise<void> {
+  /**
+   * Saves the draft and answers with its id, or `null` when the API refused —
+   * in which case `apiError` holds the API's own sentence, shown under every
+   * step (OWNER UAT 25/11/2026: it used to show on the overview only, so a
+   * refusal on the way out of step 1 vanished, and «Συνέχεια στην ICRA» then
+   * read a stale `id` and did nothing at all).
+   */
+  async function persist(currentDraft: PermitWizardDraft): Promise<string | null> {
     setSaving(true);
     setApiError(undefined);
     try {
@@ -148,18 +158,23 @@ export function PermitWizardScreen({ mode, permitId, roles, orgUnits, defaultOrg
         // RULE: created the first time the requester leaves step 1.
         const created = await apiMutate<ShutdownPermit>("/permits", "POST", draftToBody(currentDraft), ShutdownPermitSchema);
         setId(created.id);
-      } else {
-        await apiMutate<ShutdownPermit>(`/permits/${encodeURIComponent(id)}`, "PATCH", draftToBody(currentDraft), ShutdownPermitSchema);
+        return created.id;
       }
+      await apiMutate<ShutdownPermit>(`/permits/${encodeURIComponent(id)}`, "PATCH", draftToBody(currentDraft), ShutdownPermitSchema);
+      return id;
     } catch (persistError) {
       setApiError(persistError instanceof ApiError ? persistError.message : String(persistError));
+      return null;
     } finally {
       setSaving(false);
     }
   }
 
   function handleStepChange(nextIndex: number) {
-    void persist(draft);
+    // The last step's button is the submit, which saves on its own below;
+    // saving here as well would race it (two POSTs, two drafts, in create).
+    const leavingLast = step === STEP_IDS.length - 1 && nextIndex > step;
+    if (!leavingLast) void persist(draft);
     // Clamp: WizardShell's own `handleNext` computes `current + 1` even on
     // the last step (where "Continue" becomes "Συνέχεια στην ICRA" and does
     // not advance a step at all) — see this file's `onNext` below, which is
@@ -168,8 +183,8 @@ export function PermitWizardScreen({ mode, permitId, roles, orgUnits, defaultOrg
   }
 
   async function handleSubmitOverview(): Promise<void> {
-    await persist(draft);
-    if (id) router.push(`/permits/${encodeURIComponent(id)}/icra`);
+    const savedId = await persist(draft);
+    if (savedId) router.push(`/permits/${encodeURIComponent(savedId)}/icra`);
   }
 
   const orgUnit = orgUnits.find((u) => u.id === draft.orgUnitId);
@@ -181,11 +196,50 @@ export function PermitWizardScreen({ mode, permitId, roles, orgUnits, defaultOrg
     return <>{noPermission}</>;
   }
 
+  // RULE (OWNER UAT 25/11/2026): a permit is edited only while it is a draft,
+  // which is also where a returned one lands. Past that it is a decision
+  // somebody took (the API answers `errors.permitNotDraft`), so the wizard
+  // says what to do instead of opening on fields that cannot be saved.
+  if (mode === "edit" && existing.data && existing.data.status !== "DRAFT") {
+    const inReview = existing.data.status === "SUBMITTED" || existing.data.status === "CLINICAL_REVIEW";
+    return (
+      <>
+        <h1 className="mb-s-5 text-fs-24 text-k-blue-deep">{t("screens.s11a.titleEdit")}</h1>
+        <p role="alert" className="rounded-k border border-k-amber bg-k-amber-bg p-s-4 text-fs-16 text-k-ink">
+          {t(inReview ? "screens.s11a.notEditableInReview" : "screens.s11a.notEditableApproved")}
+        </p>
+        <div className="mt-s-4 flex flex-wrap gap-s-3">
+          <Link
+            href={`/permits/${encodeURIComponent(existing.data.id)}`}
+            className="rounded-k border border-k-grey px-s-4 py-s-3 text-fs-14 text-k-blue-deep"
+          >
+            {t("screens.s11a.backToPermit")}
+          </Link>
+          {!inReview && (
+            <Link href="/permits/new" className="rounded-k bg-k-blue px-s-4 py-s-3 text-fs-14 font-bold text-k-white">
+              {t("screens.s11a.newRequest")}
+            </Link>
+          )}
+        </div>
+      </>
+    );
+  }
+
   const steps = STEP_IDS.map((s) => ({ id: s, label: t(`screens.s11a.steps.${s}`) }));
+  const returnedLine = mode === "edit" ? existing.data?.approvals.find((a) => a.decision === "RETURNED") : undefined;
 
   return (
     <>
       <h1 className="mb-s-5 text-fs-24 text-k-blue-deep">{t(mode === "create" ? "screens.s11a.titleNew" : "screens.s11a.titleEdit")}</h1>
+      {returnedLine && (
+        <div className="mb-s-5 rounded-k border border-k-amber bg-k-amber-bg p-s-4 text-fs-14 text-k-ink">
+          <p className="font-bold">
+            {t("screens.s11a.returnedBy", { name: returnedLine.approverName ?? t(`approvalRole.${returnedLine.role}`) })}
+          </p>
+          {returnedLine.commentEl && <p className="mt-s-1">«{returnedLine.commentEl}»</p>}
+          <p className="mt-s-2 text-k-text">{t("screens.s11a.returnedHint")}</p>
+        </div>
+      )}
       <WizardShell
         steps={steps}
         current={step}
@@ -407,10 +461,10 @@ export function PermitWizardScreen({ mode, permitId, roles, orgUnits, defaultOrg
                 : ""}
             </p>
             <p><span className="text-k-text-muted">{t("screens.s11a.fields.ilsmTriggers")}:</span> {ilsmRequired ? t("common.yes") : t("common.no")}</p>
-            {apiError && <p role="alert" className="text-fs-14 text-k-red">{apiError}</p>}
           </div>
         )}
       </WizardShell>
+      {apiError && <p role="alert" className="mt-s-3 text-fs-14 text-k-red">{apiError}</p>}
       {saving && <p className="mt-s-3 text-fs-12 text-k-text-muted">{t("screens.s11a.saving")}</p>}
     </>
   );

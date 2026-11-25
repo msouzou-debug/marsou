@@ -256,6 +256,22 @@ export function IcraWizardScreen({ permitId, noPermission }: IcraWizardScreenPro
                     {t(`icraRefusal.${icraResult.refusalKey}`)}
                   </p>
                 ) : (
+                  <>
+                  {/* OWNER UAT 25/11/2026: «Συνέχεια» stays disabled until
+                      every control is ticked — say so, and how far along
+                      the requester is, instead of a button that just will
+                      not go. */}
+                  <p
+                    aria-live="polite"
+                    className={`text-fs-14 ${controlsOk ? "text-k-text" : "text-k-amber"}`}
+                  >
+                    {controlsOk
+                      ? t("screens.s12.acknowledgedAll", { total: icraResult.controls.length })
+                      : t("screens.s12.acknowledgeProgress", {
+                          done: icraResult.controls.filter((c) => acknowledgedIds.includes(c.id)).length,
+                          total: icraResult.controls.length,
+                        })}
+                  </p>
                   <ControlsChecklist
                     controls={icraResult.controls}
                     acknowledgedIds={acknowledgedIds}
@@ -263,6 +279,7 @@ export function IcraWizardScreen({ permitId, noPermission }: IcraWizardScreenPro
                       setAcknowledgedIds((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]))
                     }
                   />
+                  </>
                 )}
               </>
             )}

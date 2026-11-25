@@ -34,9 +34,9 @@
 import { useState, type ReactNode } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import Link from "next/link";
-import { Printer } from "lucide-react";
+import { Pencil, Printer } from "lucide-react";
 import type { AppRole, CloseoutChecklist as CloseoutChecklistValue, OrgUnit, ShutdownPermit } from "@ecapital/shared";
-import { canOperatePermit, canRejectPermit } from "@/auth/roles";
+import { canOperatePermit, canRejectPermit, canWritePermits } from "@/auth/roles";
 import { PageTitle } from "@/components/app-shell";
 import { CloseoutChecklist } from "@/components/closeout-checklist";
 import { IcraBadge } from "@/components/icra-badge";
@@ -82,6 +82,10 @@ export interface PermitDetailProps {
   onSubmitReject: () => void;
   onCancelReject: () => void;
   onDecide: (approvalId: string, decision: "APPROVED" | "RETURNED" | "REJECTED", comment?: string) => void;
+  /** OWNER UAT 25/11/2026: the API's sentence when a decision is refused — never silent. */
+  decideError?: { approvalId: string; message: string };
+  /** The API's sentence when «Έναρξη εργασιών» is refused. */
+  startWorkError?: string;
 }
 
 const START_WORK_REASON_KEY: Record<string, string> = {
@@ -183,6 +187,8 @@ export function PermitDetail(props: PermitDetailProps) {
     onSubmitReject,
     onCancelReject,
     onDecide,
+    decideError,
+    startWorkError,
   } = props;
   const t = useTranslations();
   const locale = useLocale() as Locale;
@@ -214,10 +220,39 @@ export function PermitDetail(props: PermitDetailProps) {
   const indirectAreas = permit.affectedAreas.filter((a) => a.impact === "INDIRECT");
   const timeline = permitTimelineFrom(permit, (key) => t(`screens.s11detail.timeline.${key}`));
   const isClinicalOwner = permit.closeout?.clinicalAcceptanceById === myUserId || roles.includes("clinical_approver");
+  const isAdmin = roles.includes("admin");
+  const isRequester = permit.requestedById === myUserId;
+  // A line is decided only while the permit is in review (the API answers
+  // `errors.permitNotInReview` otherwise); a returned draft's reset lines wait
+  // for the resubmission, not for anybody.
+  const inReview = permit.status === "CLINICAL_REVIEW";
+  // RULE (OWNER UAT 25/11/2026, item 2): editing is for a draft — which is
+  // also where a permit returned with comments lands — and uses the request
+  // wizard's own route and fields. Past that the record says why it cannot
+  // change instead of offering a button the API would refuse.
+  const canEdit = state !== "offline" && canWritePermits(roles);
+  const editable = permit.status === "DRAFT";
+  const returnedLine = permit.status === "DRAFT" ? permit.approvals.find((a) => a.decision === "RETURNED") : undefined;
+  const notEditableKey =
+    permit.status === "SUBMITTED" || permit.status === "CLINICAL_REVIEW"
+      ? "screens.s11detail.edit.inReview"
+      : permit.status === "APPROVED" || permit.status === "ACTIVE" || permit.status === "BREACH"
+        ? "screens.s11detail.edit.approved"
+        : null;
 
   return (
     <>
       <PageTitle eyebrow={permit.ref ?? t("screens.s11.noRefYet")} title={permit.titleEl} />
+
+      {returnedLine && (
+        <div role="status" className="mb-s-5 rounded-k border border-k-amber bg-k-amber-bg p-s-4 text-fs-14 text-k-ink">
+          <p className="font-bold">
+            {t("screens.s11detail.returned.title", { name: returnedLine.approverName ?? t(`approvalRole.${returnedLine.role}`) })}
+          </p>
+          {returnedLine.commentEl && <p className="mt-s-1">«{returnedLine.commentEl}»</p>}
+          <p className="mt-s-2 text-k-text">{t("screens.s11detail.returned.hint")}</p>
+        </div>
+      )}
 
       {bannerState ? (
         <div className="mb-s-5">
@@ -325,19 +360,30 @@ export function PermitDetail(props: PermitDetailProps) {
                   <p className="mt-s-1 text-fs-14 text-k-text">{t(`routingReason.${approval.reason}`)}</p>
                   {approval.areaNameEl && <p className="text-fs-12 text-k-text-muted">{approval.areaNameEl}</p>}
                   {approval.approverName && <p className="text-fs-12 text-k-text-muted">{approval.approverName}</p>}
+                  {/* OWNER UAT 25/11/2026: a unit with nobody appointed for
+                      this role leaves the line waiting on nobody. Say so,
+                      and who can move it, rather than a silent line. */}
+                  {inReview && approval.decision === "PENDING" && approval.approverId === null && (
+                    <p className="mt-s-1 text-fs-14 text-k-amber">{t("screens.s11detail.unassigned")}</p>
+                  )}
                   {approval.commentEl && <p className="mt-s-1 text-fs-14 text-k-ink">{approval.commentEl}</p>}
                   {/* RULE (ADR-0015's segregation, applied here per ADR-0026):
                       the requester never gets decide buttons on their own
                       permit, even on a line the API resolved to them — the
                       API itself now avoids that resolution and refuses the
                       decision with 409 either way, so this is the second,
-                      visible half of the same guard. */}
-                  {approval.decision === "PENDING" && approval.approverId === myUserId && (
-                    permit.requestedById === myUserId ? (
+                      visible half of the same guard. An administrator stands
+                      in on a line nobody was appointed to (ADR-0026 Errata). */}
+                  {inReview && approval.decision === "PENDING" &&
+                    state !== "offline" &&
+                    (approval.approverId === myUserId || (approval.approverId === null && isAdmin)) &&
+                    (isRequester ? (
                       <p className="mt-s-2 text-fs-14 text-k-text">{t("screens.s11detail.decide.selfApproval")}</p>
                     ) : (
                       <DecideRow approvalId={approval.id} onDecide={onDecide} />
-                    )
+                    ))}
+                  {decideError?.approvalId === approval.id && (
+                    <p role="alert" className="mt-s-2 text-fs-14 text-k-red">{decideError.message}</p>
                   )}
                 </li>
               ))}
@@ -353,7 +399,21 @@ export function PermitDetail(props: PermitDetailProps) {
         </div>
       </div>
 
+      {canEdit && !editable && notEditableKey && (
+        <p className="mt-s-6 text-fs-14 text-k-text">{t(notEditableKey)}</p>
+      )}
+      {startWorkError && <p role="alert" className="mt-s-3 text-fs-14 text-k-red">{startWorkError}</p>}
+
       <div className="mt-s-6 flex flex-wrap items-center gap-s-3 border-t border-k-grey pt-s-4">
+        {canEdit && editable && (
+          <Link
+            href={`/permits/${encodeURIComponent(permit.id)}/edit`}
+            className="flex items-center gap-s-2 rounded-k bg-k-blue px-s-4 py-s-3 text-fs-14 font-bold text-k-white shadow-k"
+          >
+            <Pencil size={20} strokeWidth={1.5} aria-hidden="true" />
+            {t("buttons.edit")}
+          </Link>
+        )}
         {canOperate && (
           <button
             type="button"

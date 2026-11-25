@@ -42,9 +42,24 @@ export interface ApprovalsProps {
   onDecide: (item: InboxItem, decision: "APPROVED" | "RETURNED" | "REJECTED", comment?: string) => void;
   onRetry?: () => void;
   noPermission: ReactNode;
+  /** OWNER UAT 25/11/2026: the API's sentence when the open item's decision was refused. */
+  decideError?: string;
+  /** The open item's decision is on its way. */
+  deciding?: boolean;
 }
 
-export function Approvals({ items, state, openItemId, onOpen, onClose, onDecide, onRetry, noPermission }: ApprovalsProps) {
+export function Approvals({
+  items,
+  state,
+  openItemId,
+  onOpen,
+  onClose,
+  onDecide,
+  onRetry,
+  noPermission,
+  decideError,
+  deciding = false,
+}: ApprovalsProps) {
   const t = useTranslations();
   const [focusedId, setFocusedId] = useState<string | null>(null);
   const [helpOpen, setHelpOpen] = useState(false);
@@ -104,6 +119,12 @@ export function Approvals({ items, state, openItemId, onOpen, onClose, onDecide,
 
       {openItem && (
         <DecisionPanel
+          // A fresh panel per item: a comment typed for one never carries
+          // over to the next one «f» opens.
+          key={openItem.id}
+          error={decideError}
+          busy={deciding}
+          note={openItem.decidable ? (openItem.note ?? undefined) : undefined}
           what={openItem.whatEl}
           where={openItem.whereEl}
           facts={openItem.facts}
@@ -117,7 +138,7 @@ export function Approvals({ items, state, openItemId, onOpen, onClose, onDecide,
           }}
           onClose={onClose}
           disabled={!openItem.decidable}
-          disabledReason={!openItem.decidable ? t("screens.s14.notDecidable") : undefined}
+          disabledReason={!openItem.decidable ? (openItem.note ?? t("screens.s14.notDecidable")) : undefined}
           belowFooter={
             !openItem.decidable ? (
               <Link href={openItem.href} className="text-fs-14 font-bold text-k-blue">

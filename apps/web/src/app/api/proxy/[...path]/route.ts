@@ -42,6 +42,8 @@ import { defaultLocale, isLocale, LOCALE_COOKIE } from "@/i18n/config";
 //     same headers the real API sent.
 const MUTATING_METHODS = new Set(["POST", "PATCH", "PUT", "DELETE"]);
 const JSON_OR_TEXT = /^(application\/json|text\/)/i;
+/** The statuses the Fetch spec says carry no body at all. */
+const NULL_BODY_STATUSES = new Set([204, 205, 304]);
 // What a file response carries through unchanged. `cache-control` is the
 // API's own (`private` on a document, `no-store` on an export), never a
 // shared cache's.
@@ -149,6 +151,14 @@ async function forward(request: NextRequest, context: ProxyContext, method: stri
     cache: "no-store",
     ...(duplex ? ({ duplex } as Record<string, unknown>) : {}),
   } as RequestInit);
+
+  // OWNER UAT 25/11/2026: a 204 (`POST /inbox/:id/read`, every DELETE) has
+  // no body, and the Fetch spec refuses to build a 204/205/304 response with
+  // one — even an empty string — so forwarding it as text threw inside this
+  // route and the browser saw a 500 for a request the API had answered.
+  if (NULL_BODY_STATUSES.has(upstream.status)) {
+    return new NextResponse(null, { status: upstream.status });
+  }
 
   const upstreamContentType = upstream.headers.get("content-type") ?? "application/json";
   const disposition = upstream.headers.get("content-disposition");

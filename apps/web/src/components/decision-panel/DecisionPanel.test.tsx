@@ -105,4 +105,24 @@ describe("DecisionPanel", () => {
     setup({ loading: true, facts: [] as unknown as DecisionFact[] });
     expect(screen.queryByText("Σύστημα")).not.toBeInTheDocument();
   });
+
+  // OWNER UAT 25/11/2026: a refused decision is said, never swallowed.
+  it("shows the caller's error sentence as an alert and keeps the typed comment", async () => {
+    setup({ error: "Η απόφαση δεν καταχωρίστηκε." });
+    expect(screen.getByRole("alert")).toHaveTextContent("Η απόφαση δεν καταχωρίστηκε.");
+  });
+
+  it("makes approve and return inert while busy, keys included", async () => {
+    const { onApprove } = setup({ busy: true });
+    expect(screen.getByRole("button", { name: "Έγκριση" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Επιστροφή με σχόλια" })).toBeDisabled();
+    await userEvent.keyboard("a");
+    expect(onApprove).not.toHaveBeenCalled();
+  });
+
+  it("shows an informational note on a decidable item", () => {
+    setup({ note: "Δεν έχει οριστεί εγκρίνων για αυτόν τον ρόλο στη μονάδα." });
+    expect(screen.getByText("Δεν έχει οριστεί εγκρίνων για αυτόν τον ρόλο στη μονάδα.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Έγκριση" })).not.toBeDisabled();
+  });
 });

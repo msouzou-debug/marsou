@@ -108,7 +108,12 @@ const NOOP_PROPS = {
 describe("PermitDetail", () => {
   it("shows decide buttons only on the caller's own pending approval line", () => {
     renderWithIntl(
-      <PermitDetail {...NOOP_PROPS} permit={BASE_PERMIT} state="default" now={new Date("2026-03-14T09:00:00.000Z")} />,
+      <PermitDetail
+        {...NOOP_PROPS}
+        permit={{ ...BASE_PERMIT, status: "CLINICAL_REVIEW" }}
+        state="default"
+        now={new Date("2026-03-14T09:00:00.000Z")}
+      />,
     );
     // One "Έγκριση" for the caller's own TECHNICAL line, none for SAFETY (someone-else's).
     expect(screen.getAllByRole("button", { name: "Έγκριση" })).toHaveLength(1);
@@ -134,7 +139,7 @@ describe("PermitDetail", () => {
     renderWithIntl(
       <PermitDetail
         {...NOOP_PROPS}
-        permit={{ ...BASE_PERMIT, requestedById: "me" }}
+        permit={{ ...BASE_PERMIT, status: "CLINICAL_REVIEW", requestedById: "me" }}
         state="default"
         now={new Date("2026-03-14T09:00:00.000Z")}
       />,
@@ -155,5 +160,74 @@ describe("PermitDetail", () => {
     );
     expect(screen.queryByText("Σε ισχύ")).not.toBeInTheDocument();
     expect(screen.queryByText("Εκκρεμεί έγκριση")).not.toBeInTheDocument();
+  });
+
+  // ------------------------------------------------ OWNER UAT 25/11/2026 --
+
+  const RETURNED_DRAFT: ShutdownPermit = {
+    ...BASE_PERMIT,
+    status: "DRAFT",
+    requestedById: "me",
+    approvals: [
+      { ...BASE_PERMIT.approvals[0], approverId: "estates", decision: "RETURNED", commentEl: "Αλλάξτε το παράθυρο." },
+      { ...BASE_PERMIT.approvals[1] },
+    ],
+  };
+
+  it("offers «Επεξεργασία» on a returned draft, with who returned it and the comment", () => {
+    renderWithIntl(<PermitDetail {...NOOP_PROPS} permit={RETURNED_DRAFT} state="default" />);
+    expect(screen.getByRole("link", { name: "Επεξεργασία" })).toHaveAttribute("href", "/permits/p1/edit");
+    expect(screen.getByText("Ο/Η Ν. Νικολάου επέστρεψε την αίτηση με σχόλια")).toBeInTheDocument();
+    expect(screen.getByText("«Αλλάξτε το παράθυρο.»")).toBeInTheDocument();
+    // The reset lines of a returned draft wait for the resubmission, not for anybody.
+    expect(screen.queryByRole("button", { name: "Έγκριση" })).not.toBeInTheDocument();
+  });
+
+  it("offers no decision on a permit that is not in review", () => {
+    renderWithIntl(<PermitDetail {...NOOP_PROPS} permit={BASE_PERMIT} state="default" />);
+    expect(screen.queryByRole("button", { name: "Έγκριση" })).not.toBeInTheDocument();
+  });
+
+  it("offers no edit on an approved permit and says a change is a new request", () => {
+    renderWithIntl(<PermitDetail {...NOOP_PROPS} permit={BASE_PERMIT} state="default" />);
+    expect(screen.queryByRole("link", { name: "Επεξεργασία" })).not.toBeInTheDocument();
+    expect(
+      screen.getByText("Η άδεια έχει εγκριθεί και δεν αλλάζει πια. Για οποιαδήποτε αλλαγή υποβάλετε νέα αίτηση."),
+    ).toBeInTheDocument();
+  });
+
+  it("offers no edit to a role that does not raise permits", () => {
+    renderWithIntl(
+      <PermitDetail {...NOOP_PROPS} roles={["clinical_approver"]} permit={RETURNED_DRAFT} state="default" />,
+    );
+    expect(screen.queryByRole("link", { name: "Επεξεργασία" })).not.toBeInTheDocument();
+  });
+
+  it("says a line has nobody appointed, and lets an administrator decide it", () => {
+    const unassigned: ShutdownPermit = {
+      ...BASE_PERMIT,
+      status: "CLINICAL_REVIEW",
+      approvals: [{ ...BASE_PERMIT.approvals[1], approverId: null, approverName: null }],
+    };
+    renderWithIntl(<PermitDetail {...NOOP_PROPS} permit={unassigned} state="default" />);
+    expect(screen.getByText(/Δεν έχει οριστεί εγκρίνων/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Έγκριση" })).not.toBeInTheDocument();
+
+    renderWithIntl(
+      <PermitDetail {...NOOP_PROPS} roles={["admin"]} myUserId="admin" permit={unassigned} state="default" />,
+    );
+    expect(screen.getByRole("button", { name: "Έγκριση" })).toBeInTheDocument();
+  });
+
+  it("shows the API's sentence under the line whose decision was refused", () => {
+    renderWithIntl(
+      <PermitDetail
+        {...NOOP_PROPS}
+        permit={{ ...BASE_PERMIT, status: "CLINICAL_REVIEW" }}
+        state="default"
+        decideError={{ approvalId: "ap1", message: "Η γραμμή έγκρισης περιμένει άλλο πρόσωπο." }}
+      />,
+    );
+    expect(screen.getByRole("alert")).toHaveTextContent("Η γραμμή έγκρισης περιμένει άλλο πρόσωπο.");
   });
 });

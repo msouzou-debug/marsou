@@ -66014,7 +66014,7 @@
             }
           },
           "403": {
-            "description": "This line is waiting on somebody else",
+            "description": "This line is waiting on somebody else, or the caller's role may not decide a line of this kind",
             "content": {
               "application/json": {
                 "schema": {
@@ -66624,6 +66624,13 @@
                           },
                           "decidable": {
                             "type": "boolean"
+                          },
+                          "note": {
+                            "default": null,
+                            "type": [
+                              "string",
+                              "null"
+                            ]
                           }
                         },
                         "required": [
@@ -66638,7 +66645,8 @@
                           "unread",
                           "facts",
                           "href",
-                          "decidable"
+                          "decidable",
+                          "note"
                         ],
                         "additionalProperties": false
                       }

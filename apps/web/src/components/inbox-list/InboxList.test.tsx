@@ -17,6 +17,7 @@ const ITEMS = [
     facts: [{ label: "a", value: "1" }, { label: "b", value: "2" }, { label: "c", value: "3" }],
     href: "/contracts/1/variations",
     decidable: true,
+    note: null,
   },
   {
     id: "s1",
@@ -31,6 +32,7 @@ const ITEMS = [
     facts: [{ label: "a", value: "1" }, { label: "b", value: "2" }, { label: "c", value: "3" }],
     href: "/permits/1",
     decidable: true,
+    note: null,
   },
 ];
 

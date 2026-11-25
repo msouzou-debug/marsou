@@ -2,10 +2,11 @@ import { Injectable } from "@nestjs/common";
 import {
   Inbox,
   InboxItem,
+  type ApprovalRole,
   type InboxItemType,
   type PaymentCertStatus,
 } from "@ecapital/shared";
-import { and, asc, eq, inArray, ne, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, ne, or, sql } from "drizzle-orm";
 import { callerUserId } from "../common/actor";
 import { AppError } from "../common/errors";
 import { I18nService, type Locale } from "../common/i18n.service";
@@ -14,6 +15,7 @@ import * as schema from "../db/schema";
 import { classAndSystemsFact, formatAreaList, formatPermitWindow, permitWhatEl } from "./inbox-facts";
 import { PermissionsService } from "../permissions/permissions.service";
 import { CERT_STEP_NEEDS } from "../permissions/steps";
+import { mayDecideLine } from "./line-needs";
 import { approvalSlaState } from "./permit-sla";
 
 /** R11's ladder. Who may take each step is `CERT_STEP_NEEDS`, as in PaymentCertsService. */
@@ -66,6 +68,7 @@ export class InboxService {
 
     const items = [
       ...(await this.permitItems(caller, now, locale)),
+      ...(await this.returnedItems(caller, locale)),
       ...(await this.variationItems(caller, roles)),
       ...(await this.certificateItems(caller, roles)),
     ]
@@ -95,6 +98,21 @@ export class InboxService {
 
   // ------------------------------------------------------------ the three --
 
+  /**
+   * The approval lines waiting on the caller, and — for an administrator —
+   * the lines waiting on nobody.
+   *
+   * OWNER UAT 25/11/2026: a unit with no approver appointed for a role left
+   * that line unassigned and PENDING, which the service intends (an
+   * administrator stands in, ADR-0026 Errata), but no screen ever showed the
+   * line to the administrator, so the permit simply sat there. The
+   * administrator now sees every unassigned line of a permit they did not
+   * request themselves, with a sentence saying why it is theirs.
+   *
+   * `decidable` says what the decide route will say (`LINE_NEEDS`): a line
+   * assigned to somebody whose role may not decide it is shown with the
+   * reason instead of two buttons the API would refuse.
+   */
   private async permitItems(
     caller: string,
     now: Date,
@@ -102,12 +120,30 @@ export class InboxService {
   ): Promise<Omit<InboxItem, "unread">[]> {
     const tx = currentTx();
     if (!tx) throw AppError.internal();
+    const roles = tx.context.roles;
+    const isAdmin = roles.includes("admin");
+    const mayDecide = (role: ApprovalRole) =>
+      isAdmin || mayDecideLine(role, (area, level) => this.permissions.allowed({ roles }, area, level));
+
+    const waitingOn = isAdmin
+      ? or(
+          eq(schema.permitApproval.approverId, caller),
+          and(
+            isNull(schema.permitApproval.approverId),
+            ne(schema.shutdownPermit.requestedBy, caller),
+          ),
+        )
+      : eq(schema.permitApproval.approverId, caller);
 
     const rows = await tx.db
       .select({
         id: schema.permitApproval.id,
         permitId: schema.permitApproval.permitId,
         role: schema.permitApproval.role,
+        approverId: schema.permitApproval.approverId,
+        // A WARD_MANAGER line is about one room: name that room, so three
+        // of them on one permit read as three rows, not three copies.
+        lineAreaNameEl: sql<string | null>`(select a.name_el from ecapital.area a where a.id = ${schema.permitApproval.areaId})`,
         dueAt: schema.permitApproval.dueAt,
         slaHours: schema.permitApproval.slaHours,
         ref: schema.shutdownPermit.ref,
@@ -129,7 +165,7 @@ export class InboxService {
       .innerJoin(schema.orgUnit, eq(schema.orgUnit.id, schema.shutdownPermit.orgUnitId))
       .where(
         and(
-          eq(schema.permitApproval.approverId, caller),
+          waitingOn,
           eq(schema.permitApproval.decision, "PENDING"),
           eq(schema.shutdownPermit.status, "CLINICAL_REVIEW"),
         ),
@@ -137,23 +173,16 @@ export class InboxService {
       .orderBy(asc(schema.permitApproval.dueAt));
     if (!rows.length) return [];
 
-    const areas = await tx.db
-      .select({
-        permitId: schema.shutdownPermitArea.permitId,
-        nameEl: schema.area.nameEl,
-      })
-      .from(schema.shutdownPermitArea)
-      .innerJoin(schema.area, eq(schema.area.id, schema.shutdownPermitArea.areaId))
-      .where(
-        inArray(
-          schema.shutdownPermitArea.permitId,
-          rows.map((row) => row.permitId),
-        ),
-      )
-      .orderBy(asc(schema.area.code));
+    const names = await this.areaNames(rows.map((row) => row.permitId));
 
     return rows.map((row) => {
-      const names = areas.filter((area) => area.permitId === row.permitId).map((a) => a.nameEl);
+      const unassigned = row.approverId === null;
+      const decidable = mayDecide(row.role);
+      const note = unassigned
+        ? this.i18n.translate("inbox.notes.unassigned", locale)
+        : decidable
+          ? null
+          : this.i18n.translate("inbox.notes.roleMissing", locale);
       return {
         id: row.id,
         type: "SHUTDOWN" as const,
@@ -162,7 +191,7 @@ export class InboxService {
         // caller (a ward manager for one area, nursing for the unit) reads
         // as three distinguishable rows, not three copies of one line.
         whatEl: permitWhatEl(row.ref, row.titleEl, row.role, locale, this.i18n),
-        whereEl: `${row.orgUnitNameEl} › ${names[0] ?? "—"}`,
+        whereEl: `${row.orgUnitNameEl} › ${row.lineAreaNameEl ?? names.get(row.permitId)?.[0] ?? "—"}`,
         requestedByName: row.requestedByName ?? "",
         requestedAt: (row.submittedAt ?? row.requestedAt).toISOString(),
         dueAt: row.dueAt.toISOString(),
@@ -183,13 +212,114 @@ export class InboxService {
           },
           {
             label: this.i18n.translate("inbox.facts.rooms", locale),
-            value: formatAreaList(names),
+            value: formatAreaList(names.get(row.permitId) ?? []),
           },
         ],
         href: `/permits/${row.permitId}`,
-        decidable: true,
+        decidable,
+        note,
       };
     });
+  }
+
+  /**
+   * OWNER UAT 25/11/2026 («Επιστροφή με σχόλια» must send the item back to
+   * the requester): a permit an approver returned is DRAFT again, and the
+   * requester had nothing telling them so. Each of their own permits that
+   * came back waits here — not decidable, a sentence naming who returned it,
+   * the comment as the first fact — until they correct it and submit it
+   * again, which rebuilds the route and so takes the RETURNED line away.
+   */
+  private async returnedItems(caller: string, locale: Locale): Promise<Omit<InboxItem, "unread">[]> {
+    const tx = currentTx();
+    if (!tx) throw AppError.internal();
+
+    const rows = await tx.db
+      .select({
+        id: schema.permitApproval.id,
+        permitId: schema.permitApproval.permitId,
+        role: schema.permitApproval.role,
+        commentEl: schema.permitApproval.commentEl,
+        decidedAt: schema.permitApproval.decidedAt,
+        returnedByName: sql<string | null>`ecapital.user_display_name(${schema.permitApproval.approverId})`,
+        ref: schema.shutdownPermit.ref,
+        titleEl: schema.shutdownPermit.titleEl,
+        plannedStart: schema.shutdownPermit.plannedStart,
+        plannedEnd: schema.shutdownPermit.plannedEnd,
+        requestedAt: schema.shutdownPermit.requestedAt,
+        requestedByName: sql<string | null>`ecapital.user_display_name(${schema.shutdownPermit.requestedBy})`,
+        orgUnitNameEl: schema.orgUnit.nameEl,
+      })
+      .from(schema.permitApproval)
+      .innerJoin(
+        schema.shutdownPermit,
+        eq(schema.shutdownPermit.id, schema.permitApproval.permitId),
+      )
+      .innerJoin(schema.orgUnit, eq(schema.orgUnit.id, schema.shutdownPermit.orgUnitId))
+      .where(
+        and(
+          eq(schema.shutdownPermit.requestedBy, caller),
+          eq(schema.shutdownPermit.status, "DRAFT"),
+          eq(schema.permitApproval.decision, "RETURNED"),
+        ),
+      )
+      .orderBy(asc(schema.permitApproval.decidedAt));
+    if (!rows.length) return [];
+
+    const names = await this.areaNames(rows.map((row) => row.permitId));
+
+    return rows.map((row) => ({
+      id: row.id,
+      type: "SHUTDOWN" as const,
+      whatEl: this.i18n.translate("inbox.returnedWhat", locale, {
+        ref: row.ref ?? "—",
+        title: row.titleEl,
+      }),
+      whereEl: `${row.orgUnitNameEl} › ${names.get(row.permitId)?.[0] ?? "—"}`,
+      requestedByName: row.requestedByName ?? "",
+      requestedAt: (row.decidedAt ?? row.requestedAt).toISOString(),
+      dueAt: null,
+      slaState: null,
+      facts: [
+        {
+          label: this.i18n.translate("inbox.facts.comment", locale),
+          value: row.commentEl ?? "—",
+        },
+        {
+          label: this.i18n.translate("inbox.facts.period", locale),
+          value: formatPermitWindow(row.plannedStart, row.plannedEnd),
+        },
+        {
+          label: this.i18n.translate("inbox.facts.rooms", locale),
+          value: formatAreaList(names.get(row.permitId) ?? []),
+        },
+      ],
+      href: `/permits/${row.permitId}`,
+      decidable: false,
+      note: this.i18n.translate("inbox.notes.returned", locale, {
+        name: row.returnedByName ?? this.i18n.translate(`approvalRole.${row.role}`, locale),
+      }),
+    }));
+  }
+
+  /** The names of each permit's areas, in code order — S14's «Χώροι» fact. */
+  private async areaNames(permitIds: string[]): Promise<Map<string, string[]>> {
+    const tx = currentTx();
+    if (!tx) throw AppError.internal();
+    const areas = await tx.db
+      .select({
+        permitId: schema.shutdownPermitArea.permitId,
+        nameEl: schema.area.nameEl,
+      })
+      .from(schema.shutdownPermitArea)
+      .innerJoin(schema.area, eq(schema.area.id, schema.shutdownPermitArea.areaId))
+      .where(inArray(schema.shutdownPermitArea.permitId, permitIds))
+      .orderBy(asc(schema.area.code));
+    const byPermit = new Map<string, string[]>();
+    for (const area of areas) {
+      byPermit.set(area.permitId, [...(byPermit.get(area.permitId) ?? []), area.nameEl]);
+    }
+    return byPermit;
   }
 
   private async variationItems(
@@ -250,6 +380,7 @@ export class InboxService {
       // shows the contract's figures, not from a three-fact card.
       href: `/contracts/${row.contractId}/variations`,
       decidable: false,
+      note: null,
     }));
   }
 
@@ -317,6 +448,7 @@ export class InboxService {
         ],
         href: `/certificates/${row.id}`,
         decidable: false,
+        note: null,
       }));
   }
 }

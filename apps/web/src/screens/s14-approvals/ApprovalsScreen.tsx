@@ -17,6 +17,7 @@
  */
 import { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { z } from "zod";
 import type { InboxItem, ShutdownPermit } from "@ecapital/shared";
 import { ShutdownPermit as ShutdownPermitSchema } from "@ecapital/shared";
@@ -50,6 +51,7 @@ function permitIdFromHref(href: string): string | null {
 }
 
 export function ApprovalsScreen({ noPermission }: ApprovalsScreenProps) {
+  const t = useTranslations();
   const { data, error, isLoading, refetch } = useInbox();
   const online = useOnlineStatus();
   const router = useRouter();
@@ -75,38 +77,70 @@ export function ApprovalsScreen({ noPermission }: ApprovalsScreenProps) {
     state = "default";
   }
 
+  // OWNER UAT 25/11/2026: «Έγκριση» and «Επιστροφή με σχόλια» used to fire
+  // and forget — a refusal was an unhandled rejection in the console and the
+  // panel just sat there. The API's sentence now shows in the panel.
+  const [decideError, setDecideError] = useState<string | undefined>(undefined);
+  const [deciding, setDeciding] = useState(false);
+
+  /** Unread is a convenience: a failure to record it never interrupts anyone. */
+  function markRead(id: string) {
+    if (readIds.current.has(id)) return;
+    readIds.current.add(id);
+    apiMutate(`/inbox/${encodeURIComponent(id)}/read`, "POST", undefined, z.unknown()).catch(() => {
+      readIds.current.delete(id);
+    });
+  }
+
   function open(id: string) {
+    setDecideError(undefined);
     router.push(`/approvals?item=${encodeURIComponent(id)}`);
-    if (!readIds.current.has(id)) {
-      readIds.current.add(id);
-      void apiMutate(`/inbox/${encodeURIComponent(id)}/read`, "POST", undefined, z.unknown());
-    }
+    markRead(id);
   }
 
   function close() {
+    setDecideError(undefined);
     router.push("/approvals");
   }
 
   async function decide(item: InboxItem, decision: "APPROVED" | "RETURNED" | "REJECTED", comment?: string): Promise<void> {
-    if (item.type !== "SHUTDOWN") return; // RULE: only permit approvals decide inline; others open via `belowFooter`.
+    // RULE: only permit approval lines decide inline; the others open their
+    // own screen through `belowFooter`, and their panel's buttons are inert.
+    if (item.type !== "SHUTDOWN" || !item.decidable) return;
     const permitId = permitIdFromHref(item.href);
-    if (!permitId) return;
-    await apiMutate<ShutdownPermit>(
-      `/permits/${encodeURIComponent(permitId)}/approvals/${encodeURIComponent(item.id)}/decide`,
-      "POST",
-      { decision, commentEl: comment ?? null },
-      ShutdownPermitSchema,
-    );
+    if (!permitId) {
+      setDecideError(t("screens.s14.decideFailed"));
+      return;
+    }
+    setDeciding(true);
+    setDecideError(undefined);
+    try {
+      await apiMutate<ShutdownPermit>(
+        `/permits/${encodeURIComponent(permitId)}/approvals/${encodeURIComponent(item.id)}/decide`,
+        "POST",
+        { decision, commentEl: comment ?? null },
+        ShutdownPermitSchema,
+      );
+    } catch (decisionError) {
+      setDecideError(decisionError instanceof ApiError ? decisionError.message : t("screens.s14.decideFailed"));
+      return;
+    } finally {
+      setDeciding(false);
+    }
+    // Decided: the line is no longer waiting on anyone here, so it leaves
+    // the list and the panel closes.
     close();
     await refetch();
   }
 
   // Deep link on first load: mark read without waiting for a click.
   useEffect(() => {
-    if (openItemId && !readIds.current.has(openItemId)) {
-      readIds.current.add(openItemId);
-      void apiMutate(`/inbox/${encodeURIComponent(openItemId)}/read`, "POST", undefined, z.unknown());
-    }
+    if (!openItemId || readIds.current.has(openItemId)) return;
+    const id = openItemId;
+    readIds.current.add(id);
+    apiMutate(`/inbox/${encodeURIComponent(id)}/read`, "POST", undefined, z.unknown()).catch(() => {
+      readIds.current.delete(id);
+    });
   }, [openItemId]);
 
   return (
@@ -118,6 +152,8 @@ export function ApprovalsScreen({ noPermission }: ApprovalsScreenProps) {
       onClose={close}
       onDecide={(item, decision, comment) => void decide(item, decision, comment)}
       onRetry={() => void refetch()}
+      decideError={decideError}
+      deciding={deciding}
       noPermission={noPermission}
     />
   );

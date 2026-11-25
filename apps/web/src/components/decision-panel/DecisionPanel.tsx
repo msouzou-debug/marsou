@@ -23,6 +23,9 @@ export interface DecisionFact {
  * | onForward | () => void              | `f` key, optional (not every list has a "next")         |
  * | onClose   | () => void              | `x` key or the close button                             |
  * | loading   | boolean                 | Shows skeleton facts instead of the real ones           |
+ * | error     | string?                 | The caller's refusal sentence, as an alert              |
+ * | busy      | boolean                 | A decision is in flight: buttons and keys inert         |
+ * | note      | string?                 | One informational sentence on a decidable item          |
  *
  * RULE: never render the full record here (UI instructions §4) — only
  * `what`, `where` and the three facts are shown; there is no prop for
@@ -63,6 +66,17 @@ export interface DecisionPanelProps {
    *  buttons — S08's «Απόρριψη» link, which is not in the fixed `buttons.*`
    *  verb set and is therefore never one of this panel's own buttons. */
   belowFooter?: ReactNode;
+  /** OWNER UAT 25/11/2026: the API's sentence when the decision was
+   *  refused. Shown above the buttons as an alert; the panel stays open and
+   *  the typed comment is kept, so the approver can act on it. */
+  error?: string;
+  /** A decision is on its way: both buttons and their keys are inert, so a
+   *  double click cannot send it twice. */
+  busy?: boolean;
+  /** One informational sentence above the buttons on a decidable item (an
+   *  administrator standing in for a missing approver). A non-decidable
+   *  item's sentence is `disabledReason`. */
+  note?: string;
 }
 
 export function DecisionPanel({
@@ -77,8 +91,12 @@ export function DecisionPanel({
   disabled = false,
   disabledReason,
   belowFooter,
+  error,
+  busy = false,
+  note,
 }: DecisionPanelProps) {
   const t = useTranslations();
+  const inert = disabled || busy;
   const [showComment, setShowComment] = useState(false);
   const [comment, setComment] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -96,7 +114,7 @@ export function DecisionPanel({
   }, [showComment]);
 
   function revealOrSubmitReturn() {
-    if (disabled) return;
+    if (inert) return;
     if (!showComment) {
       setShowComment(true);
       return;
@@ -109,7 +127,7 @@ export function DecisionPanel({
       const target = e.target as HTMLElement | null;
       const typing = target?.tagName === "TEXTAREA" || target?.tagName === "INPUT";
       if (typing) return;
-      if (e.key === "a") { if (!disabled) onApprove(); }
+      if (e.key === "a") { if (!inert) onApprove(); }
       else if (e.key === "r") revealOrSubmitReturn();
       else if (e.key === "f") { if (!disabled) onForward?.(); }
       else if (e.key === "x") onClose();
@@ -117,7 +135,7 @@ export function DecisionPanel({
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [onApprove, onForward, onClose, showComment, comment, disabled]);
+  }, [onApprove, onForward, onClose, showComment, comment, disabled, inert]);
 
   const canSubmitReturn = comment.trim().length > 0;
 
@@ -166,6 +184,12 @@ export function DecisionPanel({
             {disabledReason}
           </p>
         )}
+        {!disabled && note && <p className="mb-s-3 text-fs-14 text-k-text">{note}</p>}
+        {error && (
+          <p role="alert" className="mb-s-3 rounded-k border border-k-red bg-k-white p-s-3 text-fs-14 text-k-red">
+            {error}
+          </p>
+        )}
         {showComment && (
           <div className="mb-s-3">
             <textarea
@@ -187,7 +211,7 @@ export function DecisionPanel({
           <button
             type="button"
             onClick={onApprove}
-            disabled={disabled}
+            disabled={inert}
             className="h-[56px] tablet:h-auto tablet:py-s-3 flex-1 rounded-k bg-k-blue text-fs-14 font-bold text-k-white shadow-k disabled:bg-k-grey disabled:text-k-text-muted"
           >
             {t("buttons.approve")}
@@ -195,7 +219,7 @@ export function DecisionPanel({
           <button
             type="button"
             onClick={revealOrSubmitReturn}
-            disabled={disabled || (showComment && !canSubmitReturn)}
+            disabled={inert || (showComment && !canSubmitReturn)}
             className="h-[56px] tablet:h-auto tablet:py-s-3 flex-1 rounded-k border border-k-grey text-fs-14 font-bold text-k-text disabled:text-k-text-muted disabled:cursor-not-allowed"
           >
             {t("buttons.returnWithComments")}
