@@ -149,7 +149,7 @@ export function UnitTable({ units, state = "default", onRetry }: UnitTableProps)
   // the grouped view is drawn by hand below, so its button sends the same
   // columns and rows through the same route.
   const handleGroupedExport = () =>
-    exportTable({ title: t("screens.s01.unitTable.caption"), columns, rows: sortedUnits, t: (key) => t(key) });
+    exportTable({ title: t("screens.s01.title"), columns, rows: sortedUnits, t: (key) => t(key) });
 
   // RULE: row click, not only Enter, opens the unit's project list (UI
   // instructions §5). `Table` only wires Enter to `onRowOpen` (its keyboard
@@ -194,6 +194,7 @@ export function UnitTable({ units, state = "default", onRetry }: UnitTableProps)
           rows={sortedUnits}
           getRowId={(row) => row.orgUnit.id}
           captionKey="screens.s01.unitTable.caption"
+          exportTitleKey="screens.s01.title"
           state={state}
           density="comfortable"
           skeletonRows={sortedUnits.length || 6}

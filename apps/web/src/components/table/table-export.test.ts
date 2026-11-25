@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createElement } from "react";
 import { fileNameFrom } from "@/data/client";
-import { exportKindOf, plainValue, tableExportRequest } from "./table-export";
+import { EXPORT_TITLE_MAX, exportKindOf, exportTitleOf, plainValue, tableExportRequest } from "./table-export";
 import type { TableColumn } from "./Table";
 
 /**
@@ -159,5 +159,31 @@ describe("fileNameFrom", () => {
     expect(fileNameFrom(`attachment; filename="a.xlsx"; filename*=UTF-8''%CE%88%CF%81%CE%B3%CE%B1.xlsx`, "f")).toBe("Έργα.xlsx");
     expect(fileNameFrom('attachment; filename="a.xlsx"', "f")).toBe("a.xlsx");
     expect(fileNameFrom(null, "f")).toBe("f");
+  });
+});
+
+describe("exportTitleOf (UAT 25/11/2026)", () => {
+  it("keeps a short caption as it is", () => {
+    expect(exportTitleOf("Αιτήματα πληροφοριών")).toBe("Αιτήματα πληροφοριών");
+  });
+
+  it("cuts S02's long caption so the API's 120-character title limit never refuses the export", () => {
+    const caption =
+      "Ο πίνακας δείχνει τα έργα που ταιριάζουν με τα ενεργά φίλτρα, με τον προϋπολογισμό, τις δεσμεύσεις, τις δαπάνες και την κατάσταση RAG του καθενός.";
+    const title = exportTitleOf(caption);
+    expect(title).toBe("Ο πίνακας δείχνει τα έργα που ταιριάζουν με τα ενεργά φίλτρα");
+    expect(title.length).toBeLessThanOrEqual(EXPORT_TITLE_MAX);
+  });
+
+  it("cuts at a word when there is no usable clause", () => {
+    const title = exportTitleOf("λέξη ".repeat(40));
+    expect(title.length).toBeLessThanOrEqual(EXPORT_TITLE_MAX);
+    expect(title.endsWith(" ")).toBe(false);
+  });
+
+  it("sends the shortened title as both title and sheet", () => {
+    const body = tableExportRequest({ title: "α".repeat(150), columns: [], rows: [], t: (k) => k });
+    expect(body.title.length).toBeLessThanOrEqual(EXPORT_TITLE_MAX);
+    expect(body.sheetName).toBe(body.title);
   });
 });

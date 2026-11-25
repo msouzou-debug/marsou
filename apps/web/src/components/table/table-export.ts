@@ -131,6 +131,23 @@ export interface TableExportInput<T> {
   source?: string;
 }
 
+/**
+ * RULE (UAT 25/11/2026): a caption is a sentence for screen readers and can
+ * run past the 120-character title the API takes (S02's did, and its export
+ * was refused). A long one is cut at its first clause, else at a word, so the
+ * export never fails on its own title.
+ */
+export const EXPORT_TITLE_MAX = 80;
+export function exportTitleOf(caption: string): string {
+  const text = caption.replace(/\s+/g, " ").trim();
+  if (text.length <= EXPORT_TITLE_MAX) return text || "eCapital";
+  const clause = text.split(/[,.;:]| — /)[0]?.trim() ?? "";
+  if (clause.length >= 10 && clause.length <= EXPORT_TITLE_MAX) return clause;
+  const cut = text.slice(0, EXPORT_TITLE_MAX);
+  const space = cut.lastIndexOf(" ");
+  return (space > 20 ? cut.slice(0, space) : cut).trim();
+}
+
 export function tableExportRequest<T>({ title, columns, rows, t, source }: TableExportInput<T>): TableExportRequestInput {
   const shown = rows.slice(0, TABLE_EXPORT_MAX_ROWS);
   const kept = columns
@@ -145,9 +162,10 @@ export function tableExportRequest<T>({ title, columns, rows, t, source }: Table
     if (a === undefined || b === undefined) return undefined;
     return { op: column.exportFormula.op, columns: [a, b] as [number, number] };
   };
+  const shortTitle = exportTitleOf(title);
   return {
-    title,
-    sheetName: title,
+    title: shortTitle,
+    sheetName: shortTitle,
     source: source ?? (typeof window === "undefined" ? undefined : window.location.pathname),
     columns: kept.map(({ column, kind }) => {
       const formula = formulaOf(column);

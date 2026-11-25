@@ -390,6 +390,7 @@ export function Projects({
           rows={data?.items ?? []}
           getRowId={(row) => row.id}
           captionKey="screens.s02.caption"
+          exportTitleKey="screens.s02.title"
           state={tableState}
           density="dense"
           skeletonRows={query.pageSize > 12 ? 12 : query.pageSize}

@@ -108,6 +108,8 @@ export interface TableProps<T> {
   rows?: T[];
   getRowId: (row: T) => string;
   captionKey: string;
+  /** i18n key for the exported file's title and sheet; the caption, shortened, when unset. */
+  exportTitleKey?: string;
   state?: TableState;
   density?: Density;
   selectable?: boolean;
@@ -179,6 +181,7 @@ export function Table<T>({
   skeletonRows = 6,
   onExport,
   exportRows,
+  exportTitleKey,
   onCellEdit,
   onRowOpen,
   onSelectionChange,
@@ -332,7 +335,7 @@ export function Table<T>({
     setExportError(null);
     try {
       await exportTable({
-        title: tRoot(captionKey),
+        title: tRoot(exportTitleKey ?? captionKey),
         columns: table
           .getVisibleLeafColumns()
           .map((column) => columnsById.get(column.id))
