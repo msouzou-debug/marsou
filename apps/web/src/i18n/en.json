@@ -49,7 +49,9 @@
     "changePhase": "Change phase",
     "downloadExcel": "Download Excel",
     "printPdf": "Print / PDF",
-    "open": "Open"
+    "open": "Open",
+    "view": "View",
+    "download": "Download"
   },
   "forms": {
     "required": "Fill in this field.",
@@ -1587,9 +1589,23 @@
         "noParent": "None",
         "noProject": "None",
         "noContract": "None",
-        "noSystem": "None"
+        "noSystem": "None",
+        "sourceProjectHint": "Projects of the asset's unit",
+        "sourceContractHint": "Contracts of the asset's unit"
       },
-      "parentSearchPlaceholder": "Search an asset by tag or name"
+      "parentSearchPlaceholder": "Search an asset by tag or name",
+      "errors": {
+        "nameLength": "The name has 2 to 200 characters.",
+        "expectedLifeRange": "Expected life is a whole number of years from 1 to 120.",
+        "replacementYearRange": "The replacement year is between 1900 and 2200.",
+        "costNonNegative": "The amount cannot be negative.",
+        "installedInFuture": "The installation date cannot be after today.",
+        "commissionedInFuture": "The commissioning date cannot be after today.",
+        "commissionedBeforeInstalled": "Commissioning cannot be before the installation date.",
+        "warrantyBeforeInstalled": "The warranty end cannot be before the installation date.",
+        "warrantyBeforeCommissioned": "The warranty end cannot be before the commissioning date.",
+        "replacementBeforeInstalled": "The replacement year cannot be before the year of installation."
+      }
     },
     "s17b": {
       "title": "Asset labels"

@@ -135,23 +135,33 @@ describe("AssetDetail", () => {
     expect(within(conditionCard).getByText("Δεν έχει αξιολογηθεί ακόμη.")).toBeInTheDocument();
   });
 
-  // Every filed paper opens its operational copy in a new tab, whatever it is.
-  it("gives every document row an «Άνοιγμα» link to its content", () => {
+  // UAT 25/11/2026: «Προβολή» shows a PDF or a photo in a new tab, and saves
+  // any other type; «Λήψη» always saves.
+  it("gives every document row a «Προβολή» and a «Λήψη» link to its content", () => {
     const documents = [
       { id: "ad-1", assetId: "asset-1", kind: "OM_MANUAL" as const, titleEl: "Εγχειρίδιο λειτουργίας", documentId: "doc-pdf", protocolNumber: "ΟΚΥ/2026/0042", filedAt: "2026-01-12T09:00:00.000Z", mime: "application/pdf", size: 2048 },
       { id: "ad-2", assetId: "asset-1", kind: "PHOTO" as const, titleEl: "Πινακίδα κατασκευαστή", documentId: "doc-img", protocolNumber: null, filedAt: null, mime: "image/jpeg", size: 1024 },
+      { id: "ad-3", assetId: "asset-1", kind: "CERT" as const, titleEl: "Πιστοποιητικό", documentId: "doc-docx", protocolNumber: null, filedAt: null, mime: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", size: 4096 },
     ];
     renderWithIntl(<AssetDetail {...BASE_PROPS} asset={{ ...BASE_ASSET, documents }} />);
     const card = screen.getByText("Έγγραφα", { selector: "h2" }).closest("section, div.rounded-k") as HTMLElement;
-    const links = within(card).getAllByRole("link", { name: /Άνοιγμα/ });
-    expect(links.map((a) => a.getAttribute("href"))).toEqual([
+    const views = within(card).getAllByRole("link", { name: /Προβολή/ });
+    expect(views.map((a) => a.getAttribute("href"))).toEqual([
       "/api/proxy/documents/doc-pdf/content",
       "/api/proxy/documents/doc-img/content",
+      "/api/proxy/documents/doc-docx/content?download=1",
     ]);
-    for (const a of links) {
+    for (const a of views) {
       expect(a).toHaveAttribute("target", "_blank");
       expect(a).toHaveAttribute("rel", "noopener");
     }
+    const downloads = within(card).getAllByRole("link", { name: /Λήψη/ });
+    expect(downloads.map((a) => a.getAttribute("href"))).toEqual([
+      "/api/proxy/documents/doc-pdf/content?download=1",
+      "/api/proxy/documents/doc-img/content?download=1",
+      "/api/proxy/documents/doc-docx/content?download=1",
+    ]);
+    for (const a of downloads) expect(a).not.toHaveAttribute("target");
   });
 
   it("shows the noPermission node instead of the record", () => {

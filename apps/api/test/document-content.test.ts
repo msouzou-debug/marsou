@@ -156,6 +156,43 @@ describe("a document's content", () => {
     expect(
       (await http().get(`/documents/${filed.body.documentId}/content`).set(bearer(larnaca))).status,
     ).toBe(404);
+
+    // «Λήψη» (UAT 25/11/2026): the same bytes, to be saved and not shown.
+    const download = await http()
+      .get(`/documents/${filed.body.documentId}/content?download=1`)
+      .set(bearer(auditor))
+      .buffer()
+      .parse(binary);
+    expect(download.status).toBe(200);
+    expect(download.headers["content-type"]).toBe("application/pdf");
+    expect(Buffer.compare(download.body as Buffer, PDF)).toBe(0);
+    expect(download.headers["content-disposition"]).toMatch(/^attachment; filename\*=UTF-8''/);
+  });
+
+  it("never shows a filed HTML file inline, whatever the link asks for", async () => {
+    const asset = await makeAsset(app);
+    const estates = await tokenFor(app, USERS.estatesNicosia);
+    const filed = await http()
+      .post(`/assets/${asset.id}/documents`)
+      .set(bearer(estates))
+      .field("kind", "OM_MANUAL")
+      .field("titleEl", "Σημείωση")
+      .attach("file", Buffer.from("<script>alert(1)</script>"), {
+        filename: "note.html",
+        contentType: "text/html",
+      });
+    expect(filed.status, JSON.stringify(filed.body)).toBe(201);
+
+    for (const query of ["", "?download=0", "?download=1"]) {
+      const response = await http()
+        .get(`/documents/${filed.body.documentId}/content${query}`)
+        .set(bearer(estates))
+        .buffer()
+        .parse(binary);
+      expect(response.status, query).toBe(200);
+      expect(response.headers["content-disposition"], query).toMatch(/^attachment;/);
+      expect(response.headers["content-security-policy"], query).toContain("sandbox");
+    }
   });
 
   it("names the file after its title, with the type's extension once", () => {

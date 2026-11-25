@@ -166,7 +166,7 @@ describe("S18a WorkOrderDetail", () => {
   });
 
   // A filed image is a thumbnail through `GET /documents/:id/content`; a PDF
-  // stays a line, with «Άνοιγμα» to open it in a new tab.
+  // stays a line, with «Προβολή» to open it in a new tab and «Λήψη» to save it.
   it("shows a filed image in the strip and opens a filed PDF in a new tab", () => {
     renderDetail({
       order: buildWorkOrderDetail({
@@ -181,13 +181,15 @@ describe("S18a WorkOrderDetail", () => {
     const img = within(card).getByRole("img", { name: "Διαρροή στον πίνακα" });
     expect(img.getAttribute("src")).toMatch(/\/documents\/doc-img\/content$/);
 
-    const open = within(card).getByRole("link", { name: /Άνοιγμα/ });
+    const open = within(card).getByRole("link", { name: /Προβολή/ });
     expect(open).toHaveAttribute("href", "/api/proxy/documents/doc-pdf/content");
     expect(open).toHaveAttribute("target", "_blank");
     expect(open).toHaveAttribute("rel", "noopener");
+    const save = within(card).getByRole("link", { name: /Λήψη/ });
+    expect(save).toHaveAttribute("href", "/api/proxy/documents/doc-pdf/content?download=1");
     expect(within(card).getByText("Έκθεση αναδόχου", { selector: "span.text-k-ink" })).toBeInTheDocument();
-    // The image is not also a line with a link.
-    expect(within(card).getAllByRole("link")).toHaveLength(1);
+    // The image is not also a line with links.
+    expect(within(card).getAllByRole("link")).toHaveLength(2);
   });
 
   it("shows filed images to a reader who may not add photos, without the camera", () => {

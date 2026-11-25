@@ -28,7 +28,7 @@
 import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import { Printer } from "lucide-react";
-import type { AssetDetail as AssetDetailType, AssetDocumentKind, Condition } from "@ecapital/shared";
+import { nicosiaToday, type AssetDetail as AssetDetailType, type AssetDocumentKind, type Condition } from "@ecapital/shared";
 import { useTranslations } from "next-intl";
 import { AssetBreadcrumb, type AssetBreadcrumbSegment } from "@/components/asset-breadcrumb";
 import { ConditionChip } from "@/components/condition-chip";
@@ -37,7 +37,7 @@ import { CriticalityChip } from "@/components/criticality-chip";
 import { LabelSheet } from "@/components/label-sheet";
 import { PageTitle } from "@/components/app-shell";
 import { Timeline } from "@/components/timeline";
-import { documentContentHref } from "@/data/queries";
+import { documentContentHref, documentViewHref } from "@/data/queries";
 import { formatDate, formatEURorDash, formatInt } from "@/lib/format";
 
 export type AssetDetailState = "default" | "loading" | "error" | "noPermission" | "offline";
@@ -310,6 +310,7 @@ export function AssetDetail(props: AssetDetailProps) {
                     {t("screens.s17.condition.assessedAtLabel")}
                     <input
                       type="date"
+                      max={nicosiaToday()}
                       value={conditionForm.assessedAt}
                       onChange={(e) => onConditionFormChange({ ...conditionForm, assessedAt: e.target.value })}
                       className="num h-11 rounded-k border border-k-grey px-s-3 text-fs-16 text-k-ink"
@@ -373,16 +374,24 @@ export function AssetDetail(props: AssetDetailProps) {
                       <span className="num text-fs-12 text-k-text">
                         {doc.protocolNumber ?? t("screens.s17.pendingFiling")}
                       </span>
-                      {/* The operational copy (`GET /documents/:id/content`),
-                          in a new tab: a photo or a PDF opens there, any
-                          other file is saved by the browser. */}
+                      {/* The operational copy (`GET /documents/:id/content`).
+                          «Προβολή» opens a PDF or a photo in a new tab and
+                          saves any other type; «Λήψη» always saves
+                          (`?download=1`, UAT 25/11/2026). */}
                       <a
-                        href={documentContentHref(doc.documentId)}
+                        href={documentViewHref(doc.documentId, doc.mime)}
                         target="_blank"
                         rel="noopener"
                         className="text-fs-14 text-k-blue underline"
                       >
-                        {t("buttons.open")}
+                        {t("buttons.view")}
+                        <span className="sr-only"> {doc.titleEl}</span>
+                      </a>
+                      <a
+                        href={documentContentHref(doc.documentId, { download: true })}
+                        className="text-fs-14 text-k-blue underline"
+                      >
+                        {t("buttons.download")}
                         <span className="sr-only"> {doc.titleEl}</span>
                       </a>
                     </span>
