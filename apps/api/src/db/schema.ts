@@ -1179,6 +1179,35 @@ export const forecastInputs = ecapital.table("forecast_inputs", {
 });
 
 /**
+ * ADR-0037: a project's cash-flow plan, one row per month (YYYY-MM). When a
+ * project has rows here, S04's «Προγραμματισμένο» reads them instead of the
+ * budget line spread over twelve months. Written by whoever writes the
+ * budget lines (0028's policy).
+ */
+export const projectCashflowPlan = ecapital.table(
+  "project_cashflow_plan",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => project.id, { onDelete: "cascade" }),
+    orgUnitId: text("org_unit_id")
+      .notNull()
+      .references(() => orgUnit.id),
+    period: text("period").notNull(),
+    amount: numeric("amount", { precision: 14, scale: 2 }).notNull(),
+    note: text("note"),
+    updatedBy: uuid("updated_by").references(() => appUser.id, { onDelete: "set null" }),
+    createdAt,
+    updatedAt,
+  },
+  (t) => [
+    uniqueIndex("project_cashflow_plan_period_key").on(t.projectId, t.period),
+    index("project_cashflow_plan_unit_idx").on(t.orgUnitId),
+  ],
+);
+
+/**
  * R14: the allocation somebody made once, remembered. Vendor plus the
  * normalised narrative points at a project and, where there is one, a
  * contract; the next import applies it as matchedBy RULE.

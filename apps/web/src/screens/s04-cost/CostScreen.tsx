@@ -8,7 +8,9 @@
  * call for the page header's title/code only (never blocks the cost data —
  * same reasoning `ContractOverviewScreen` gives `useConfigLinks`), and every
  * M2 write this screen offers: `PUT .../forecast-inputs`,
- * `POST .../warnings/:id/dismiss`, `GET .../cashflow` and `PUT .../budget-lines`.
+ * `POST .../warnings/:id/dismiss`, `GET .../cashflow`, `PUT .../budget-lines`
+ * and the cash-flow plan (ADR-0037): `GET`/`PUT .../cost/cashflow-plan`,
+ * `POST .../cashflow-plan/import` and the template link.
  * The export button navigates the browser to the proxy's own export route —
  * the proxy forwards the upstream's `Content-Disposition`
  * (`src/app/api/proxy/[...path]/route.ts`), so a plain link/`window.open`
@@ -16,15 +18,34 @@
  * button in this app is a stub waiting on its API route.
  */
 import { useEffect, useState, type ReactNode } from "react";
-import type { AppRole, BudgetLine, CashflowRow, CostWarning, ForecastInputs, ProjectCost } from "@ecapital/shared";
+import type {
+  AppRole,
+  BudgetLine,
+  CashflowPlanImportResult,
+  CashflowPlanMonth,
+  CashflowRow,
+  CostWarning,
+  ForecastInputs,
+  ProjectCost,
+} from "@ecapital/shared";
 import {
   BudgetLine as BudgetLineSchema,
+  CashflowPlan as CashflowPlanSchema,
+  CashflowPlanImportResult as CashflowPlanImportResultSchema,
   CostWarning as CostWarningSchema,
   ForecastInputs as ForecastInputsSchema,
 } from "@ecapital/shared";
+import { useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
-import { ApiError, apiMutate } from "@/data/client";
-import { useBudgetLines, useCashflow, useProjectBudgetPosition, useProjectCost, useProjectDetail } from "@/data/queries";
+import { ApiError, apiMutate, apiMutateMultipart } from "@/data/client";
+import {
+  useBudgetLines,
+  useCashflow,
+  useCashflowPlan,
+  useProjectBudgetPosition,
+  useProjectCost,
+  useProjectDetail,
+} from "@/data/queries";
 import type { BudgetLineDraftRow } from "./BudgetLinesEditor";
 import type { BudgetPositionState } from "./BudgetPositionPanel";
 import type { CashflowSectionState } from "./CashflowSection";
@@ -74,6 +95,8 @@ export function CostScreen({ projectId, roles, noPermission }: CostScreenProps) 
   const [cashflowFrom, setCashflowFrom] = useState(initialRange.from);
   const [cashflowTo, setCashflowTo] = useState(initialRange.to);
   const cashflow = useCashflow(projectId, cashflowFrom, cashflowTo);
+  const cashflowPlan = useCashflowPlan(projectId);
+  const queryClient = useQueryClient();
 
   const [budgetYear, setBudgetYear] = useState(() => new Date().getFullYear());
   const budgetLines = useBudgetLines(projectId);
@@ -192,6 +215,39 @@ export function CostScreen({ projectId, roles, noPermission }: CostScreenProps) 
     }
   }
 
+  // ADR-0037: the plan replaces whole; the cash flow and the plan are both
+  // refetched so «Προγραμματισμένα» and the source line move together.
+  async function refreshPlan(): Promise<void> {
+    await queryClient.invalidateQueries({ queryKey: ["project-cashflow", projectId] });
+    await cashflowPlan.refetch();
+  }
+
+  async function saveCashflowPlan(months: CashflowPlanMonth[]): Promise<void> {
+    await apiMutate(
+      `/projects/${encodeURIComponent(projectId)}/cost/cashflow-plan`,
+      "PUT",
+      { mode: "replace", months },
+      CashflowPlanSchema,
+    );
+    await refreshPlan();
+  }
+
+  async function importCashflowPlan(file: File): Promise<CashflowPlanImportResult> {
+    const form = new FormData();
+    form.append("file", file);
+    const result = await apiMutateMultipart(
+      `/projects/${encodeURIComponent(projectId)}/cost/cashflow-plan/import`,
+      form,
+      CashflowPlanImportResultSchema,
+    );
+    if (result.saved) await refreshPlan();
+    return result;
+  }
+
+  function cashflowPlanTemplateHref(from: string, to: string): string {
+    return `/api/proxy/projects/${encodeURIComponent(projectId)}/cost/cashflow-plan/template.xlsx?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`;
+  }
+
   function exportCost(): void {
     setExporting(true);
     // A real navigation (not `fetch`): the proxy streams the upstream's
@@ -227,6 +283,10 @@ export function CostScreen({ projectId, roles, noPermission }: CostScreenProps) 
         setCashflowFrom(from);
         setCashflowTo(to);
       }}
+      cashflowPlan={cashflowPlan.data}
+      onSaveCashflowPlan={saveCashflowPlan}
+      onImportCashflowPlan={importCashflowPlan}
+      cashflowPlanTemplateHref={cashflowPlanTemplateHref}
       budgetLines={budgetLines.data}
       budgetYear={budgetYear}
       onBudgetYearChange={setBudgetYear}

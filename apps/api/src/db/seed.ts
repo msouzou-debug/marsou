@@ -57,6 +57,7 @@ export interface SeedSummary {
   paymentCerts: number;
   allocationRules: number;
   costWarnings: number;
+  cashflowPlans: number;
   icraMatrixCells: number;
   systemFeeds: number;
   permits: number;
@@ -304,7 +305,8 @@ if (require.main === module) {
           `${s.defects} defects, ${s.budgetLines} budget lines, ${s.costTxns} cost transactions, ` +
           `${s.importBatches} import batches (${s.unmatchedRows} unmatched), ` +
           `${s.paymentCerts} payment certificates, ${s.allocationRules} allocation rules, ` +
-          `${s.costWarnings} cost warnings, ${s.icraMatrixCells} ICRA matrix cells, ` +
+          `${s.costWarnings} cost warnings, ${s.cashflowPlans} cash-flow plans, ` +
+          `${s.icraMatrixCells} ICRA matrix cells, ` +
           `${s.systemFeeds} system feeds, ${s.permits} permits ` +
           `(${s.permitApprovals} approval lines), ${s.areaOwners} area owners, ` +
           `${s.unitApprovers} unit approvers, ${s.assets} assets ` +

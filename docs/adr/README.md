@@ -40,3 +40,4 @@ One file per decision, numbered, never edited after acceptance; superseding deci
 - [ADR-0034 — One code and one name per hospital in every tool, eFinance's; references keep the prefix they were issued under](ADR-0034-unit-codes-follow-efinance.md)
 - [ADR-0035 — Delay penalties shown and never deducted, extensions of time as records, sections with their own clock, claims, freshness, and a business case before a project leaves «Ιδέα»](ADR-0035-delay-penalties-extensions-claims.md)
 - [ADR-0036 — SAP capital lines replace the ME2N and KSB1 extracts; reconciliation against eFinance, never a second spent figure](ADR-0036-sap-capital-lines.md)
+- [ADR-0037 — A project's cash flow is planned by month, and the budget spread stays as the fallback](ADR-0037-project-cash-flow-plan.md)

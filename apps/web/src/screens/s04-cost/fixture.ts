@@ -1,5 +1,5 @@
 // S04 — fixture shared by the test and preview files.
-import type { BudgetLine, CashflowRow, ProjectCost } from "@ecapital/shared";
+import type { BudgetLine, CashflowPlan, CashflowRow, ProjectCost } from "@ecapital/shared";
 
 export function buildProjectCost(overrides: Partial<ProjectCost> = {}): ProjectCost {
   return {
@@ -24,6 +24,23 @@ export function buildCashflowRows(): CashflowRow[] {
     { period: "2026-02", planned: 200_000, actual: 210_000, cumulativePlanned: 400_000, cumulativeActual: 390_000 },
     { period: "2026-03", planned: 200_000, actual: null, cumulativePlanned: 600_000, cumulativeActual: null },
   ];
+}
+
+/** ADR-0037: a plan of two months against a 2.400.000 € budget. Pass `months: []` for no plan. */
+export function buildCashflowPlan(overrides: Partial<CashflowPlan> = {}): CashflowPlan {
+  return {
+    projectId: "p-1",
+    months: [
+      { period: "2026-01", amount: 150_000, note: "Κινητοποίηση αναδόχου" },
+      { period: "2026-02", amount: 250_000, note: null },
+    ],
+    total: 400_000,
+    approvedBudget: 2_400_000,
+    difference: -2_000_000,
+    updatedAt: "2026-11-20T08:00:00.000Z",
+    updatedByName: "Οικονομική Διεύθυνση (δοκιμή)",
+    ...overrides,
+  };
 }
 
 export function buildBudgetLines(): BudgetLine[] {

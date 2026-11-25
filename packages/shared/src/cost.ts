@@ -259,14 +259,98 @@ export const PaymentCertTransition = z.object({
 export type PaymentCertTransition = z.infer<typeof PaymentCertTransition>;
 
 // Cash flow (R17): by month, per project or unit.
+//
+// ADR-0037: where «planned» comes from. A project with a cash-flow plan is
+// read from the plan (PLAN); one without falls back to the year's budget
+// line spread over twelve months (BUDGET). A unit's month can hold both
+// (MIXED). Null when the month has no planned figure.
+export const CashflowPlannedSource = z.enum(["PLAN", "BUDGET", "MIXED"]);
+export type CashflowPlannedSource = z.infer<typeof CashflowPlannedSource>;
+
 export const CashflowRow = z.object({
   period: z.string(), // YYYY-MM
-  planned: z.number().nullable(), // budget_line spread over the year
+  planned: z.number().nullable(), // the plan's month, or the budget line spread over the year
   actual: z.number().nullable(), // sum of ACTUAL postings in the month
   cumulativePlanned: z.number().nullable(),
   cumulativeActual: z.number().nullable(),
+  // Optional so a fixture written before ADR-0037 still parses.
+  plannedSource: CashflowPlannedSource.nullable().optional(),
 });
 export type CashflowRow = z.infer<typeof CashflowRow>;
+
+// ------------------------------------------------- cash-flow plan (ADR-0037)
+
+/** A calendar month as YYYY-MM, January to December. */
+export const PLAN_PERIOD = /^\d{4}-(0[1-9]|1[0-2])$/;
+
+export const CashflowPlanMonth = z.object({
+  period: z.string().regex(PLAN_PERIOD),
+  amount: z.number().finite().nonnegative(),
+  note: z.string().max(500).nullable(),
+});
+export type CashflowPlanMonth = z.infer<typeof CashflowPlanMonth>;
+
+/**
+ * A project's plan as stored, with its total and how far it is from the
+ * approved budget. `difference` is total − approved: positive means the plan
+ * spends more than was approved. Neither figure blocks anything.
+ */
+export const CashflowPlan = z.object({
+  projectId: z.string(),
+  months: z.array(CashflowPlanMonth),
+  total: z.number(),
+  approvedBudget: z.number(),
+  difference: z.number(),
+  updatedAt: z.string().nullable(),
+  updatedByName: z.string().nullable(),
+});
+export type CashflowPlan = z.infer<typeof CashflowPlan>;
+
+/**
+ * PUT body. `replace` makes `months` the whole plan (an empty list removes
+ * the plan, and the cash flow falls back to the budget spread); `upsert`
+ * writes the months given and leaves the others as they are.
+ */
+export const CashflowPlanWrite = z.object({
+  mode: z.enum(["replace", "upsert"]),
+  months: z
+    .array(
+      CashflowPlanMonth.extend({
+        note: z.string().max(500).nullable().default(null),
+      }),
+    )
+    .max(600),
+});
+export type CashflowPlanWrite = z.infer<typeof CashflowPlanWrite>;
+
+/** Why one row of an uploaded plan was refused. The web words it. */
+export const CashflowPlanImportProblem = z.enum([
+  "periodNotValid",
+  "periodRepeated",
+  "amountMissing",
+  "amountNotNumber",
+  "amountNegative",
+  "noteTooLong",
+  "noMonths",
+]);
+export type CashflowPlanImportProblem = z.infer<typeof CashflowPlanImportProblem>;
+
+/**
+ * The import's answer. RULE (owner): all or nothing — when `errors` is not
+ * empty, nothing was saved and `plan` is null.
+ */
+export const CashflowPlanImportResult = z.object({
+  saved: z.boolean(),
+  errors: z.array(
+    z.object({
+      row: z.number().int().nonnegative(),
+      problem: CashflowPlanImportProblem,
+      value: z.string().nullable(),
+    }),
+  ),
+  plan: CashflowPlan.nullable(),
+});
+export type CashflowPlanImportResult = z.infer<typeof CashflowPlanImportResult>;
 
 // Year-end accrual proposal (R18): certified, not yet invoiced.
 export const AccrualRow = z.object({

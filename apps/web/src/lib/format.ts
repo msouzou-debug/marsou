@@ -152,3 +152,27 @@ export function shortSystemName(name: string | null | undefined): string {
   if (short.length > 60) short = short.split(" (")[0].trim();
   return short;
 }
+
+/**
+ * A month as the UI shows it: «2027-01» → «01/2027» (owner rule: months as
+ * mm/yyyy). Anything that is not a YYYY-MM period comes back unchanged.
+ */
+export function formatPeriod(period: string): string {
+  const match = /^(\d{4})-(\d{2})$/.exec(period);
+  return match ? `${match[2]}/${match[1]}` : period;
+}
+
+/**
+ * An amount typed into a form, the Greek way or the plain way: «1.234,56»,
+ * «1234,56», «1234.56», with or without «€». Null when it does not read as a
+ * number. Rounded to the cent.
+ */
+export function parseAmountInput(text: string): number | null {
+  let value = text.replace(/[\s €]/g, "");
+  if (!value) return null;
+  if (value.includes(",")) value = value.replace(/\./g, "").replace(",", ".");
+  else if (/^-?\d{1,3}(\.\d{3})+$/.test(value)) value = value.replace(/\./g, "");
+  if (!/^-?\d+(\.\d+)?$/.test(value)) return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? Math.round(parsed * 100) / 100 : null;
+}

@@ -4,7 +4,7 @@ import { NoPermission } from "@/components/app-shell";
 import type { PreviewEntry } from "@/preview/types";
 import { buildProjectBudgetPosition } from "@/mocks/efinance";
 import { Cost } from "./Cost";
-import { buildBudgetLines, buildCashflowRows, buildProjectCost } from "./fixture";
+import { buildBudgetLines, buildCashflowPlan, buildCashflowRows, buildProjectCost } from "./fixture";
 
 const noPermission = <NoPermission />;
 const noop = () => undefined;
@@ -40,6 +40,10 @@ const commonProps = {
   cashflowFrom: "2026-01",
   cashflowTo: "2026-12",
   onCashflowRangeChange: noop,
+  cashflowPlan: buildCashflowPlan(),
+  onSaveCashflowPlan: async () => undefined,
+  onImportCashflowPlan: async () => ({ saved: true, errors: [], plan: buildCashflowPlan() }),
+  cashflowPlanTemplateHref: () => "#",
   budgetLines: buildBudgetLines(),
   budgetYear: 2026,
   onBudgetYearChange: noop,

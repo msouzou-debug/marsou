@@ -283,20 +283,31 @@ export class ProjectCostService {
   /**
    * R17 — the cash-flow profile by month.
    *
-   * RULE (R17): the plan is the year's budget line spread evenly over its
-   * twelve months. Nobody at ΟΚΥπΥ profiles a capital budget by month, and
-   * inventing an S-curve would be the system making up a forecast nobody
-   * agreed. Twelfths are obviously a straight line, which is honest.
+   * RULE (ADR-0037, owner decision 25/11/2026): a project with a cash-flow
+   * plan reads «planned» from the plan, month by month, and nothing else. A
+   * project without one keeps the R17 rule: the year's budget line spread
+   * evenly over its twelve months. Twelfths are obviously a straight line,
+   * which is honest; inventing an S-curve would be the system making up a
+   * forecast nobody agreed. Each row says which of the two it came from.
    *
    * The «after 2028» sentinel year 9999 (CAPEX-03 §2) has no months to spread
    * over and is left out of the profile; it is still in the approved total.
    */
   async cashflow(projectId: string, query: CashflowQuery): Promise<CashflowRow[]> {
     await this.loadProject(projectId);
-    return this.cashflowFor(eq(schema.budgetLine.projectId, projectId), eq(schema.costTxn.projectId, projectId), query);
+    return this.cashflowFor(
+      eq(schema.budgetLine.projectId, projectId),
+      eq(schema.costTxn.projectId, projectId),
+      eq(schema.projectCashflowPlan.projectId, projectId),
+      query,
+    );
   }
 
-  /** R17 — the same profile, summed over every project of one unit. */
+  /**
+   * R17 — the same profile, summed over every project of one unit. ADR-0037:
+   * the same rule per project — a project's plan where it has one, its
+   * budget spread where it does not — so one month can be MIXED.
+   */
   async unitCashflow(orgUnitId: string, query: CashflowQuery): Promise<CashflowRow[]> {
     const tx = currentTx();
     if (!tx) throw AppError.internal();
@@ -309,13 +320,38 @@ export class ProjectCostService {
     return this.cashflowFor(
       eq(schema.budgetLine.orgUnitId, orgUnitId),
       eq(schema.costTxn.orgUnitId, orgUnitId),
+      eq(schema.projectCashflowPlan.orgUnitId, orgUnitId),
       query,
     );
+  }
+
+  /**
+   * The approved figure of one project: the BUDGET lines of the latest
+   * vintage, every year including the «after 2028» sentinel. The same number
+   * as `ledgers.approved` on S04, which is what a plan is compared against.
+   */
+  async approvedOf(projectId: string): Promise<number> {
+    const tx = currentTx();
+    if (!tx) throw AppError.internal();
+    const vintage = await this.latestVintage(eq(schema.budgetLine.projectId, projectId));
+    if (!vintage) return 0;
+    const rows = await tx.db
+      .select({ amount: sql<string>`sum(${schema.budgetLine.amount})` })
+      .from(schema.budgetLine)
+      .where(
+        and(
+          eq(schema.budgetLine.projectId, projectId),
+          eq(schema.budgetLine.lineType, "BUDGET"),
+          eq(schema.budgetLine.vintageId, vintage),
+        ),
+      );
+    return round2(money(rows[0]?.amount));
   }
 
   private async cashflowFor(
     budgetWhere: ReturnType<typeof eq>,
     txnWhere: ReturnType<typeof eq>,
+    planWhere: ReturnType<typeof eq>,
     query: CashflowQuery,
   ): Promise<CashflowRow[]> {
     const tx = currentTx();
@@ -335,10 +371,22 @@ export class ProjectCostService {
               eq(schema.budgetLine.lineType, "BUDGET"),
               eq(schema.budgetLine.vintageId, vintage),
               sql`${schema.budgetLine.budgetYear} < 9999`,
+              // ADR-0037: a project with a plan is read from the plan only.
+              sql`not exists (select 1 from ecapital.project_cashflow_plan p
+                               where p.project_id = ${schema.budgetLine.projectId})`,
             ),
           )
           .groupBy(schema.budgetLine.budgetYear)
       : [];
+
+    const planRows = await tx.db
+      .select({
+        period: schema.projectCashflowPlan.period,
+        amount: sql<string>`sum(${schema.projectCashflowPlan.amount})`,
+      })
+      .from(schema.projectCashflowPlan)
+      .where(planWhere)
+      .groupBy(schema.projectCashflowPlan.period);
 
     const actual = await tx.db
       .select({
@@ -358,13 +406,20 @@ export class ProjectCostService {
       .groupBy(sql`to_char(${schema.costTxn.postingDate}, 'YYYY-MM')`);
 
     const plannedByMonth = new Map<string, number>();
+    const sourcesByMonth = new Map<string, Set<PlanSource>>();
+    const addPlanned = (period: string, amount: number, source: PlanSource) => {
+      plannedByMonth.set(period, round2((plannedByMonth.get(period) ?? 0) + amount));
+      const sources = sourcesByMonth.get(period) ?? new Set<PlanSource>();
+      sources.add(source);
+      sourcesByMonth.set(period, sources);
+    };
     for (const line of planned) {
       const perMonth = money(line.amount) / 12;
       for (let month = 1; month <= 12; month += 1) {
-        const period = `${line.year}-${String(month).padStart(2, "0")}`;
-        plannedByMonth.set(period, round2((plannedByMonth.get(period) ?? 0) + perMonth));
+        addPlanned(`${line.year}-${String(month).padStart(2, "0")}`, perMonth, "BUDGET");
       }
     }
+    for (const row of planRows) addPlanned(row.period, money(row.amount), "PLAN");
     const actualByMonth = new Map<string, number>();
     for (const row of actual) actualByMonth.set(row.period, money(row.amount));
 
@@ -398,6 +453,7 @@ export class ProjectCostService {
         // The running total only exists once there is something to run.
         cumulativePlanned: sawPlanned ? cumulativePlanned : null,
         cumulativeActual: sawActual ? cumulativeActual : null,
+        plannedSource: sourceOf(sourcesByMonth.get(period)),
       });
     }
     return rows;
@@ -627,6 +683,15 @@ export class ProjectCostService {
     if (!rows.length) throw AppError.notFound("errors.projectNotFound");
     return rows[0];
   }
+}
+
+type PlanSource = "PLAN" | "BUDGET";
+
+/** ADR-0037: one source, or MIXED when a unit's month has both. */
+function sourceOf(sources: Set<PlanSource> | undefined): CashflowRow["plannedSource"] {
+  if (!sources?.size) return null;
+  if (sources.size > 1) return "MIXED";
+  return sources.has("PLAN") ? "PLAN" : "BUDGET";
 }
 
 /** Every YYYY-MM from `from` to `to`, inclusive. */
