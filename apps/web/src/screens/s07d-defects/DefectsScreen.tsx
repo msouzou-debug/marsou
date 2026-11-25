@@ -101,6 +101,7 @@ export function DefectsScreen({ contractId, roles, noPermission }: DefectsScreen
           descriptionEl: values.descriptionEl,
           estimatedCost: Number.isNaN(values.estimatedCost) ? null : values.estimatedCost,
           riskBand: values.riskBand,
+          raisedOn: values.raisedOn,
         },
         DefectSchema,
       );
@@ -113,8 +114,9 @@ export function DefectsScreen({ contractId, roles, noPermission }: DefectsScreen
     }
   }
 
-  async function handleUpdate(values: DefectUpdateFormValues): Promise<void> {
-    if (!selectedId || selectedId === "new") return;
+  /** UAT 25/11/2026: true once saved, which returns the sheet to its read view. */
+  async function handleUpdate(values: DefectUpdateFormValues): Promise<boolean> {
+    if (!selectedId || selectedId === "new") return false;
     setSheetSaving(true);
     setSheetApiError(undefined);
     try {
@@ -128,10 +130,31 @@ export function DefectsScreen({ contractId, roles, noPermission }: DefectsScreen
           funded: values.funded,
           targetProjectId: values.funded && values.targetProjectId.trim() !== "" ? values.targetProjectId : null,
           status: values.status,
+          raisedOn: values.raisedOn,
         },
         DefectSchema,
       );
-      setSelectedId(null);
+      await refetchAll();
+      return true;
+    } catch (submitError) {
+      setSheetApiError(submitError instanceof ApiError ? submitError.message : String(submitError));
+      return false;
+    } finally {
+      setSheetSaving(false);
+    }
+  }
+
+  /**
+   * UAT 25/11/2026: a CLOSED defect is not edited; reopening it, on its own,
+   * is the one change it takes (the API refuses anything else with
+   * errors.defectClosed).
+   */
+  async function handleReopen(): Promise<void> {
+    if (!selectedId || selectedId === "new") return;
+    setSheetSaving(true);
+    setSheetApiError(undefined);
+    try {
+      await apiMutate<Defect>(`/defects/${encodeURIComponent(selectedId)}`, "PATCH", { status: "OPEN" }, DefectSchema);
       await refetchAll();
     } catch (submitError) {
       setSheetApiError(submitError instanceof ApiError ? submitError.message : String(submitError));
@@ -157,7 +180,8 @@ export function DefectsScreen({ contractId, roles, noPermission }: DefectsScreen
       sheetSaving={sheetSaving}
       sheetApiError={sheetApiError}
       onCreate={(values) => void handleCreate(values)}
-      onUpdate={(values) => void handleUpdate(values)}
+      onUpdate={handleUpdate}
+      onReopen={() => void handleReopen()}
     />
   );
 }

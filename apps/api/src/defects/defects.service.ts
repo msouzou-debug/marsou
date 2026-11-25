@@ -8,6 +8,7 @@ import type {
   DefectUpdate,
   RiskBand,
 } from "@ecapital/shared";
+import { nicosiaDateOf } from "@ecapital/shared";
 import { and, desc, eq, inArray, sql, type SQL } from "drizzle-orm";
 import { UUID, callerUserId } from "../common/actor";
 import { AppError } from "../common/errors";
@@ -160,6 +161,11 @@ export class DefectsService {
           riskBand: input.riskBand,
           status: "OPEN",
           raisedBy: caller,
+          // Left to the column default (now) unless the defect was found on
+          // an earlier day than the one it is typed in on.
+          ...(input.raisedOn !== undefined && input.raisedOn !== nicosiaDateOf(new Date())
+            ? { raisedAt: onDay(input.raisedOn) }
+            : {}),
           dueDate,
         })
         .returning({ id: schema.defect.id });
@@ -179,11 +185,27 @@ export class DefectsService {
    *
    * RULE (R12): closing a defect records who closed it and when; reopening
    * one clears both, because a defect that is open again was not closed.
+   *
+   * RULE (UAT 25/11/2026): a CLOSED defect is not edited — 422
+   * errors.defectClosed. The one change it takes is being reopened, on its
+   * own (`{ status: "OPEN" }` or `IN_PROGRESS`); anything else waits until it
+   * is open again, so the record of what was closed stays what was closed.
+   *
+   * RULE (owner, UAT 25/11/2026): the day it was found (`raisedOn`) is not
+   * after today; the schema refuses that before this runs.
    */
   async update(id: string, input: DefectUpdate): Promise<Defect> {
     const tx = currentTx();
     if (!tx) throw AppError.internal();
     const existing = await this.detail(id);
+
+    if (existing.status === "CLOSED") {
+      const onlyReopening =
+        input.status !== undefined &&
+        input.status !== "CLOSED" &&
+        Object.keys(input).every((key) => key === "status");
+      if (!onlyReopening) throw AppError.unprocessable("errors.defectClosed");
+    }
 
     const funded = input.funded ?? existing.funded;
     const targetProjectId =
@@ -215,6 +237,10 @@ export class DefectsService {
       status: input.status,
       closedAt: closing ? sql`now()` : reopening ? null : undefined,
       closedBy: closing ? caller : reopening ? null : undefined,
+      raisedAt:
+        input.raisedOn !== undefined && input.raisedOn !== nicosiaDateOf(existing.raisedAt)
+          ? onDay(input.raisedOn)
+          : undefined,
     });
     if (Object.keys(values).length === 0) return existing;
 
@@ -344,7 +370,18 @@ const DEFECT_COLUMNS = {
   closedByName: sql<string | null>`ecapital.user_display_name(${schema.defect.closedBy})`,
 };
 
+/**
+ * A day typed into a form, as the instant stored for it: midday in Nicosia,
+ * so the date reads the same on every screen whatever the season — or now,
+ * if today's midday has not come yet, so a record never happened in the
+ * future.
+ */
+function onDay(isoDate: string): SQL {
+  return sql`least(((${isoDate})::date + time '12:00') at time zone 'Europe/Nicosia', now())`;
+}
+
 /** Drop the keys the caller did not send, so a PATCH touches only what it names. */
+
 function pruned<T extends Record<string, unknown>>(values: T): Partial<T> {
   return Object.fromEntries(
     Object.entries(values).filter(([, value]) => value !== undefined),

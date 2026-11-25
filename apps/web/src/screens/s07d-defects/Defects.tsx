@@ -16,6 +16,10 @@
  * | state          | DefectsScreenState                  | The five states.                                                    |
  * | roles          | AppRole[]                           | `canWriteContracts(roles)` — this screen only ever offers HANDOVER, which a technician may not write (ADR-0017). |
  * | today          | Date?                               | Injectable "now" for the overdue rule.                              |
+ * | onReopen       | () => void?                         | UAT 25/11/2026: «Επανάνοιγμα» on a CLOSED defect, the one change it takes. |
+ *
+ * A row opens the sheet's read view on a click or on Enter (UAT 25/11/2026);
+ * «Επεξεργασία» in the sheet opens the form. Offline, the sheet is read-only.
  *
  * RULE (ADR-0017): a handover defect still open past its `dueDate` is a red
  * exception — past the liability period the contractor is off the hook and
@@ -54,7 +58,8 @@ export interface DefectsProps {
   sheetSaving?: boolean;
   sheetApiError?: string;
   onCreate: (values: DefectCreateFormValues) => void;
-  onUpdate: (values: DefectUpdateFormValues) => void;
+  onUpdate: (values: DefectUpdateFormValues) => Promise<boolean> | void;
+  onReopen?: () => void;
 }
 
 function isOverdue(defect: Defect, today: Date): boolean {
@@ -79,6 +84,7 @@ export function Defects({
   sheetApiError,
   onCreate,
   onUpdate,
+  onReopen,
 }: DefectsProps) {
   const t = useTranslations();
 
@@ -232,16 +238,18 @@ export function Defects({
 
       {sheetOpen && (
         <DefectSheet
+          key={selectedId}
           open
           defect={selectedDefect}
           areas={areaOptions}
           projects={projectOptions}
-          canWrite={canWrite}
+          canWrite={canWrite && state !== "offline"}
           saving={sheetSaving}
           apiError={sheetApiError}
           onClose={() => onSelect(null)}
           onCreate={onCreate}
           onUpdate={onUpdate}
+          onReopen={onReopen}
         />
       )}
     </>

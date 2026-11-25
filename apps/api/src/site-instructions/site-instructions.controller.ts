@@ -1,9 +1,16 @@
-import { Body, Controller, Get, HttpCode, Param, Post, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, HttpCode, Param, Patch, Post, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiBody, ApiOperation, ApiParam, ApiTags } from "@nestjs/swagger";
-import { SiteInstruction, SiteInstructionCreate, Variation } from "@ecapital/shared";
+import {
+  SiteInstruction,
+  SiteInstructionCreate,
+  SiteInstructionUpdate,
+  Variation,
+  isOnlyFutureDateIssue,
+} from "@ecapital/shared";
 import { z } from "zod";
 import { AppError } from "../common/errors";
 import { ApiZodError, ApiZodResponse, jsonSchema } from "../common/openapi";
+import { sentKeysOnly } from "../common/patch";
 import { RolesGuard } from "../common/roles.guard";
 import { SiteInstructionsService } from "./site-instructions.service";
 
@@ -38,13 +45,46 @@ export class SiteInstructionsController {
   @ApiParam({ name: "id", schema: { type: "string", format: "uuid" } })
   @ApiBody({ schema: jsonSchema(SiteInstructionCreate) as never })
   @ApiZodResponse(201, SiteInstruction, "The instruction as stored, issued by the caller")
-  @ApiZodError(400, "The body is not a valid instruction")
+  @ApiZodError(400, "The body is not a valid instruction, or its issue day is after today")
   @ApiZodError(403, "A read-only account, or a role that does not run projects")
   @ApiZodError(404, "No such contract, or none the caller may see")
   create(@Param("id") id: string, @Body() body: unknown): Promise<SiteInstruction> {
     const parsed = SiteInstructionCreate.safeParse(body);
-    if (!parsed.success) throw AppError.badRequest("errors.siteInstructionNotValid");
+    if (!parsed.success) {
+      throw AppError.badRequest(
+        isOnlyFutureDateIssue(parsed.error) ? "errors.dateInFuture" : "errors.siteInstructionNotValid",
+      );
+    }
     return this.instructions.create(id, parsed.data);
+  }
+
+  /**
+   * UAT 25/11/2026: the same write as issuing one (the rfisInstructions row,
+   * enforced by the row policy, ADR-0010). Refused once the instruction has a
+   * variation; see the service.
+   */
+  @Patch("contracts/:id/site-instructions/:sid")
+  @ApiOperation({ summary: "Correct a site instruction that has not become a variation" })
+  @ApiParam({ name: "id", schema: { type: "string", format: "uuid" } })
+  @ApiParam({ name: "sid", schema: { type: "string", format: "uuid" } })
+  @ApiBody({ schema: jsonSchema(SiteInstructionUpdate) as never })
+  @ApiZodResponse(200, SiteInstruction, "The instruction after the change")
+  @ApiZodError(400, "The body is not a valid change, or its issue day is after today")
+  @ApiZodError(403, "A read-only account, or a role that does not run projects")
+  @ApiZodError(404, "No such contract or instruction")
+  @ApiZodError(422, "The instruction has already been turned into a variation")
+  update(
+    @Param("id") id: string,
+    @Param("sid") sid: string,
+    @Body() body: unknown,
+  ): Promise<SiteInstruction> {
+    const parsed = SiteInstructionUpdate.safeParse(body);
+    if (!parsed.success) {
+      throw AppError.badRequest(
+        isOnlyFutureDateIssue(parsed.error) ? "errors.dateInFuture" : "errors.siteInstructionNotValid",
+      );
+    }
+    return this.instructions.update(id, sid, sentKeysOnly(parsed.data, body));
   }
 
   /**

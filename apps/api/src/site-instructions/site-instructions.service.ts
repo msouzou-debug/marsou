@@ -1,6 +1,12 @@
 import { Injectable } from "@nestjs/common";
-import type { SiteInstruction, SiteInstructionCreate, Variation } from "@ecapital/shared";
-import { and, desc, eq, sql } from "drizzle-orm";
+import type {
+  SiteInstruction,
+  SiteInstructionCreate,
+  SiteInstructionUpdate,
+  Variation,
+} from "@ecapital/shared";
+import { nicosiaDateOf } from "@ecapital/shared";
+import { type SQL, and, desc, eq, sql } from "drizzle-orm";
 import { UUID, callerUserId } from "../common/actor";
 import { AppError } from "../common/errors";
 import {
@@ -70,12 +76,68 @@ export class SiteInstructionsService {
           textEl: input.textEl,
           costImpactFlag: input.costImpactFlag,
           issuedBy: caller,
+          // Left to the column default (now) unless the instruction was given
+          // on an earlier day than the one it is typed in on.
+          ...(input.issuedOn !== undefined && input.issuedOn !== nicosiaDateOf(new Date())
+            ? { issuedAt: onDay(input.issuedOn) }
+            : {}),
         })
         .returning({ id: schema.siteInstruction.id });
       return await this.one(contractId, row.id);
     } catch (error) {
       this.writeError(error);
     }
+  }
+
+  /**
+   * UAT 25/11/2026: correcting an instruction — its text, its cost impact and
+   * the day it was issued — for as long as it has not been turned into a
+   * variation. Who issued it is the record and is not changed here. The audit
+   * trigger on ecapital.site_instruction (migration 0006) keeps the old and
+   * new values of every change.
+   *
+   * RULE (R09, UAT 25/11/2026): an instruction that already has a variation
+   * is settled — 422 errors.siteInstructionSettled. The variation carries
+   * what it costs from then on, and an instruction edited after the fact
+   * would no longer say what the variation was raised from.
+   *
+   * RULE (owner, UAT 25/11/2026): the issue day is not after today; the
+   * schema refuses that before this runs (400 errors.dateInFuture).
+   */
+  async update(
+    contractId: string,
+    instructionId: string,
+    input: Partial<SiteInstructionUpdate>,
+  ): Promise<SiteInstruction> {
+    const tx = currentTx();
+    if (!tx) throw AppError.internal();
+    await this.contractOf(contractId);
+    const existing = await this.one(contractId, instructionId);
+    if (existing.variationId !== null) {
+      throw AppError.unprocessable("errors.siteInstructionSettled");
+    }
+
+    const values: { textEl?: string; costImpactFlag?: boolean; issuedAt?: SQL } = {};
+    if (input.textEl !== undefined && input.textEl !== existing.textEl) values.textEl = input.textEl;
+    if (input.costImpactFlag !== undefined && input.costImpactFlag !== existing.costImpactFlag) {
+      values.costImpactFlag = input.costImpactFlag;
+    }
+    if (input.issuedOn !== undefined && input.issuedOn !== nicosiaDateOf(existing.issuedAt)) {
+      values.issuedAt = onDay(input.issuedOn);
+    }
+    if (Object.keys(values).length === 0) return existing;
+
+    try {
+      const touched = await tx.db
+        .update(schema.siteInstruction)
+        .set({ ...values, updatedAt: sql`now()` })
+        .where(eq(schema.siteInstruction.id, instructionId))
+        .returning({ id: schema.siteInstruction.id });
+      if (!touched.length) throw AppError.forbidden("errors.readOnlyAccount");
+    } catch (error) {
+      this.writeError(error);
+    }
+    return this.one(contractId, instructionId);
   }
 
   /**
@@ -196,6 +258,16 @@ export class SiteInstructionsService {
     if (state === CHECK_VIOLATION) throw AppError.unprocessable("errors.noCostImpact");
     throw error;
   }
+}
+
+/**
+ * A day typed into a form, as the instant stored for it: midday in Nicosia,
+ * so the date reads the same on every screen whatever the season — or now,
+ * if today's midday has not come yet, so a record never happened in the
+ * future.
+ */
+function onDay(isoDate: string): SQL {
+  return sql`least(((${isoDate})::date + time '12:00') at time zone 'Europe/Nicosia', now())`;
 }
 
 const INSTRUCTION_COLUMNS = {

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { CalendarDate, PastOrTodayDate } from "./calendar-date";
 
 // ------------------------------------------------------------ M1 (R09, R12)
 // CAPEX-01 §4 rfi, site_instruction, defect. Glossary (CAPEX-02 §7):
@@ -53,6 +54,19 @@ export const RfiCreate = z.object({
 });
 export type RfiCreate = z.infer<typeof RfiCreate>;
 
+// UAT 25/11/2026: an RFI can be corrected until it is closed — the question
+// and the due date. Who raised it and when, the answer and who gave it are
+// not here: the first two are facts of record, the answer has its own route.
+// RULE (owner): the due date is not before the day the RFI was raised; the
+// service checks that against the row, because only the row knows the day.
+export const RfiUpdate = z
+  .object({
+    questionEl: z.string().min(1),
+    dueDate: CalendarDate,
+  })
+  .partial();
+export type RfiUpdate = z.infer<typeof RfiUpdate>;
+
 export const RfiAnswer = z.object({ answerEl: z.string().min(1) });
 export type RfiAnswer = z.infer<typeof RfiAnswer>;
 
@@ -72,8 +86,24 @@ export const SiteInstruction = z.object({
 });
 export type SiteInstruction = z.infer<typeof SiteInstruction>;
 
-export const SiteInstructionCreate = SiteInstruction.pick({ textEl: true, costImpactFlag: true });
+// `issuedOn` is the day the instruction was given on site, which can be
+// before the day somebody typed it in; omitted, it is today. RULE (owner, UAT
+// 25/11/2026): a day that has already happened, so never after today.
+export const SiteInstructionCreate = SiteInstruction.pick({ textEl: true, costImpactFlag: true }).extend({
+  issuedOn: PastOrTodayDate.optional(),
+});
 export type SiteInstructionCreate = z.infer<typeof SiteInstructionCreate>;
+
+// UAT 25/11/2026: an instruction can be corrected until it has been turned
+// into a variation; after that the variation is the record of what it cost.
+export const SiteInstructionUpdate = z
+  .object({
+    textEl: z.string().min(1),
+    costImpactFlag: z.boolean(),
+    issuedOn: PastOrTodayDate,
+  })
+  .partial();
+export type SiteInstructionUpdate = z.infer<typeof SiteInstructionUpdate>;
 
 export const DefectSource = z.enum(["HANDOVER", "INSPECTION", "WORK_ORDER", "CONDITION_SURVEY"]);
 export type DefectSource = z.infer<typeof DefectSource>;
@@ -121,6 +151,9 @@ export const DefectCreate = Defect.pick({
 }).extend({
   contractId: z.string().nullable().default(null),
   projectId: z.string().nullable().default(null),
+  // The day the defect was found, which can be before the day it was typed
+  // in; omitted, it is today. RULE (owner, UAT 25/11/2026): never after today.
+  raisedOn: PastOrTodayDate.optional(),
 });
 export type DefectCreate = z.infer<typeof DefectCreate>;
 
@@ -131,7 +164,9 @@ export const DefectUpdate = Defect.pick({
   funded: true,
   targetProjectId: true,
   status: true,
-}).partial();
+})
+  .extend({ raisedOn: PastOrTodayDate })
+  .partial();
 export type DefectUpdate = z.infer<typeof DefectUpdate>;
 
 // Backlog summary (R35 later; the shape is fixed now so S21 can be built on it).

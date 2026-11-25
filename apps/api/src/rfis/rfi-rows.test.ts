@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { clockAt, slaState, slaWindow } from "./rfi-rows";
+import { clockAt, dueWindowOn, slaState, slaWindow } from "./rfi-rows";
 
 /**
  * R09 — the SLA band, tested as what it is: arithmetic on two timestamps. No
@@ -85,5 +85,27 @@ describe("slaWindow", () => {
   it("carries the default of seven days across a month boundary", () => {
     const { dueAt } = slaWindow(new Date("2026-02-25T09:30:00Z"), 7);
     expect(dueAt.toISOString()).toBe("2026-03-04T09:30:00.000Z");
+  });
+});
+
+describe("dueWindowOn (UAT 25/11/2026)", () => {
+  // 09:00 in Nicosia on 20/11/2026 (UTC+2).
+  const raised = new Date("2026-11-20T07:00:00Z");
+
+  it("runs to the end of the chosen day in Nicosia", () => {
+    const window = dueWindowOn(raised, "2026-11-27");
+    expect(window?.dueAt.toISOString()).toBe("2026-11-27T21:59:59.999Z");
+    // 7 days and 15 hours, rounded up to the hour.
+    expect(window?.hours).toBe(7 * 24 + 15);
+  });
+
+  it("allows the day it was raised, and never a window under an hour", () => {
+    expect(dueWindowOn(raised, "2026-11-20")?.hours).toBe(15);
+    const lateInTheDay = new Date("2026-11-20T21:59:00Z");
+    expect(dueWindowOn(lateInTheDay, "2026-11-20")?.hours).toBe(1);
+  });
+
+  it("refuses a due date before the day it was raised", () => {
+    expect(dueWindowOn(raised, "2026-11-19")).toBeNull();
   });
 });
