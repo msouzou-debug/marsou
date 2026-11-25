@@ -1,5 +1,5 @@
-import { describe, expect, it, vi } from "vitest";
-import { fireEvent, screen, within } from "@testing-library/react";
+import { describe, expect, it, onTestFinished, vi } from "vitest";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { renderWithIntl } from "@/test/render";
 import { ProjectListQuery, ProjectSummary, type OrgUnit, type ProjectList } from "@ecapital/shared";
 import { z } from "zod";
@@ -162,6 +162,49 @@ describe("Projects filters", () => {
     fireEvent.click(screen.getByRole("checkbox", { name: "Μονάδα Α" }));
     expect(replace).toHaveBeenCalledTimes(1);
     expect(replace.mock.calls[0][0] as string).toContain("unit=unit-a");
+  });
+
+  // Owner, 25/11/2026: the export carries the whole filtered list, every
+  // page, through the same `POST /exports/table` — not the page on screen.
+  it("exports every project matching the filters, not only the page on screen", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(new Blob(["xlsx"]), { status: 200, headers: { "content-disposition": 'attachment; filename="x.xlsx"' } }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const saved = { create: URL.createObjectURL, revoke: URL.revokeObjectURL };
+    URL.createObjectURL = vi.fn().mockReturnValue("blob:export");
+    URL.revokeObjectURL = vi.fn();
+    onTestFinished(() => {
+      URL.createObjectURL = saved.create;
+      URL.revokeObjectURL = saved.revoke;
+      vi.unstubAllGlobals();
+    });
+    const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => undefined);
+
+    const filtered = ProjectListQuery.parse({ unit: ["unit-a"], page: 2, pageSize: 1 });
+    const everything = [...list().items, { ...list().items[0], id: "PRJ-3", code: "A-003", titleEl: "Τρίτο έργο" }];
+    const exportAll = vi.fn().mockResolvedValue(everything);
+    renderWithIntl(
+      <Projects
+        data={list()}
+        state="default"
+        query={filtered}
+        orgUnits={orgUnits}
+        eyebrow="Όλες οι μονάδες"
+        noPermission={noPermission}
+        exportAll={exportAll}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Εξαγωγή σε Excel" }));
+    await waitFor(() => expect(click).toHaveBeenCalledOnce());
+
+    expect(exportAll).toHaveBeenCalledWith(filtered);
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe("/api/proxy/exports/table");
+    const body = JSON.parse(String(init.body));
+    expect(body.rows).toHaveLength(3);
+    expect(body.rows.map((row: unknown[]) => row[0])).toEqual(["A-001", "B-002", "A-003"]);
+    click.mockRestore();
   });
 
   it("shows the export button top right regardless of state", () => {

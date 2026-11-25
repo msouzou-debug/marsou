@@ -43,11 +43,12 @@ describe("CostBar", () => {
   it("labels the four ledgers from the glossary with their figures in euro", () => {
     renderWithIntl(<CostBar {...withinBudget} />);
 
+    // ADR-0038: every ledger is gross, and says so.
     for (const label of [
-      "Εγκεκριμένος προϋπολογισμός",
-      "Δεσμεύσεις",
-      "Δαπάνες",
-      "Πρόβλεψη τελικού κόστους",
+      "Εγκεκριμένος προϋπολογισμός με ΦΠΑ",
+      "Δεσμεύσεις με ΦΠΑ",
+      "Δαπάνες με ΦΠΑ",
+      "Πρόβλεψη τελικού κόστους με ΦΠΑ",
     ]) {
       expect(screen.getByText(label)).toBeInTheDocument();
     }
@@ -64,11 +65,11 @@ describe("CostBar", () => {
 
     expect(screen.getByText("Αρχική αξία")).toBeInTheDocument();
     expect(screen.getByText("Τρέχουσα αξία")).toBeInTheDocument();
-    expect(screen.queryByText("Εγκεκριμένος προϋπολογισμός")).not.toBeInTheDocument();
-    expect(screen.queryByText("Δεσμεύσεις")).not.toBeInTheDocument();
+    expect(screen.queryByText("Εγκεκριμένος προϋπολογισμός με ΦΠΑ")).not.toBeInTheDocument();
+    expect(screen.queryByText("Δεσμεύσεις με ΦΠΑ")).not.toBeInTheDocument();
     // The other two ledgers keep the glossary's own words.
-    expect(screen.getByText("Δαπάνες")).toBeInTheDocument();
-    expect(screen.getByText("Πρόβλεψη τελικού κόστους")).toBeInTheDocument();
+    expect(screen.getByText("Δαπάνες με ΦΠΑ")).toBeInTheDocument();
+    expect(screen.getByText("Πρόβλεψη τελικού κόστους με ΦΠΑ")).toBeInTheDocument();
   });
 
   it("renders a skeleton bar while loading and one sentence when there is no budget", () => {

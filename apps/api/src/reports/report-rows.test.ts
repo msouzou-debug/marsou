@@ -140,6 +140,7 @@ describe("capital contractor row (ADR-0032 §5)", () => {
     originalValue: 400_000,
     approvedVariations: 20_000,
     contractValue: 420_000,
+    contractValueGross: 499_800,
     defects: 21,
     openDefects: 3,
     rfis: 8,
@@ -154,7 +155,9 @@ describe("capital contractor row (ADR-0032 §5)", () => {
   it("works every rate out of the counts", () => {
     expect(capitalContractorRow(base)).toMatchObject({
       contracts: 4,
-      contractValue: 420_000,
+      // ADR-0038: the money is gross, the rates net ÷ net.
+      contractValue: 499_800,
+      contractValueNet: 420_000,
       overdueContracts: 1,
       onTimePct: 75,
       variationRatePct: 5,
@@ -174,6 +177,7 @@ describe("capital contractor row (ADR-0032 §5)", () => {
         overdueContracts: 0,
         originalValue: 0,
         contractValue: 0,
+        contractValueGross: 0,
         rfis: 0,
         rfisLate: 0,
         certificates: 0,

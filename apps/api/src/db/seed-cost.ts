@@ -87,6 +87,8 @@ interface SeedContractRow {
   contractNo: string;
   contractorName: string;
   currentValue: string;
+  /** ADR-0038: the gross commitment, which actuals and budgets are measured in. */
+  currentGross: string;
   startDate: string | null;
   awardDate: string;
   sapPoNumber: string | null;
@@ -185,6 +187,7 @@ export async function seedCostRegister(db: Db): Promise<CostSeedSummary> {
       contractNo: schema.contract.contractNo,
       contractorName: schema.contractor.name,
       currentValue: schema.contract.currentValue,
+      currentGross: schema.contract.currentGross,
       startDate: schema.contract.startDate,
       awardDate: schema.contract.awardDate,
       sapPoNumber: schema.contract.sapPoNumber,
@@ -232,7 +235,8 @@ export async function seedCostRegister(db: Db): Promise<CostSeedSummary> {
   for (const [index, contract] of withActuals.entries()) {
     const project = projectById.get(contract.projectId);
     if (!project) continue;
-    const value = Number(contract.currentValue);
+    // ADR-0038: an actual is posted gross.
+    const value = Number(contract.currentGross);
 
     for (let month = 0; month < 3; month += 1) {
       document += 1;
@@ -532,7 +536,8 @@ async function seedWarnings(
   const project = projectById.get(contract.projectId);
   if (!project) return 0;
 
-  const committed = Number(contract.currentValue);
+  // ADR-0038: the budget rules compare gross with gross.
+  const committed = Number(contract.currentGross);
   const approved = round2(committed * 0.7);
   const year = Number((contract.startDate ?? contract.awardDate).slice(0, 4));
   const excess = round2(committed - approved);

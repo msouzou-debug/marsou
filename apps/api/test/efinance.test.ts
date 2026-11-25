@@ -488,14 +488,19 @@ describe("eFinance, configured (ADR-0029)", () => {
       expect(await efinanceTxnCount(contract.id)).toBe(2);
 
       const { rows } = await db.query(
-        `select source_ref, amount::text, posting_date::text, doc_date::text, matched_by::text, sap_wbs, cost_centre, gl_account, vendor_name, txn_type::text
+        `select source_ref, amount::text, net_amount::text, vat_amount::text, posting_date::text, doc_date::text,
+                matched_by::text, sap_wbs, cost_centre, gl_account, vendor_name, txn_type::text
            from ecapital.cost_txn where source = 'EFINANCE' and contract_id = $1 order by source_ref`,
         [contract.id],
       );
+      // ADR-0038: the ledger is gross — the line's net total plus its own VAT
+      // (19 here, sent once as "19.00" and once as 19), both halves kept.
       expect(rows).toEqual([
         {
           source_ref: "efinance:invoice:9001:0",
-          amount: "20000.00",
+          amount: "23800.00",
+          net_amount: "20000.00",
+          vat_amount: "3800.00",
           posting_date: "2026-09-15",
           doc_date: "2026-08-20",
           matched_by: "RULE",
@@ -505,7 +510,12 @@ describe("eFinance, configured (ADR-0029)", () => {
           vendor_name: "ΚΑΤΑΣΚΕΥΑΣΤΙΚΗ ΑΛΦΑ ΛΤΔ",
           txn_type: "ACTUAL",
         },
-        expect.objectContaining({ source_ref: "efinance:invoice:9001:1", amount: "10000.00", sap_wbs: null }),
+        expect.objectContaining({
+          source_ref: "efinance:invoice:9001:1",
+          amount: "11900.00",
+          net_amount: "10000.00",
+          sap_wbs: null,
+        }),
       ]);
 
       const second = await sync();
@@ -518,9 +528,11 @@ describe("eFinance, configured (ADR-0029)", () => {
       const cost = await request(app.getHttpServer()).get(`/projects/${projectId}/cost`).set(bearer(admin));
       expect(cost.status).toBe(200);
       const parsed = ProjectCost.parse(cost.body);
-      expect(parsed.ledgers.spent).toBe(30000);
+      // ADR-0038: spent and committed are gross (30.000 and 500.000 net at 19 %).
+      expect(parsed.ledgers.spent).toBe(35700);
       // Requisitions are eFinance's commitment, never eCapital's.
-      expect(parsed.ledgers.committed).toBe(500000);
+      expect(parsed.ledgers.committed).toBe(595000);
+      // eFinance's own figures, as it answers them.
       expect(parsed.efinance?.booked).toBe(30000);
       expect(parsed.efinance?.inFlight).toBe(7000);
       expect(parsed.efinance?.requisitions).toBe(12000);
@@ -551,7 +563,7 @@ describe("eFinance, configured (ADR-0029)", () => {
           (await request(app.getHttpServer()).get(`/projects/${projectId}/cost`).set(bearer(admin))).body,
         );
         // The same invoice, once from eFinance and once from the extract: counted once.
-        expect(cost.ledgers.spent).toBe(30000);
+        expect(cost.ledgers.spent).toBe(35700);
       } finally {
         await db.query("delete from ecapital.cost_txn where id = $1", [rows[0].id]);
       }

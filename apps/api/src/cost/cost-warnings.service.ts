@@ -258,7 +258,8 @@ export class CostWarningsService {
       const contracts = await tx.db
         .select({
           year: sql<number>`extract(year from coalesce(${schema.contract.startDate}, ${schema.contract.awardDate}))::int`,
-          amount: sql<string>`sum(${schema.contract.currentValue})`,
+          // ADR-0038: gross against the budget line, which is written with VAT.
+          amount: sql<string>`sum(${schema.contract.currentGross})`,
         })
         .from(schema.contract)
         .where(eq(schema.contract.projectId, subject.projectId))
@@ -310,11 +311,12 @@ export class CostWarningsService {
                  then (select coalesce(sum(t.amount), 0) from ecapital.cost_txn t
                         where t.project_id = ${subject.projectId}::uuid
                           and t.txn_type = 'COMMITMENT')
-                 else (select coalesce(sum(c.current_value), 0) from ecapital.contract c
+                 else (select coalesce(sum(c.current_gross), 0) from ecapital.contract c
                         where c.project_id = ${subject.projectId}::uuid)
                end as total),
+      -- ADR-0038: gross, like the commitment and the budget.
       pending as (
-        select coalesce(sum(v.value), 0) as total
+        select coalesce(sum(v.gross_value), 0) as total
           from ecapital.variation v
           join ecapital.contract c on c.id = v.contract_id
          where c.project_id = ${subject.projectId}::uuid and v.status = 'SUBMITTED'),
@@ -349,6 +351,10 @@ export class CostWarningsService {
    * 10% of the original value, a certificate that takes the cumulative
    * certified above the contract's current value, and retention released
    * before the defects-liability period has ended.
+   *
+   * ADR-0038 §5: rules 3 and 4 compare NET with NET. They are contractual:
+   * the 10 % is of the value as signed, and a certificate certifies work at
+   * contract rates, both excl. VAT. Budget control (rules 1 and 2) is gross.
    */
   private async contractRules(subject: Subject): Promise<WarningFact[]> {
     const tx = currentTx();

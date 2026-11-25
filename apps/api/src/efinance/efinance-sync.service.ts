@@ -278,11 +278,12 @@ export class EFinanceSyncService {
       await db.execute(sql`
         insert into ecapital.cost_txn
           (org_unit_id, project_id, contract_id, txn_type, source, source_ref,
-           doc_date, posting_date, amount, currency, description,
+           doc_date, posting_date, amount, net_amount, vat_amount, currency, description,
            vendor_name, sap_wbs, cost_centre, gl_account, matched_by)
         values
           (${contract.orgUnitId}, ${contract.projectId}::uuid, ${contract.id}::uuid, 'ACTUAL', 'EFINANCE', ${line.sourceRef},
-           ${line.docDate}::date, ${line.postingDate}::date, ${line.amount}::numeric, 'EUR', ${line.description},
+           ${line.docDate}::date, ${line.postingDate}::date, ${line.amount}::numeric,
+           ${line.netAmount}::numeric, ${line.vatAmount}::numeric, 'EUR', ${line.description},
            ${line.vendorName}, ${line.sapWbs}, ${line.costCentre}, ${line.glAccount}, 'RULE')
         on conflict (project_id, source, source_ref)
           where project_id is not null and source_ref is not null
@@ -291,6 +292,8 @@ export class EFinanceSyncService {
           doc_date     = excluded.doc_date,
           posting_date = excluded.posting_date,
           amount       = excluded.amount,
+          net_amount   = excluded.net_amount,
+          vat_amount   = excluded.vat_amount,
           description  = excluded.description,
           vendor_name  = excluded.vendor_name,
           sap_wbs      = excluded.sap_wbs,
@@ -299,11 +302,13 @@ export class EFinanceSyncService {
           matched_by   = excluded.matched_by,
           updated_at   = now()
         where (ecapital.cost_txn.contract_id, ecapital.cost_txn.doc_date, ecapital.cost_txn.posting_date,
-               ecapital.cost_txn.amount, ecapital.cost_txn.description, ecapital.cost_txn.vendor_name,
+               ecapital.cost_txn.amount, ecapital.cost_txn.net_amount, ecapital.cost_txn.vat_amount,
+               ecapital.cost_txn.description, ecapital.cost_txn.vendor_name,
                ecapital.cost_txn.sap_wbs, ecapital.cost_txn.cost_centre, ecapital.cost_txn.gl_account)
           is distinct from
               (excluded.contract_id, excluded.doc_date, excluded.posting_date,
-               excluded.amount, excluded.description, excluded.vendor_name,
+               excluded.amount, excluded.net_amount, excluded.vat_amount,
+               excluded.description, excluded.vendor_name,
                excluded.sap_wbs, excluded.cost_centre, excluded.gl_account)`);
     }
   }

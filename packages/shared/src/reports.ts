@@ -71,6 +71,9 @@ export type ReportMeta = z.infer<typeof ReportMeta>;
  * the screen and by a formula in the export, never sent as a figure.
  * `committed`, `spent`, `forecast` are null where the system has no source
  * (CAPEX-01 §7), shown as «—» and left blank in the export.
+ *
+ * ADR-0038: every amount is incl. VAT — the budget is written with VAT and
+ * the commitment, the spend and the forecast are gross.
  */
 export const CapitalProgrammeRow = z.object({
   orgUnit: OrgUnit,
@@ -148,7 +151,10 @@ export const CapitalContractorRow = z.object({
   contractorId: z.string(),
   contractorName: z.string(),
   contracts: z.number().int().nonnegative(),
+  /** ADR-0038: Σ current value incl. VAT, each variation at its own rate. */
   contractValue: z.number().nonnegative(),
+  /** ADR-0038: the same sum excl. VAT. Optional so a fixture written before it still parses. */
+  contractValueNet: z.number().nonnegative().optional(),
   /** Contracts past their completion date (plus extension) and not practically complete. */
   overdueContracts: z.number().int().nonnegative(),
   onTimePct: z.number().min(0).max(100).nullable(),
@@ -159,7 +165,7 @@ export const CapitalContractorRow = z.object({
   variationRatePct: z.number().nullable(),
   defects: z.number().int().nonnegative(),
   openDefects: z.number().int().nonnegative(),
-  /** Defects per 100.000 € of contract value. */
+  /** Defects per 100.000 € of contract value excl. VAT (the contractual figure). */
   defectRate: z.number().nonnegative().nullable(),
   /** RFIs answered after their SLA / RFIs with an SLA × 100. */
   rfiBreachPct: z.number().min(0).max(100).nullable(),

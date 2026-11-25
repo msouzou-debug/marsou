@@ -16,7 +16,7 @@
  * of estates sees their own unit — from the same query.
  */
 import { Injectable } from "@nestjs/common";
-import type { AccrualRow } from "@ecapital/shared";
+import { type AccrualRow, DEFAULT_VAT_RATE, type VatRate } from "@ecapital/shared";
 import { sql } from "drizzle-orm";
 import { AppError } from "../common/errors";
 import { currentTx } from "../db/client";
@@ -40,6 +40,9 @@ export class CostAccrualsService {
       cost_centre: string | null;
       cert_number: number;
       certified_net: string;
+      vat_rate: VatRate | null;
+      certified_vat: string;
+      certified_gross: string;
       invoiced: string;
     }>(sql`
       select p.id as project_id,
@@ -51,6 +54,9 @@ export class CostAccrualsService {
              coalesce(p.cost_centre, o.cost_centre) as cost_centre,
              pc.number as cert_number,
              pc.net_payable::text as certified_net,
+             pc.vat_rate,
+             pc.vat_amount::text as certified_vat,
+             pc.gross_payable::text as certified_gross,
              coalesce((
                select sum(t.amount) from ecapital.cost_txn t
                 where t.contract_id = c.id
@@ -70,8 +76,12 @@ export class CostAccrualsService {
 
     return result.rows.map((row) => {
       const certifiedNet = money(row.certified_net);
+      const certifiedVat = money(row.certified_vat);
+      const certifiedGross = money(row.certified_gross);
       const invoiced = money(row.invoiced);
-      const { accrual, overInvoiced } = accrualOf(certifiedNet, invoiced);
+      // ADR-0038: gross against gross — what finance pays on the certificate
+      // against what was posted, which is posted gross.
+      const { accrual, overInvoiced } = accrualOf(certifiedGross, invoiced);
       return {
         projectId: row.project_id,
         projectCode: row.project_code,
@@ -82,6 +92,9 @@ export class CostAccrualsService {
         costCentre: row.cost_centre,
         certNumber: row.cert_number,
         certifiedNet,
+        vatRate: row.vat_rate ?? DEFAULT_VAT_RATE,
+        certifiedVat,
+        certifiedGross,
         invoiced,
         accrual,
         overInvoiced,

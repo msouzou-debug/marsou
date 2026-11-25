@@ -107,6 +107,9 @@ export class PaymentCertsService {
           retentionHeld: String(derived.retentionHeld),
           previousCertified: String(derived.previousCertified),
           netPayable: String(derived.netPayable),
+          // ADR-0038: null takes the contract's rate (a trigger in 0031);
+          // VAT and the gross finance pays are generated from the net.
+          vatRate: input.vatRate ?? null,
           status: "DRAFT",
           createdBy: caller,
         })
@@ -278,6 +281,9 @@ const CERT_COLUMNS = {
   retentionHeld: schema.paymentCert.retentionHeld,
   previousCertified: schema.paymentCert.previousCertified,
   netPayable: schema.paymentCert.netPayable,
+  vatRate: schema.paymentCert.vatRate,
+  vatAmount: schema.paymentCert.vatAmount,
+  grossPayable: schema.paymentCert.grossPayable,
   status: schema.paymentCert.status,
   createdById: schema.paymentCert.createdBy,
   createdByName: sql<string | null>`ecapital.user_display_name(${schema.paymentCert.createdBy})`,

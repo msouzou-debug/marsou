@@ -860,10 +860,13 @@ const PROJECT_COLUMNS = {
    * contracts the caller may read. Anyone who may read the project may read
    * its contracts — same unit, same policy — so the figure is the same for
    * everybody who can see it at all (ADR-0010).
+   *
+   * ADR-0038: GROSS (`current_gross`), incl. VAT, like the approved budget
+   * it sits beside.
    */
   committed: sql<
     string | null
-  >`(select sum(c.current_value) from ecapital.contract c
+  >`(select sum(c.current_gross) from ecapital.contract c
       where c.project_id = ecapital.project.id)`,
   /**
    * ADR-0035: freshness. The newest `updated_at` of the project and of

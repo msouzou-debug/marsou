@@ -87,10 +87,10 @@
       "codePlaceholder": "Record code"
     },
     "costBar": {
-      "approved": "Approved budget",
-      "committed": "Commitments",
-      "spent": "Actual spend",
-      "forecast": "Forecast final cost",
+      "approved": "Approved budget incl. VAT",
+      "committed": "Committed incl. VAT",
+      "spent": "Spent incl. VAT",
+      "forecast": "Forecast final cost incl. VAT",
       "overflow": "Overrun",
       "approvedLine": "Approved budget limit",
       "summary": "Approved budget {approved}, commitments {committed}, spend {spent}, forecast final cost {forecast}",
@@ -328,6 +328,14 @@
       "blocked": "Blocked in eFinance: cannot be selected",
       "inactive": "Inactive in eFinance: cannot be selected",
       "vat": "VAT {vat}"
+    },
+    "vat-fields": {
+      "rate": "VAT rate",
+      "net": "Net amount",
+      "vat": "VAT amount",
+      "gross": "Total incl. VAT",
+      "breakdown": "Net {net} · VAT {vat}",
+      "allGross": "All amounts include VAT. SHSO cannot recover VAT, so VAT is a cost to the project."
     }
   },
   "nav": {
@@ -449,7 +457,7 @@
         "titleEn": "Title in English",
         "category": "Category",
         "fundingSource": "Funding source",
-        "approvedBudget": "Approved budget",
+        "approvedBudget": "Approved budget (incl. VAT)",
         "plannedStart": "Planned start",
         "plannedFinish": "Planned finish",
         "budgetYearFrom": "Budget year from",
@@ -650,18 +658,19 @@
           "unit": "Unit",
           "qty": "Quantity",
           "rate": "Rate",
-          "amount": "Amount"
+          "amount": "Amount (net)"
         },
         "total": "Total",
         "removeRow": "Remove row",
         "editTitle": "Edit the bill of quantities"
       },
       "cost": {
-        "originalValueLabel": "Original value",
-        "currentValueLabel": "Current value",
-        "approvedVariations": "Approved variations",
-        "pendingVariations": "Pending variations",
-        "retention": "Retention"
+        "originalValueLabel": "Original value incl. VAT",
+        "currentValueLabel": "Current value incl. VAT",
+        "approvedVariations": "Approved variations incl. VAT",
+        "pendingVariations": "Pending variations incl. VAT",
+        "retention": "Retention on the net",
+        "currentNet": "Current value, net"
       },
       "variationsTitle": "Contract variations",
       "variationsEmpty": "This contract has no variations.",
@@ -704,7 +713,7 @@
         "budgetCodePlaceholder": "Pick a budget code",
         "type": "Contract type",
         "awardDate": "Award date",
-        "originalValue": "Original value",
+        "originalValue": "Original value (net)",
         "startDate": "Start",
         "completionDate": "Contract completion",
         "retentionPct": "Retention %",
@@ -728,7 +737,7 @@
         "number": "No.",
         "description": "Description",
         "reason": "Reason",
-        "value": "Value",
+        "value": "Net amount",
         "timeImpact": "Time (d)",
         "status": "Status",
         "raisedBy": "Raised by",
@@ -737,16 +746,16 @@
       "fields": {
         "description": "Description",
         "reason": "Reason",
-        "value": "Value",
+        "value": "Value (net)",
         "timeImpactDays": "Time (days)"
       },
       "sheetEditTitle": "Variation {number}",
       "submitConfirmTitle": "Submit the variation for approval?",
       "submitConfirmConsequence": "Once submitted, the variation goes to the approver and you can no longer change it.",
       "decisionFacts": {
-        "value": "Value",
+        "value": "Value incl. VAT",
         "reason": "Reason",
-        "newCurrentValue": "New current value"
+        "newCurrentValue": "New current value incl. VAT"
       },
       "decisionComment": "Decision comment",
       "rejectLink": "Reject",
@@ -756,7 +765,8 @@
       "rejectedFinal": "A rejection is final. Raise a new variation if the work is still needed.",
       "sameUserApprovalHint": "You cannot approve a variation you raised yourself. Pass the decision to someone else who may approve.",
       "awaitingDecision": "Waiting for a decision from an approver.",
-      "returnedNote": "Returned for changes. Edit it and submit it again."
+      "returnedNote": "Returned for changes. Edit it and submit it again.",
+      "grossWithNet": "{gross} (net {net})"
     },
     "s07b": {
       "title": "RFIs",
@@ -1123,11 +1133,11 @@
       "empty": "There is no cost data yet for this project.",
       "columns": {
         "category": "Category",
-        "approved": "Approved",
-        "committed": "Committed",
-        "spent": "Spent",
-        "forecast": "Forecast",
-        "variance": "Variance"
+        "approved": "Approved incl. VAT",
+        "committed": "Committed incl. VAT",
+        "spent": "Spent incl. VAT",
+        "forecast": "Forecast incl. VAT",
+        "variance": "Variance incl. VAT"
       },
       "totalsRow": "Total",
       "categories": {
@@ -1141,7 +1151,7 @@
       "lastSapImport": "Last SAP import",
       "forecastInputs": {
         "title": "Forecast inputs",
-        "contingency": "Contingency (€)",
+        "contingency": "Contingency incl. VAT (€)",
         "pendingVariationWeight": "Pending variation weight",
         "pendingVariationWeightHint": "A value from 0 to 1, applied to variations that have been submitted but not yet approved.",
         "note": "Note",
@@ -1154,8 +1164,8 @@
         "caption": "Cash flow by month",
         "columns": {
           "period": "Month",
-          "planned": "Planned",
-          "actual": "Actual",
+          "planned": "Planned incl. VAT",
+          "actual": "Actual incl. VAT",
           "cumulativePlanned": "Cumulative planned",
           "cumulativeActual": "Cumulative actual"
         },
@@ -1173,11 +1183,11 @@
         "caption": "Cash-flow plan by month",
         "columns": {
           "month": "Month",
-          "amount": "Amount (€)",
+          "amount": "Amount incl. VAT (€)",
           "note": "Note"
         },
         "total": "Plan total",
-        "approved": "Approved budget",
+        "approved": "Approved budget incl. VAT",
         "difference": "Plan minus budget",
         "outside": "Plan months outside the window: {count}. They count in the total.",
         "amountNotValid": "Enter an amount of zero or more.",
@@ -1212,7 +1222,7 @@
           "type": "Type",
           "category": "Category",
           "sapGl": "SAP GL account",
-          "amount": "Amount"
+          "amount": "Amount incl. VAT"
         },
         "type": {
           "BUDGET": "Budget",
@@ -1251,7 +1261,8 @@
         "previousCertified": "Previously certified",
         "netPayable": "Net payable",
         "status": "Status",
-        "sapInvoiceRef": "SAP invoice ref"
+        "sapInvoiceRef": "SAP invoice ref",
+        "grossPayable": "Payable incl. VAT"
       },
       "status": {
         "DRAFT": "Draft",
@@ -1286,7 +1297,8 @@
         "paidDateLabel": "Paid date",
         "sameUserApprovalHint": "You cannot approve a certificate you created yourself. Assign the approval to someone else with approval rights."
       },
-      "delayNotice": "Delay penalty accruing: {amount} ({days, plural, one {# day} other {# days}}). Finance withholds it on the payment certificate."
+      "delayNotice": "Delay penalty accruing: {amount} ({days, plural, one {# day} other {# days}}). Finance withholds it on the payment certificate.",
+      "netPayableEstimate": "Net payable (estimate)"
     },
     "s09a": {
       "title": "Accruals",
@@ -1299,9 +1311,9 @@
         "contractor": "Contractor",
         "costCentre": "Cost centre",
         "certNumber": "Certificate",
-        "certifiedNet": "Certified net",
-        "invoiced": "Invoiced",
-        "accrual": "Accrual",
+        "certifiedNet": "Certified, net",
+        "invoiced": "Invoiced incl. VAT",
+        "accrual": "Accrual incl. VAT",
         "note": "Note"
       },
       "overInvoiced": "Invoiced above certified",
@@ -1345,7 +1357,7 @@
           "postingDate": "Posting date",
           "vendor": "Vendor",
           "description": "Description",
-          "amount": "Amount",
+          "amount": "Amount (incl. VAT)",
           "wbs": "WBS",
           "po": "Purchase order",
           "costCentre": "Cost centre"
@@ -1719,9 +1731,9 @@
         "invoiceNo": "Invoice no.",
         "invoiceDate": "Date",
         "vendor": "Vendor",
-        "net": "Net",
-        "vat": "VAT",
-        "gross": "Gross",
+        "net": "Net amount",
+        "vat": "VAT amount",
+        "gross": "Total incl. VAT",
         "ledger": "Status",
         "sapBatch": "SAP batch",
         "lines": "Lines"
@@ -1881,21 +1893,21 @@
           "caption": "Capital programme by unit",
           "columns": {
             "projects": "Projects",
-            "approved": "Approved budget",
-            "committed": "Commitments",
-            "spent": "Spend",
-            "forecast": "Forecast final cost",
-            "slippage": "Slippage",
+            "approved": "Approved budget incl. VAT",
+            "committed": "Committed incl. VAT",
+            "spent": "Spent incl. VAT",
+            "forecast": "Forecast final cost incl. VAT",
+            "slippage": "Slippage incl. VAT",
             "spentPct": "Share spent",
             "rag": "RAG"
           },
           "yearShare": "year {pct}",
           "kpi": {
-            "approved": "Approved budget",
-            "committed": "Commitments",
-            "spent": "Spend",
-            "forecast": "Forecast final cost",
-            "slippage": "Slippage",
+            "approved": "Approved budget incl. VAT",
+            "committed": "Committed incl. VAT",
+            "spent": "Spent incl. VAT",
+            "forecast": "Forecast final cost incl. VAT",
+            "slippage": "Slippage incl. VAT",
             "yearElapsed": "Year elapsed",
             "spentShare": "{pct} of the budget"
           },
@@ -1912,9 +1924,9 @@
             "rag": "RAG",
             "reason": "Reason",
             "owner": "Owner",
-            "approved": "Approved budget",
-            "forecast": "Forecast final cost",
-            "slippage": "Slippage",
+            "approved": "Approved budget incl. VAT",
+            "forecast": "Forecast final cost incl. VAT",
+            "slippage": "Slippage incl. VAT",
             "milestoneLate": "Milestone late",
             "risksHigh": "High risks",
             "daysSinceActivity": "No update (days)",
@@ -1932,7 +1944,7 @@
           "columns": {
             "contractor": "Contractor",
             "contracts": "Contracts",
-            "contractValue": "Contract value",
+            "contractValue": "Contract value incl. VAT",
             "overdue": "Overdue contracts",
             "onTime": "On time",
             "variationRate": "Variations / original value",
@@ -2030,9 +2042,9 @@
             "contractor": "Contractor",
             "vendorNo": "SAP vendor no.",
             "sapLines": "SAP lines",
-            "sapAmount": "SAP amount",
+            "sapAmount": "SAP amount incl. VAT",
             "efinanceInvoices": "eFinance invoices",
-            "efinanceAmount": "eFinance amount",
+            "efinanceAmount": "eFinance amount incl. VAT",
             "difference": "Difference",
             "status": "Status",
             "linesWithoutRef": "Lines without reference"
@@ -3060,5 +3072,12 @@
     "CLAIM_LETTER": "Claim letter",
     "CLAIM_REPLY": "Reply",
     "CLAIM_LEGAL_LETTER": "Lawyer's letter"
+  },
+  "vatRates": {
+    "STANDARD_19": "19%",
+    "REDUCED_9": "9%",
+    "REDUCED_5": "5%",
+    "ZERO": "0%",
+    "EXEMPT": "Exempt"
   }
 }

@@ -5,7 +5,7 @@ import type {
   SiteInstructionUpdate,
   Variation,
 } from "@ecapital/shared";
-import { nicosiaDateOf } from "@ecapital/shared";
+import { DEFAULT_VAT_RATE, nicosiaDateOf } from "@ecapital/shared";
 import { type SQL, and, desc, eq, sql } from "drizzle-orm";
 import { UUID, callerUserId } from "../common/actor";
 import { AppError } from "../common/errors";
@@ -320,6 +320,9 @@ const VARIATION_COLUMNS = {
   descriptionEl: schema.variation.descriptionEl,
   reason: schema.variation.reason,
   value: schema.variation.value,
+  vatRate: schema.variation.vatRate,
+  vatAmount: schema.variation.vatAmount,
+  grossValue: schema.variation.grossValue,
   timeImpactDays: schema.variation.timeImpactDays,
   status: schema.variation.status,
   raisedById: schema.variation.raisedBy,
@@ -338,6 +341,9 @@ interface VariationSelect {
   descriptionEl: string;
   reason: Variation["reason"];
   value: string | number;
+  vatRate: Variation["vatRate"] | null;
+  vatAmount: string | number | null;
+  grossValue: string | number | null;
   timeImpactDays: number;
   status: Variation["status"];
   raisedById: string;
@@ -357,6 +363,10 @@ function toVariation(row: VariationSelect): Variation {
     descriptionEl: row.descriptionEl,
     reason: row.reason,
     value: typeof row.value === "number" ? row.value : Number(row.value),
+    // ADR-0038: the contract's rate, taken by the database when the variation was made.
+    vatRate: row.vatRate ?? DEFAULT_VAT_RATE,
+    vat: Number(row.vatAmount ?? 0),
+    gross: Number(row.grossValue ?? 0),
     timeImpactDays: row.timeImpactDays,
     status: row.status,
     raisedById: row.raisedById,

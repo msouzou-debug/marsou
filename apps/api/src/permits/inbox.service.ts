@@ -209,6 +209,7 @@ export class InboxService {
         number: schema.variation.number,
         descriptionEl: schema.variation.descriptionEl,
         value: schema.variation.value,
+        grossValue: schema.variation.grossValue,
         timeImpactDays: schema.variation.timeImpactDays,
         reason: schema.variation.reason,
         raisedAt: schema.variation.raisedAt,
@@ -239,7 +240,9 @@ export class InboxService {
       dueAt: null,
       slaState: null,
       facts: [
-        { label: "Αξία", value: `${row.value} EUR` },
+        // ADR-0038: the gross it commits, with the net as raised. Still
+        // three facts (the DecisionPanel's rule).
+        { label: "Σύνολο με ΦΠΑ", value: `${row.grossValue ?? row.value} EUR (καθαρό ${row.value} EUR)` },
         { label: "Επίπτωση χρόνου", value: `${row.timeImpactDays} ημέρες` },
         { label: "Αιτία", value: row.reason },
       ],
@@ -270,6 +273,7 @@ export class InboxService {
         number: schema.paymentCert.number,
         status: schema.paymentCert.status,
         netPayable: schema.paymentCert.netPayable,
+        grossPayable: schema.paymentCert.grossPayable,
         periodFrom: schema.paymentCert.periodFrom,
         periodTo: schema.paymentCert.periodTo,
         createdBy: schema.paymentCert.createdBy,
@@ -303,7 +307,11 @@ export class InboxService {
         dueAt: null,
         slaState: null,
         facts: [
-          { label: "Καθαρό πληρωτέο", value: `${row.netPayable} EUR` },
+          // ADR-0038: what finance pays, with the net payable beside it.
+          {
+            label: "Πληρωτέο με ΦΠΑ",
+            value: `${row.grossPayable ?? row.netPayable} EUR (καθαρό ${row.netPayable} EUR)`,
+          },
           { label: "Περίοδος", value: `${row.periodFrom} – ${row.periodTo}` },
           { label: "Κατάσταση", value: row.status },
         ],

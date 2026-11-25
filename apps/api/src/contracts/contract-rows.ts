@@ -13,6 +13,8 @@ import {
   type ContractDelay,
   type ContractWarning,
   type ProjectPhase,
+  type VatRate,
+  DEFAULT_VAT_RATE,
 } from "@ecapital/shared";
 import { phaseIndex } from "../projects/project-rows";
 
@@ -35,6 +37,11 @@ export interface ContractRow {
   awardDecisionDocId: string | null;
   originalValue: string | number;
   currentValue: string | number;
+  /** ADR-0038: the rate, and what the database derives from it. */
+  vatRate: VatRate | null;
+  originalVat: string | number | null;
+  originalGross: string | number | null;
+  currentGross: string | number;
   currency: string;
   startDate: string | null;
   completionDate: string | null;
@@ -55,6 +62,8 @@ export interface ContractRow {
 }
 
 export function toContract(row: ContractRow): Contract {
+  const currentValue = money(row.currentValue);
+  const currentGross = money(row.currentGross);
   return {
     id: row.id,
     projectId: row.projectId,
@@ -69,7 +78,14 @@ export function toContract(row: ContractRow): Contract {
     originalValue: money(row.originalValue),
     // RULE (CAPEX-01 §7): derived in the database — original value plus the
     // approved variations — and never typed.
-    currentValue: money(row.currentValue),
+    currentValue,
+    // ADR-0038: the rate and the database's VAT and gross. The current VAT
+    // is the difference, since each approved variation carries its own rate.
+    vatRate: row.vatRate ?? DEFAULT_VAT_RATE,
+    originalVat: money(row.originalVat ?? 0),
+    originalGross: money(row.originalGross),
+    currentVat: round2(currentGross - currentValue),
+    currentGross,
     currency: "EUR",
     startDate: row.startDate,
     completionDate: row.completionDate,

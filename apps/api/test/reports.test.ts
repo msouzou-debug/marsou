@@ -409,10 +409,10 @@ describe("reports (M6)", () => {
     const header = findRow(sheet, "Μονάδα");
     const col = (title: string) => findColumn(sheet, header, title);
     const first = header + 2;
-    const approved = sheet.getCell(first, col("Εγκεκριμένος προϋπολογισμός (€)"));
+    const approved = sheet.getCell(first, col("Εγκεκριμένος προϋπολογισμός με ΦΠΑ (€)"));
     expect(typeof approved.value).toBe("number");
     expect(approved.font?.color?.argb).toBe("FF0000FF");
-    for (const title of ["Απόκλιση πρόβλεψης (€)", "Δαπάνες ως % του εγκεκριμένου", "Δαπάνες μείον ποσοστό έτους (ποσοστιαίες μονάδες)"]) {
+    for (const title of ["Απόκλιση πρόβλεψης με ΦΠΑ (€)", "Δαπάνες ως % του εγκεκριμένου", "Δαπάνες μείον ποσοστό έτους (ποσοστιαίες μονάδες)"]) {
       const cell = sheet.getCell(first, col(title));
       expect((cell.value as ExcelJS.CellFormulaValue).formula, title).toBeTruthy();
       expect(cell.font?.color?.argb, title).toBe("FF000000");
@@ -424,11 +424,11 @@ describe("reports (M6)", () => {
     // The totals row is formulas, and a figure the system does not have is blank.
     const totals = first + json.rows.length;
     expect(sheet.getCell(totals, 1).value).toBe("Σύνολο");
-    expect((sheet.getCell(totals, col("Εγκεκριμένος προϋπολογισμός (€)")).value as ExcelJS.CellFormulaValue).formula).toMatch(
+    expect((sheet.getCell(totals, col("Εγκεκριμένος προϋπολογισμός με ΦΠΑ (€)")).value as ExcelJS.CellFormulaValue).formula).toMatch(
       /^SUM\(/,
     );
     json.rows.forEach((row, i) => {
-      const forecast = sheet.getCell(first + i, col("Πρόβλεψη τελικού κόστους (€)")).value;
+      const forecast = sheet.getCell(first + i, col("Πρόβλεψη τελικού κόστους με ΦΠΑ (€)")).value;
       if (row.forecast === null) expect(forecast).toBeNull();
       else expect(forecast).toBeCloseTo(row.forecast, 2);
     });
@@ -499,7 +499,7 @@ describe("reports (M6)", () => {
 
   it("writes every other workbook with blue inputs and black formulas", async () => {
     const checks: [ReportKey, string, string, string][] = [
-      ["EXCEPTIONS", "Κωδικός έργου", "Εγκεκριμένος προϋπολογισμός (€)", "Απόκλιση πρόβλεψης (€)"],
+      ["EXCEPTIONS", "Κωδικός έργου", "Εγκεκριμένος προϋπολογισμός με ΦΠΑ (€)", "Απόκλιση πρόβλεψης με ΦΠΑ (€)"],
       ["BACKLOG_BY_BAND", "Μονάδα", "Υψηλή — κόστος (€)", "Υψηλή — χωρίς χρηματοδότηση (€)"],
       ["ASSET_LIFECYCLE", "Κωδικός", "Σωρευτικό κόστος συντήρησης (€)", "Υπολειπόμενη ζωή (έτη)"],
       ["CLINICAL_DISRUPTION", "Μονάδα", "Ώρες χειρουργείων", "Σύνολο ωρών"],

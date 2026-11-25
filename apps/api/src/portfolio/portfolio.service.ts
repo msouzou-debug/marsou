@@ -61,9 +61,10 @@ export class PortfolioService {
         rag: schema.project.rag,
         // RULE (CAPEX-01 §7, R13): the commitment — the sum of the current
         // value of this project's contracts, null where it has none.
+        // ADR-0038: GROSS, to compare with the approved budget (with VAT).
         committed: sql<
           string | null
-        >`(select sum(c.current_value) from ecapital.contract c
+        >`(select sum(c.current_gross) from ecapital.contract c
       where c.project_id = ecapital.project.id)`,
       })
       .from(schema.project);

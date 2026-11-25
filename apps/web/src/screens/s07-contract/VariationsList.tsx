@@ -10,7 +10,7 @@
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import type { Variation } from "@ecapital/shared";
-import { formatEUR } from "@/lib/format";
+import { GrossAmount } from "@/components/vat-fields";
 
 export interface VariationsListProps {
   contractId: string;
@@ -49,8 +49,9 @@ export function VariationsList({ contractId, variations }: VariationsListProps) 
                   </span>
                   <p className="text-fs-12 text-k-text">{t(`variationStatus.${variation.status}`)}</p>
                 </div>
+                {/* ADR-0038: gross, the net and the VAT in the tooltip. */}
                 <span className={`num text-fs-14 ${variation.value < 0 ? "text-k-red" : "text-k-ink"}`}>
-                  {formatEUR(variation.value)}
+                  <GrossAmount gross={variation.gross} net={variation.value} vat={variation.vat} />
                 </span>
               </li>
             ))}

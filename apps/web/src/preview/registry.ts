@@ -31,6 +31,7 @@ import table from "@/components/table/Table.preview";
 import tierChip from "@/components/tier-chip/TierChip.preview";
 import timeline from "@/components/timeline/Timeline.preview";
 import vendorPicker from "@/components/vendor-picker/VendorPicker.preview";
+import vatFields from "@/components/vat-fields/VatFields.preview";
 import warningStrip from "@/components/warning-strip/WarningStrip.preview";
 import wizardShell from "@/components/wizard-shell/WizardShell.preview";
 import s01Portfolio from "@/screens/s01-portfolio/Portfolio.preview";
@@ -108,6 +109,7 @@ const entries: PreviewEntry[] = [
   table,
   tierChip,
   timeline,
+  vatFields,
   vendorPicker,
   warningStrip,
   wizardShell,

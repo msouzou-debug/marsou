@@ -13,41 +13,81 @@
  * |-----------|-------------------------------|----------------------------------------------|
  * | contractNo| string?                        | Header eyebrow.                              |
  * | delay     | ContractDelay?                 | ADR-0035: when `totalAmount > 0`, an info notice above the form — never an input; finance withholds the penalty. |
+ * | contractVatRate | VatRate?                 | ADR-0038: the «Συντελεστής ΦΠΑ» default. |
+ * | retentionPct / previousCertified | number? | ADR-0038: for the live net payable, VAT and gross (an estimate; the API's figure is stored). |
  * | saving    | boolean                        |                                               |
  * | apiError  | string?                        |                                               |
  * | onSave    | (values) => void               |                                               |
  * | onCancel  | () => void                     |                                               |
  */
+import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { useTranslations } from "next-intl";
 import { LoaderCircle } from "lucide-react";
-import type { ContractDelay } from "@ecapital/shared";
+import { DEFAULT_VAT_RATE, type ContractDelay, type VatRate } from "@ecapital/shared";
 import { PageTitle } from "@/components/app-shell";
+import { VatRateSelect, VatSummary } from "@/components/vat-fields";
 import { formatEUR } from "@/lib/format";
 import { zodResolver } from "@/lib/zod-resolver";
-import { CertificateFormSchema, type CertificateFormValues } from "./schema";
+import { CertificateFormSchema, estimatedNetPayable, type CertificateFormValues } from "./schema";
 
 export interface CertificateFormProps {
   contractId: string;
   contractNo?: string;
   /** ADR-0035: the contract's delay figures; a notice shows when a penalty is accruing. */
   delay?: ContractDelay;
+  /** ADR-0038: the default «Συντελεστής ΦΠΑ»; 19 % until the contract has loaded. */
+  contractVatRate?: VatRate;
+  /** ADR-0038: for the live net payable; the preview shows «—» without them. */
+  retentionPct?: number;
+  previousCertified?: number;
   saving?: boolean;
   apiError?: string;
   onSave: (values: CertificateFormValues) => void;
   onCancel: () => void;
 }
 
-export function CertificateForm({ contractNo, delay, saving = false, apiError, onSave, onCancel }: CertificateFormProps) {
+export function CertificateForm({
+  contractNo,
+  delay,
+  contractVatRate,
+  retentionPct,
+  previousCertified,
+  saving = false,
+  apiError,
+  onSave,
+  onCancel,
+}: CertificateFormProps) {
   const t = useTranslations();
   const {
     register,
     handleSubmit,
+    watch,
+    setValue,
+    getFieldState,
     formState: { errors },
   } = useForm<CertificateFormValues>({
     resolver: zodResolver<CertificateFormValues>(CertificateFormSchema),
-    defaultValues: { periodFrom: "", periodTo: "", workDoneValue: 0, materialsOnSite: 0 },
+    defaultValues: {
+      periodFrom: "",
+      periodTo: "",
+      workDoneValue: 0,
+      materialsOnSite: 0,
+      vatRate: contractVatRate ?? DEFAULT_VAT_RATE,
+    },
   });
+  // The contract arrives after the first render; its rate becomes the
+  // default unless the person has already picked one.
+  useEffect(() => {
+    if (contractVatRate && !getFieldState("vatRate").isDirty) setValue("vatRate", contractVatRate);
+  }, [contractVatRate, getFieldState, setValue]);
+  const netPayable = estimatedNetPayable({
+    workDoneValue: watch("workDoneValue"),
+    materialsOnSite: watch("materialsOnSite"),
+    retentionPct,
+    previousCertified,
+  });
+  const vatRate = watch("vatRate");
 
   function fieldError(key: keyof CertificateFormValues): string | undefined {
     const message = errors[key]?.message;
@@ -139,6 +179,20 @@ export function CertificateForm({ contractNo, delay, saving = false, apiError, o
               {fieldError("materialsOnSite")}
             </p>
           )}
+        </div>
+
+        {/* RULE (ADR-0038): the certificate certifies NET work; VAT is put
+            on its net payable at the «Συντελεστής ΦΠΑ» (the contract's by
+            default), and the gross is what finance pays. */}
+        <div className="flex flex-col gap-s-2">
+          <VatRateSelect id="cert-vat-rate" {...register("vatRate")} />
+          <dl className="flex gap-s-2 text-fs-14 text-k-text">
+            <dt>{t("screens.s09.netPayableEstimate")}</dt>
+            <dd className="num text-k-ink" data-testid="cert-net-payable">
+              {netPayable === null ? "—" : formatEUR(netPayable)}
+            </dd>
+          </dl>
+          <VatSummary net={netPayable} rate={vatRate} />
         </div>
 
         {apiError && (

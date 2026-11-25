@@ -10,7 +10,8 @@
 
 import { useTranslations } from "next-intl";
 import type { Variation } from "@ecapital/shared";
-import { formatDate, formatEUR } from "@/lib/format";
+import { GrossAmount } from "@/components/vat-fields";
+import { formatDate } from "@/lib/format";
 
 export interface VariationCardsProps {
   variations: Variation[];
@@ -44,8 +45,9 @@ export function VariationCards({ variations, onOpen }: VariationCardsProps) {
               </span>
             </div>
             <p className="mt-s-1 text-fs-16 text-k-ink">{variation.descriptionEl}</p>
+            {/* ADR-0038: gross, the net and the VAT in the tooltip. */}
             <p className={`num mt-s-2 text-fs-16 ${variation.value < 0 ? "text-k-red" : "text-k-ink"}`}>
-              {formatEUR(variation.value)}
+              <GrossAmount gross={variation.gross} net={variation.value} vat={variation.vat} />
             </p>
             {variation.decidedByName ? (
               <p className="mt-s-1 text-fs-12 text-k-text">

@@ -536,6 +536,9 @@ export const variationStatus = ecapital.enum("variation_status", [
 
 // No org_unit_id: a contractor works for the whole organisation and the same
 // company holds contracts at more than one hospital.
+// ADR-0038 (0031_vat.sql): the VAT rate a commitment is signed at.
+export const vatRate = ecapital.enum("vat_rate", ["STANDARD_19", "REDUCED_9", "REDUCED_5", "ZERO", "EXEMPT"]);
+
 export const contractor = ecapital.table(
   "contractor",
   {
@@ -592,10 +595,21 @@ export const contract = ecapital.table(
     type: contractType("type").notNull(),
     awardDate: date("award_date").notNull(),
     awardDecisionDocId: text("award_decision_doc_id"),
+    // ADR-0038: NET, excl. VAT, as signed.
     originalValue: numeric("original_value", { precision: 14, scale: 2 }).notNull(),
     // Derived in the database from the original value and the approved
-    // variations (CAPEX-01 §7). Never written from here.
+    // variations (CAPEX-01 §7). Never written from here. NET.
     currentValue: numeric("current_value", { precision: 14, scale: 2 }).notNull(),
+    // ADR-0038 (0031): the rate, and the VAT and gross the database derives.
+    // `currentGross` is kept by the same trigger as `currentValue`.
+    vatRate: vatRate("vat_rate").notNull().default("STANDARD_19"),
+    originalVat: numeric("original_vat", { precision: 14, scale: 2 }).generatedAlwaysAs(
+      sql`ecapital.vat_of(original_value, vat_rate)`,
+    ),
+    originalGross: numeric("original_gross", { precision: 14, scale: 2 }).generatedAlwaysAs(
+      sql`original_value + ecapital.vat_of(original_value, vat_rate)`,
+    ),
+    currentGross: numeric("current_gross", { precision: 14, scale: 2 }).notNull().default("0"),
     currency: text("currency").notNull().default("EUR"),
     startDate: date("start_date"),
     completionDate: date("completion_date"),
@@ -678,7 +692,17 @@ export const variation = ecapital.table(
     number: integer("number").notNull(),
     descriptionEl: text("description_el").notNull(),
     reason: variationReason("reason").notNull(),
+    // ADR-0038: NET; negative for an omission.
     value: numeric("value", { precision: 14, scale: 2 }).notNull(),
+    // ADR-0038 (0031): no default — a trigger takes the contract's rate when
+    // none is written. VAT and gross are generated.
+    vatRate: vatRate("vat_rate"),
+    vatAmount: numeric("vat_amount", { precision: 14, scale: 2 }).generatedAlwaysAs(
+      sql`ecapital.vat_of(value, vat_rate)`,
+    ),
+    grossValue: numeric("gross_value", { precision: 14, scale: 2 }).generatedAlwaysAs(
+      sql`value + ecapital.vat_of(value, vat_rate)`,
+    ),
     timeImpactDays: integer("time_impact_days").notNull().default(0),
     status: variationStatus("status").notNull().default("DRAFT"),
     raisedBy: uuid("raised_by")
@@ -1102,7 +1126,11 @@ export const costTxn = ecapital.table(
     sourceRef: text("source_ref"),
     docDate: date("doc_date"),
     postingDate: date("posting_date"),
+    // ADR-0038: GROSS, incl. VAT. `netAmount` and `vatAmount` where the feed
+    // gave the two halves apart (eFinance); null for a SAP line.
     amount: numeric("amount", { precision: 14, scale: 2 }).notNull(),
+    netAmount: numeric("net_amount", { precision: 14, scale: 2 }),
+    vatAmount: numeric("vat_amount", { precision: 14, scale: 2 }),
     currency: text("currency").notNull().default("EUR"),
     description: text("description"),
     importBatchId: uuid("import_batch_id").references(() => importBatch.id, {
@@ -1270,6 +1298,15 @@ export const paymentCert = ecapital.table(
       .notNull()
       .default("0"),
     netPayable: numeric("net_payable", { precision: 14, scale: 2 }).notNull().default("0"),
+    // ADR-0038 (0031): the rate (the contract's when none is written), the
+    // VAT on the net payable and the gross finance pays. Generated.
+    vatRate: vatRate("vat_rate"),
+    vatAmount: numeric("vat_amount", { precision: 14, scale: 2 }).generatedAlwaysAs(
+      sql`ecapital.vat_of(net_payable, vat_rate)`,
+    ),
+    grossPayable: numeric("gross_payable", { precision: 14, scale: 2 }).generatedAlwaysAs(
+      sql`net_payable + ecapital.vat_of(net_payable, vat_rate)`,
+    ),
     status: paymentCertStatus("status").notNull().default("DRAFT"),
     createdBy: uuid("created_by")
       .notNull()

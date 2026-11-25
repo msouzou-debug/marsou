@@ -33,7 +33,7 @@ describe("EFinanceInvoices — table", () => {
   it("renders the seven asked-for columns and the ledger chip", () => {
     renderList();
     const table = screen.getByRole("table");
-    for (const header of ["Αρ. τιμολογίου", "Ημερομηνία", "Προμηθευτής", "Καθαρή αξία", "ΦΠΑ", "Μικτή αξία", "Κατάσταση", "Παρτίδα SAP"]) {
+    for (const header of ["Αρ. τιμολογίου", "Ημερομηνία", "Προμηθευτής", "Καθαρό ποσό", "Ποσό ΦΠΑ", "Σύνολο με ΦΠΑ", "Κατάσταση", "Παρτίδα SAP"]) {
       expect(within(table).getByRole("columnheader", { name: new RegExp(header) })).toBeInTheDocument();
     }
     const row = within(table).getByText("ΤΠ-2026-0412").closest("tr") as HTMLElement;

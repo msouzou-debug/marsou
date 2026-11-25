@@ -25,6 +25,7 @@ function toFormValues(contract: ContractDetail): ContractFormValues {
     // `ContractFormScreen`'s header comment); a contract with no budget code
     // yet opens the select on the placeholder rather than a stray option.
     budgetCode: contract.budgetCode ?? "",
+    vatRate: contract.vatRate,
   };
 }
 

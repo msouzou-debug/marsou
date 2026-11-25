@@ -52,7 +52,8 @@ describe("project cost (R13, R16, R17, R31)", () => {
     // nothing has been posted, so there is no actual spend and the answer is
     // null and not €0.
     expect(response.body.committedSource).toBe("CONTRACTS");
-    expect(response.body.ledgers.committed).toBe(1_000_000);
+    // ADR-0038: the commitment is gross — 1.000.000 net at 19 %.
+    expect(response.body.ledgers.committed).toBe(1_190_000);
     expect(response.body.ledgers.spent).toBeNull();
     expect(response.body.ledgers.approved).toBe(0);
     expect(response.body.lastSapImportAt).toBeNull();
@@ -105,9 +106,9 @@ describe("project cost (R13, R16, R17, R31)", () => {
       .send({ contingency: 50_000, pendingVariationWeight: 0.5, contingencyNoteEl: "Απρόβλεπτα εργοταξίου" });
     expect(response.status).toBe(200);
     expect(response.body.forecastInputs.contingency).toBe(50_000);
-    // R16: committed 1.000.000 + contingency 50.000, nothing pending.
-    expect(response.body.ledgers.forecast).toBe(1_050_000);
-    expect(response.body.ledgers.costToComplete).toBe(1_050_000);
+    // R16: committed 1.190.000 (gross) + contingency 50.000, nothing pending.
+    expect(response.body.ledgers.forecast).toBe(1_240_000);
+    expect(response.body.ledgers.costToComplete).toBe(1_240_000);
 
     const finance = await tokenFor(app, USERS.finance);
     const refused = await put(`/projects/${projectId}/cost/forecast-inputs`)
@@ -307,7 +308,8 @@ describe("project cost (R13, R16, R17, R31)", () => {
     const sheet = workbook.worksheets[0];
     expect(sheet.getCell("A1").value).toBe("Κατηγορία");
     expect(sheet.getCell("A2").value).toBe("Category");
-    expect(sheet.getCell("F1").value).toBe("Απόκλιση");
+    expect(sheet.getCell("F1").value).toBe("Απόκλιση (με ΦΠΑ)");
+    expect(sheet.getCell("C1").value).toBe("Δεσμεύσεις (με ΦΠΑ)");
     // The owner's requirement: a formula, never the answer.
     const variance = sheet.getCell("F3").value as { formula?: string };
     expect(variance.formula).toContain("E3-B3");

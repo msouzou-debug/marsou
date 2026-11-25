@@ -21,13 +21,27 @@ export const TABLE_EXPORT_MAX_ROWS = 20_000;
 export const TABLE_EXPORT_MAX_COLUMNS = 60;
 export const TABLE_EXPORT_MAX_TEXT = 2_000;
 
-export const TableExportKind = z.enum(["text", "money", "number", "date"]);
+// ADR-0038: `percent` is a fraction (0.19) shown as «19%» — the VAT rate.
+export const TableExportKind = z.enum(["text", "money", "number", "date", "percent"]);
 export type TableExportKind = z.infer<typeof TableExportKind>;
+
+/**
+ * ADR-0038: a column the workbook writes as a live formula over two other
+ * columns of the same row — VAT as `=net*rate`, gross as `=net+vat`. The
+ * indexes are positions in `columns`; the value sent in the row is the
+ * figure the screen showed, written as the formula's cached result.
+ */
+export const TableExportFormula = z.object({
+  op: z.enum(["multiply", "add"]),
+  columns: z.tuple([z.number().int().nonnegative(), z.number().int().nonnegative()]),
+});
+export type TableExportFormula = z.infer<typeof TableExportFormula>;
 
 export const TableExportColumn = z.object({
   header: z.string().trim().min(1).max(200),
   numeric: z.boolean().default(false),
   kind: TableExportKind.default("text"),
+  formula: TableExportFormula.optional(),
 });
 export type TableExportColumn = z.infer<typeof TableExportColumn>;
 
@@ -54,6 +68,15 @@ export const TableExportRequest = z
   .refine((body) => body.rows.every((row) => row.length === body.columns.length), {
     message: "every row has one value per column",
     path: ["rows"],
-  });
+  })
+  .refine(
+    (body) =>
+      body.columns.every(
+        (column, index) =>
+          !column.formula ||
+          column.formula.columns.every((other) => other < body.columns.length && other !== index),
+      ),
+    { message: "a formula names two other columns of the table", path: ["columns"] },
+  );
 export type TableExportRequest = z.infer<typeof TableExportRequest>;
 export type TableExportRequestInput = z.input<typeof TableExportRequest>;

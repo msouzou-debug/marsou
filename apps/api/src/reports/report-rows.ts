@@ -137,8 +137,10 @@ export interface CapitalContractorFacts {
   overdueContracts: number;
   originalValue: number;
   approvedVariations: number;
-  /** Σ current value: the original plus the approved variations. */
+  /** Σ current value: the original plus the approved variations. NET. */
   contractValue: number;
+  /** ADR-0038: the same incl. VAT, each variation at its own rate. */
+  contractValueGross: number;
   defects: number;
   openDefects: number;
   rfis: number;
@@ -172,7 +174,10 @@ export function capitalContractorRow(f: CapitalContractorFacts): CapitalContract
     contractorId: f.contractorId,
     contractorName: f.contractorName,
     contracts: f.contracts,
-    contractValue: round2(f.contractValue),
+    // ADR-0038: the money column is gross; the rates below stay net ÷ net
+    // (contractual figures).
+    contractValue: round2(f.contractValueGross),
+    contractValueNet: round2(f.contractValue),
     overdueContracts: f.overdueContracts,
     onTimePct: pctOf(f.datedContracts - f.overdueContracts, f.datedContracts),
     variationRatePct: pctOf(f.approvedVariations, f.originalValue),

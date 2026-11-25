@@ -50,10 +50,11 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { useTranslations } from "next-intl";
 import { LoaderCircle, X } from "lucide-react";
-import type { Variation, VariationDecision as VariationDecisionType } from "@ecapital/shared";
+import type { Variation, VariationDecision as VariationDecisionType, VatRate } from "@ecapital/shared";
 import { VariationReason } from "@ecapital/shared";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { DecisionPanel } from "@/components/decision-panel";
+import { VatRateSelect, VatSummary } from "@/components/vat-fields";
 import { zodResolver } from "@/lib/zod-resolver";
 import { formatDate, formatEUR } from "@/lib/format";
 import { VariationFormSchema, type VariationFormValues } from "./schema";
@@ -63,6 +64,10 @@ export interface VariationSheetProps {
   variation?: Variation;
   contractNo: string;
   contractCurrentValue: number;
+  /** ADR-0038: the contract's gross commitment, for the decision panel. */
+  contractCurrentGross: number;
+  /** ADR-0038: a new variation's default rate. */
+  contractVatRate: VatRate;
   meUserId: string;
   canDecide: boolean;
   canEdit: boolean;
@@ -111,6 +116,8 @@ export function VariationSheet({
   variation,
   contractNo,
   contractCurrentValue,
+  contractCurrentGross,
+  contractVatRate,
   meUserId,
   canDecide,
   canEdit,
@@ -127,6 +134,7 @@ export function VariationSheet({
   const {
     register,
     handleSubmit,
+    watch,
     formState: { errors },
   } = useForm<VariationFormValues>({
     resolver: zodResolver<VariationFormValues>(VariationFormSchema),
@@ -134,9 +142,12 @@ export function VariationSheet({
       descriptionEl: variation?.descriptionEl ?? "",
       reason: variation?.reason ?? "OTHER",
       value: variation?.value ?? 0,
+      vatRate: variation?.vatRate ?? contractVatRate,
       timeImpactDays: variation?.timeImpactDays ?? 0,
     },
   });
+  const typedValue = watch("value");
+  const typedRate = watch("vatRate");
 
   if (!open) return null;
 
@@ -203,24 +214,37 @@ export function VariationSheet({
             </select>
           </div>
 
-          <div className="flex flex-col gap-s-1">
-            <label htmlFor="vs-value" className="text-fs-14 text-k-text">
-              {t("screens.s08.fields.value")}
-            </label>
-            <input
-              id="vs-value"
-              type="number"
-              step="0.01"
-              inputMode="decimal"
-              {...register("value", { setValueAs: (value: string) => (value === "" ? NaN : Number(value)) })}
-              aria-invalid={errors.value ? "true" : undefined}
-              className="num h-11 w-[220px] rounded-k border border-k-grey bg-k-white px-s-3 text-fs-16 text-k-ink"
+          {/* RULE (ADR-0038): typed NET, the «Συντελεστής ΦΠΑ» beside it
+              (the contract's by default), VAT and gross live underneath. */}
+          <div className="flex flex-col gap-s-2">
+            <div className="flex flex-wrap items-start gap-s-4">
+              <div className="flex flex-col gap-s-1">
+                <label htmlFor="vs-value" className="text-fs-14 text-k-text">
+                  {t("screens.s08.fields.value")}
+                </label>
+                <input
+                  id="vs-value"
+                  type="number"
+                  step="0.01"
+                  inputMode="decimal"
+                  aria-describedby="vs-vat-summary"
+                  {...register("value", { setValueAs: (value: string) => (value === "" ? NaN : Number(value)) })}
+                  aria-invalid={errors.value ? "true" : undefined}
+                  className="num h-11 w-[220px] rounded-k border border-k-grey bg-k-white px-s-3 text-fs-16 text-k-ink"
+                />
+                {fieldError("value") && (
+                  <p role="alert" className="text-fs-14 text-k-red">
+                    {fieldError("value")}
+                  </p>
+                )}
+              </div>
+              <VatRateSelect id="vs-vat-rate" {...register("vatRate")} />
+            </div>
+            <VatSummary
+              id="vs-vat-summary"
+              net={Number.isFinite(typedValue) ? typedValue : null}
+              rate={typedRate}
             />
-            {fieldError("value") && (
-              <p role="alert" className="text-fs-14 text-k-red">
-                {fieldError("value")}
-              </p>
-            )}
           </div>
 
           <div className="flex flex-col gap-s-1">
@@ -305,11 +329,21 @@ export function VariationSheet({
           what={t("screens.s08.sheetEditTitle", { number: variation.number })}
           where={contractNo}
           facts={[
-            { label: t("screens.s08.decisionFacts.value"), value: formatEUR(variation.value) },
+            // ADR-0038: the gross the decision commits, with the net beside it.
+            {
+              label: t("screens.s08.decisionFacts.value"),
+              value: t("screens.s08.grossWithNet", {
+                gross: formatEUR(variation.gross),
+                net: formatEUR(variation.value),
+              }),
+            },
             { label: t("screens.s08.decisionFacts.reason"), value: t(`variationReasons.${variation.reason}`) },
             {
               label: t("screens.s08.decisionFacts.newCurrentValue"),
-              value: formatEUR(contractCurrentValue + variation.value),
+              value: t("screens.s08.grossWithNet", {
+                gross: formatEUR(contractCurrentGross + variation.gross),
+                net: formatEUR(contractCurrentValue + variation.value),
+              }),
             },
           ]}
           disabled={selfRaised}
@@ -344,6 +378,21 @@ export function VariationSheet({
           <div>
             <dt className="text-k-text">{t("screens.s08.fields.value")}</dt>
             <dd className={`num ${variation.value < 0 ? "text-k-red" : "text-k-ink"}`}>{formatEUR(variation.value)}</dd>
+          </div>
+          {/* ADR-0038 */}
+          <div>
+            <dt className="text-k-text">{t("components.vat-fields.rate")}</dt>
+            <dd className="num text-k-ink">{t(`vatRates.${variation.vatRate}`)}</dd>
+          </div>
+          <div>
+            <dt className="text-k-text">{t("components.vat-fields.vat")}</dt>
+            <dd className="num text-k-ink">{formatEUR(variation.vat)}</dd>
+          </div>
+          <div>
+            <dt className="text-k-text">{t("components.vat-fields.gross")}</dt>
+            <dd className={`num font-bold ${variation.gross < 0 ? "text-k-red" : "text-k-ink"}`}>
+              {formatEUR(variation.gross)}
+            </dd>
           </div>
           <div>
             <dt className="text-k-text">{t("screens.s08.columns.status")}</dt>

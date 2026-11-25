@@ -31,6 +31,8 @@ import type { I18nService, Locale } from "../common/i18n.service";
 export const TABLE_EXPORT_BODY_LIMIT = "8mb";
 
 export const MONEY_FORMAT = '#,##0.00 "€"';
+/** ADR-0038: a VAT rate held as a fraction, shown «19%». */
+export const PERCENT_FORMAT = "0%";
 export const DATE_FORMAT = "dd/mm/yyyy";
 const DATE_TIME_FORMAT = "dd/mm/yyyy hh:mm";
 const INTEGER_FORMAT = "#,##0";
@@ -129,10 +131,39 @@ function isFigure(column: TableExportColumn): boolean {
   return column.kind === "money" || column.kind === "number";
 }
 
+/** A figure, or a rate — a number in the cell, but never totalled. */
+function isNumeric(column: TableExportColumn): boolean {
+  return isFigure(column) || column.kind === "percent";
+}
+
+/**
+ * ADR-0038: `=ROUND(C2*D2,2)` or `=C2+E2` for one row, the screen's own figure as the
+ * cached result so a reader without recalculation still sees it. Null when
+ * the row has no figure in a column the formula needs: a blank stays blank.
+ */
+function formulaCell(
+  column: TableExportColumn,
+  rowNumber: number,
+  values: TableExportCell[],
+  result: ExcelJS.CellValue,
+): ExcelJS.CellFormulaValue | null {
+  const formula = column.formula;
+  if (!formula) return null;
+  const [a, b] = formula.columns;
+  if (typeof values[a] !== "number" || typeof values[b] !== "number") return null;
+  const left = `${columnLetter(a + 1)}${rowNumber}`;
+  const right = `${columnLetter(b + 1)}${rowNumber}`;
+  // VAT is rounded to the cent per row, as the database rounds it (0031).
+  return {
+    formula: formula.op === "multiply" ? `ROUND(${left}*${right},2)` : `${left}+${right}`,
+    result: typeof result === "number" ? result : undefined,
+  } as ExcelJS.CellFormulaValue;
+}
+
 /** What one cell holds. A figure that arrived as text ("1234.50") is read as the number it is. */
 function cellValue(column: TableExportColumn, value: TableExportCell): ExcelJS.CellValue {
   if (value === null || value === "") return null;
-  if (isFigure(column)) {
+  if (isNumeric(column)) {
     if (typeof value === "number") return value;
     if (typeof value === "string" && /^-?\d+(\.\d+)?$/.test(value.trim())) return Number(value.trim());
     return typeof value === "boolean" ? String(value) : value;
@@ -204,7 +235,9 @@ export async function tableWorkbook(
         ? numberFormat(rows, i)
         : column.kind === "date"
           ? DATE_FORMAT
-          : undefined,
+          : column.kind === "percent"
+            ? PERCENT_FORMAT
+            : undefined,
   );
   const widths = columns.map((column) => Math.max(10, column.header.length + 2));
   rows.forEach((values, r) => {
@@ -212,7 +245,11 @@ export async function tableWorkbook(
     columns.forEach((column, i) => {
       const cell = row.getCell(i + 1);
       const value = cellValue(column, values[i] ?? null);
-      if (value !== null) cell.value = value;
+      // ADR-0038: VAT and gross stay live — a formula over the row's net and
+      // rate, never the figure pasted in.
+      const formula = formulaCell(column, firstRow + r, values, value);
+      if (formula) cell.value = formula;
+      else if (value !== null) cell.value = value;
       const format = formats[i];
       if (format) cell.numFmt = format;
       if (column.numeric) cell.alignment = { horizontal: "right" };

@@ -19,6 +19,12 @@ export function buildContractDetail(overrides: Partial<ContractDetail> = {}): Co
     awardDecisionDocId: null,
     originalValue,
     currentValue: originalValue,
+    // ADR-0038: net at 19 %.
+    vatRate: "STANDARD_19",
+    originalVat: 456_000,
+    originalGross: 2_856_000,
+    currentVat: 456_000,
+    currentGross: 2_856_000,
     currency: "EUR",
     startDate: "2026-01-24",
     completionDate: "2026-10-01",
@@ -61,6 +67,9 @@ export function buildContractDetail(overrides: Partial<ContractDetail> = {}): Co
         descriptionEl: "Αντικατάσταση δικτύου αποχέτευσης",
         reason: "SITE_CONDITION",
         value: 144_000,
+        vatRate: "STANDARD_19",
+        vat: 27_360,
+        gross: 171_360,
         timeImpactDays: 21,
         status: "APPROVED",
         raisedById: "user-engineer",
@@ -74,6 +83,8 @@ export function buildContractDetail(overrides: Partial<ContractDetail> = {}): Co
     ],
     approvedVariationsTotal: 336_000,
     pendingVariationsTotal: 48_000,
+    approvedVariationsGross: 399_840,
+    pendingVariationsGross: 57_120,
     variationPctOfOriginal: 14,
     warnings: [
       {

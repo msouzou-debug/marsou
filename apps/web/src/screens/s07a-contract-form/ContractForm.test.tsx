@@ -102,6 +102,7 @@ describe("ContractForm — budget code (ADR-0025)", () => {
       mode: "edit",
       initialValues: {
         contractNo: "ΤΥ/2026/900",
+        vatRate: "STANDARD_19",
         type: "LUMP_SUM",
         awardDate: "2026-09-01",
         startDate: null,

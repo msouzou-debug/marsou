@@ -73,6 +73,9 @@ describe("accrualsWorkbook", () => {
         costCentre: "CC-1",
         certNumber: 1,
         certifiedNet: 100,
+        vatRate: "STANDARD_19",
+        certifiedVat: 19,
+        certifiedGross: 119,
         invoiced: 670.55,
         accrual: 0,
         overInvoiced: true,
@@ -83,11 +86,49 @@ describe("accrualsWorkbook", () => {
     const sheet = await firstSheet(buffer);
 
     const row3 = sheet.getRow(3);
-    expect(row3.getCell("H").formula).toBe("MAX(0,F3-G3)");
+    expect(row3.getCell("K").formula).toBe("MAX(0,I3-J3)");
 
     // The totals column keeps a plain SUM — over-invoicing is clamped at the
     // row, not hidden from the total.
     const totalsRow = sheet.getRow(4);
+    expect(totalsRow.getCell("K").formula).toBe("SUM(K3:K3)");
+  });
+
+  it("carries net, rate, VAT and gross, VAT and gross as live formulas (ADR-0038)", async () => {
+    const rows: AccrualRow[] = [
+      {
+        projectId: "p-1",
+        projectCode: "PRJ-1",
+        projectTitleEl: "Έργο",
+        contractId: "c-1",
+        contractRef: "CAP-1",
+        contractorName: "Ανάδοχος",
+        costCentre: null,
+        certNumber: 2,
+        certifiedNet: 10_000,
+        vatRate: "REDUCED_5",
+        certifiedVat: 500,
+        certifiedGross: 10_500,
+        invoiced: 4_000,
+        accrual: 6_500,
+        overInvoiced: false,
+        asOf: "2026-12-31",
+      },
+    ];
+    const sheet = await firstSheet(await accrualsWorkbook(rows, 2026, i18n));
+    expect(sheet.getRow(1).getCell("G").value).toBe("Συντελεστής ΦΠΑ");
+    expect(sheet.getRow(1).getCell("I").value).toBe("Σύνολο με ΦΠΑ");
+    const row3 = sheet.getRow(3);
+    expect(row3.getCell("F").value).toBe(10_000);
+    expect(row3.getCell("G").value).toBe(0.05);
+    expect(row3.getCell("G").numFmt).toBe("0%");
+    expect(row3.getCell("H").formula).toBe("ROUND(F3*G3,2)");
+    expect(row3.getCell("I").formula).toBe("F3+H3");
+    expect(row3.getCell("I").result).toBe(10_500);
+    const totalsRow = sheet.getRow(4);
+    expect(totalsRow.getCell("F").formula).toBe("SUM(F3:F3)");
     expect(totalsRow.getCell("H").formula).toBe("SUM(H3:H3)");
+    expect(totalsRow.getCell("I").formula).toBe("SUM(I3:I3)");
+    expect(totalsRow.getCell("G").value).toBe("");
   });
 });

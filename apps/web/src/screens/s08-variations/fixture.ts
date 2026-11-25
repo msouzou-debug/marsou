@@ -9,6 +9,10 @@ export function buildVariation(overrides: Partial<Variation> = {}): Variation {
     descriptionEl: "Αναβάθμιση δαπέδων σε αντιστατικό υλικό",
     reason: "CLIENT_CHANGE",
     value: 48_000,
+    // ADR-0038: 19 % on the net.
+    vatRate: "STANDARD_19",
+    vat: 9_120,
+    gross: 57_120,
     timeImpactDays: 10,
     status: "SUBMITTED",
     raisedById: "user-engineer",

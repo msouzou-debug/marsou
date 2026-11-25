@@ -28,8 +28,9 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { useTranslations } from "next-intl";
 import { LoaderCircle } from "lucide-react";
-import { ContractType, nicosiaDateOf, type BudgetCode, type Contractor } from "@ecapital/shared";
+import { ContractType, DEFAULT_VAT_RATE, nicosiaDateOf, type BudgetCode, type Contractor } from "@ecapital/shared";
 import { PageTitle } from "@/components/app-shell";
+import { VatRateSelect, VatSummary } from "@/components/vat-fields";
 import { zodResolver } from "@/lib/zod-resolver";
 import { formatEUR } from "@/lib/format";
 import {
@@ -56,6 +57,8 @@ const EMPTY_VALUES: ContractFormValues = {
   emapRef: null,
   // ADR-0025: "" means none, same convention as S07d's targetProjectId.
   budgetCode: "",
+  // ADR-0038: Cypriot public works contracts are signed excl. VAT at 19 %.
+  vatRate: DEFAULT_VAT_RATE,
 };
 
 export interface ContractFormProps {
@@ -95,6 +98,7 @@ export function ContractForm({
   const {
     register,
     handleSubmit,
+    watch,
     formState: { errors },
   } = useForm<ContractCreateFormValues>({
     resolver:
@@ -108,6 +112,13 @@ export function ContractForm({
       ...initialValues,
     },
   });
+
+  // ADR-0038: the net typed (or, in "edit", the one on record) and the rate,
+  // for the live «Ποσό ΦΠΑ» and «Σύνολο με ΦΠΑ».
+  const typedNet = watch("originalValue");
+  const vatRate = watch("vatRate");
+  const netForSummary =
+    mode === "create" ? (Number.isFinite(typedNet) ? typedNet : null) : (initialOriginalValue ?? null);
 
   const [bondDraft, setBondDraft] = useState(() =>
     initialValues?.performanceBondValue != null ? String(initialValues.performanceBondValue) : "",
@@ -250,41 +261,50 @@ export function ContractForm({
           </div>
         </div>
 
-        {mode === "create" ? (
-          <div className="flex flex-col gap-s-1">
-            <label htmlFor="cf-original-value" className="text-fs-14 text-k-text">
-              {tf("originalValue")}
-            </label>
-            <div className="flex items-center gap-s-3">
-              <input
-                id="cf-original-value"
-                type="number"
-                step="0.01"
-                min="0"
-                inputMode="decimal"
-                {...register("originalValue", { setValueAs: (value: string) => (value === "" ? NaN : Number(value)) })}
-                aria-invalid={errors.originalValue ? "true" : undefined}
-                className="num h-11 w-[220px] rounded-k border border-k-grey bg-k-white px-s-3 text-fs-16 text-k-ink"
-              />
-            </div>
-            {fieldError("originalValue") && (
-              <p role="alert" className="text-fs-14 text-k-red">
-                {fieldError("originalValue")}
-              </p>
+        {/* RULE (ADR-0038): the value is typed NET, with the «Συντελεστής
+            ΦΠΑ» beside it, and the VAT and the gross shown live under both. */}
+        <div className="flex flex-col gap-s-2">
+          <div className="flex flex-wrap items-start gap-s-4">
+            {mode === "create" ? (
+              <div className="flex flex-col gap-s-1">
+                <label htmlFor="cf-original-value" className="text-fs-14 text-k-text">
+                  {tf("originalValue")}
+                </label>
+                <input
+                  id="cf-original-value"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  inputMode="decimal"
+                  aria-describedby="cf-vat-summary"
+                  {...register("originalValue", { setValueAs: (value: string) => (value === "" ? NaN : Number(value)) })}
+                  aria-invalid={errors.originalValue ? "true" : undefined}
+                  className="num h-11 w-[220px] rounded-k border border-k-grey bg-k-white px-s-3 text-fs-16 text-k-ink"
+                />
+                {fieldError("originalValue") && (
+                  <p role="alert" className="text-fs-14 text-k-red">
+                    {fieldError("originalValue")}
+                  </p>
+                )}
+              </div>
+            ) : (
+              // RULE (ADR-0015 "The commitment"): currentValue = originalValue +
+              // approved variations, maintained by a database trigger — nothing
+              // this form does can write originalValue once the contract exists.
+              <div className="flex flex-col gap-s-1">
+                <span className="text-fs-14 text-k-text">{tf("originalValue")}</span>
+                <span className="num flex h-11 items-center text-fs-16 text-k-ink">
+                  {initialOriginalValue !== undefined ? formatEUR(initialOriginalValue) : "—"}
+                </span>
+              </div>
             )}
+            <VatRateSelect id="cf-vat-rate" {...register("vatRate")} />
           </div>
-        ) : (
-          // RULE (ADR-0015 "The commitment"): currentValue = originalValue +
-          // approved variations, maintained by a database trigger — nothing
-          // this form does can write originalValue once the contract exists.
-          <div className="flex flex-col gap-s-1">
-            <span className="text-fs-14 text-k-text">{tf("originalValue")}</span>
-            <span className="num text-fs-16 text-k-ink">
-              {initialOriginalValue !== undefined ? formatEUR(initialOriginalValue) : "—"}
-            </span>
+          <VatSummary id="cf-vat-summary" net={netForSummary} rate={vatRate} />
+          {mode === "edit" && (
             <p className="text-fs-12 text-k-text-muted">{t("screens.s07a.originalValueReadOnlyNote")}</p>
-          </div>
-        )}
+          )}
+        </div>
 
         <div className="grid grid-cols-1 gap-s-4 tablet:grid-cols-2">
           <div className="flex flex-col gap-s-1">

@@ -505,8 +505,8 @@ describe("SAP capital lines (ADR-0036)", () => {
       for (let col = 1; col <= row.cellCount; col += 1) if (row.getCell(col).value === title) return col;
       throw new Error(`no column ${title}`);
     };
-    const sap = column("Ποσό SAP (€)");
-    const efinance = column("Ποσό eFinance (€)");
+    const sap = column("Ποσό SAP με ΦΠΑ (€)");
+    const efinance = column("Ποσό eFinance με ΦΠΑ (€)");
     const difference = column("Διαφορά SAP μείον eFinance (€)");
     const status = column("Κατάσταση συμφωνίας");
 

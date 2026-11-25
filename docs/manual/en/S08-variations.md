@@ -10,6 +10,10 @@ This screen records every change to a contract's value or time, from proposal to
 4. The approver sees the value, the reason and the new current value, and picks "Approve", "Return with comments" or "Reject".
 5. An approved variation adds its value to the contract's current value; a returned or rejected one does not.
 
+## VAT
+
+Type the variation's value excluding VAT. The "VAT rate" takes the contract's and can be changed if the variation carries another. The "VAT amount" and "Total incl. VAT" show at once. The table shows net, rate, VAT and total; whoever decides sees the total with VAT and the new current value with VAT. An approved variation adds its total with VAT to the project's commitment.
+
 ## What can go wrong
 
 - **You do not see the decision buttons, or they are disabled.** You cannot approve a variation you raised yourself; the screen shows this before you even try. Ask someone else with approval rights to decide.

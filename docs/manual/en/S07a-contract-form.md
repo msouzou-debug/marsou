@@ -11,6 +11,10 @@ This form records the contract awarded on a project, or changes an existing one'
 5. If the contract came out of an eMAP tender, fill in the eMAP reference, written `CON-2026-0042`. The contract page then carries a link back to eMAP.
 6. Press "Save". The page takes you to the contract.
 
+## VAT
+
+Type the original value excluding VAT, as in the contract, and pick the "VAT rate" beside it (19 % unless the contract sets another, or "Exempt"). The "VAT amount" and the "Total incl. VAT" show under the value as you type. When editing you may correct the rate; variations and certificates already recorded keep their own.
+
 ## What can go wrong
 
 - **The contractor shows up disabled in the list.** It is blacklisted and takes no new contract; the reason shows above its name.

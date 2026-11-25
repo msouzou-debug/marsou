@@ -26,6 +26,7 @@
  * | `emptyState`        | `{ messageKey, actionLabelKey, onAction? }`       | —             | Required for the `empty` state: one sentence plus one action (UI §6). |
  * | `skeletonRows`      | `number`                                          | `6`           | How many skeleton rows the `loading` state draws. |
  * | `onExport`          | `() => void`                                      | generic       | Fired by the export button. Leave it unset and the table exports what it shows itself (`table-export.ts`, `POST /exports/table`); set it only for a purpose-built workbook (S04, S09a, S21, the reports). |
+ * | `exportRows`        | `() => Promise<T[]>`                              | rows on screen | The rows the generic export sends, with the columns on screen. For a paged list (S02): every row matching the filters, not only this page. |
  * | `onCellEdit`        | `(row: T, columnId: string, value: string) => void` | —           | Fired when `Enter` commits an inline edit. |
  * | `onRowOpen`         | `(row: T) => void`                                | —             | Fired by `Enter` on a focused row, or a click on it. |
  * | `onSelectionChange` | `(ids: string[]) => void`                         | —             | Fired whenever the checkbox selection changes. |
@@ -82,6 +83,13 @@ export interface TableColumn<T> {
   defaultHidden?: boolean;
   /** How the generic export writes this column; read off the values when unset. `"none"` leaves it out. */
   exportKind?: TableExportKind | "none";
+  /**
+   * ADR-0038: the generic export writes this column as a live formula over
+   * two other columns of the row, by id — VAT as `multiply` of net and rate,
+   * gross as `add` of net and VAT. Dropped (the value is written instead)
+   * when either column is hidden.
+   */
+  exportFormula?: { op: "multiply" | "add"; columns: [string, string] };
 }
 
 export interface TableEmptyState {
@@ -106,6 +114,8 @@ export interface TableProps<T> {
   emptyState?: TableEmptyState;
   skeletonRows?: number;
   onExport?: () => void;
+  /** The rows the generic export sends; the rows on screen when unset. */
+  exportRows?: () => Promise<T[]>;
   onCellEdit?: (row: T, columnId: string, value: string) => void;
   onRowOpen?: (row: T) => void;
   onSelectionChange?: (ids: string[]) => void;
@@ -168,6 +178,7 @@ export function Table<T>({
   emptyState,
   skeletonRows = 6,
   onExport,
+  exportRows,
   onCellEdit,
   onRowOpen,
   onSelectionChange,
@@ -326,7 +337,7 @@ export function Table<T>({
           .getVisibleLeafColumns()
           .map((column) => columnsById.get(column.id))
           .filter((column): column is TableColumn<T> => column !== undefined),
-        rows: table.getRowModel().rows.map((row) => row.original),
+        rows: exportRows ? await exportRows() : table.getRowModel().rows.map((row) => row.original),
         t: (key) => tRoot(key),
       });
     } catch (error) {

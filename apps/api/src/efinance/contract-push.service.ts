@@ -122,7 +122,12 @@ export class ContractPushService implements OnModuleInit {
    *                 the same string
    *   budget_code   contract.budget_code (ADR-0025)
    *   vendor_code   contractor.sap_vendor_id
-   *   current_value contract.current_value as a 2-decimal string
+   *   current_value contract.current_value as a 2-decimal string — NET,
+   *                 excl. VAT, unchanged by ADR-0038. Record §4 names one
+   *                 figure and no rate, and has no field to carry one, so
+   *                 the push sends what it always sent. Whether eFinance's
+   *                 `remaining` (current_value − booked) then compares net
+   *                 with net is eFinance's to confirm: FLAGGED in ADR-0038.
    *   status        closed when the project is CLOSED, active otherwise
    *   updated_at    the newest of the contract's, the project's and the
    *                 contractor's own updated_at, ISO with +00:00

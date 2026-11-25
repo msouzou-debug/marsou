@@ -23,6 +23,7 @@ import { useTranslations } from "next-intl";
 import type { AccrualRow, AppRole } from "@ecapital/shared";
 import { CostNavTabs, PageTitle } from "@/components/app-shell";
 import { Table, type TableColumn } from "@/components/table";
+import { vatColumns } from "@/components/vat-fields";
 import { formatEUR } from "@/lib/format";
 
 export type AccrualsScreenState = "default" | "loading" | "empty" | "error" | "noPermission" | "offline";
@@ -52,7 +53,17 @@ export function Accruals({ data, year, onYearChange, state, onRetry, noPermissio
     { id: "contractor", headerKey: "screens.s09a.columns.contractor", accessor: (row) => row.contractorName },
     { id: "costCentre", headerKey: "screens.s09a.columns.costCentre", accessor: (row) => row.costCentre ?? "" , cell: (row) => row.costCentre ?? t("common.notAvailable") },
     { id: "certNumber", headerKey: "screens.s09a.columns.certNumber", accessor: (row) => row.certNumber, numeric: true },
-    { id: "certifiedNet", headerKey: "screens.s09a.columns.certifiedNet", accessor: (row) => row.certifiedNet, numeric: true, cell: (row) => formatEUR(row.certifiedNet) },
+    // ADR-0038: the certificate's net, rate, VAT and gross; the accrual is
+    // gross against what was invoiced (posted gross).
+    ...vatColumns<AccrualRow>({
+      net: (row) => row.certifiedNet,
+      rate: (row) => row.vatRate,
+      vat: (row) => row.certifiedVat,
+      gross: (row) => row.certifiedGross,
+      rateLabel: (rate) => t(`vatRates.${rate}`),
+      netHeaderKey: "screens.s09a.columns.certifiedNet",
+      idPrefix: "certified",
+    }),
     { id: "invoiced", headerKey: "screens.s09a.columns.invoiced", accessor: (row) => row.invoiced, numeric: true, cell: (row) => formatEUR(row.invoiced) },
     { id: "accrual", headerKey: "screens.s09a.columns.accrual", accessor: (row) => row.accrual, numeric: true, cell: (row) => formatEUR(row.accrual) },
     {
@@ -75,6 +86,7 @@ export function Accruals({ data, year, onYearChange, state, onRetry, noPermissio
   const rows = data ?? [];
   const totals = {
     certifiedNet: rows.reduce((sum, r) => sum + r.certifiedNet, 0),
+    certifiedGross: rows.reduce((sum, r) => sum + r.certifiedGross, 0),
     invoiced: rows.reduce((sum, r) => sum + r.invoiced, 0),
     accrual: rows.reduce((sum, r) => sum + r.accrual, 0),
   };
@@ -126,6 +138,7 @@ export function Accruals({ data, year, onYearChange, state, onRetry, noPermissio
           <span>{t("screens.s09a.totalsRow")}</span>
           <div className="flex gap-s-6">
             <span className="num">{formatEUR(totals.certifiedNet)}</span>
+            <span className="num">{formatEUR(totals.certifiedGross)}</span>
             <span className="num">{formatEUR(totals.invoiced)}</span>
             <span className="num">{formatEUR(totals.accrual)}</span>
           </div>

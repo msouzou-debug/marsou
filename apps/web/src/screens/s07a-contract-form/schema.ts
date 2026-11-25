@@ -8,7 +8,7 @@
 // message a person actually sees, as an i18n key (`forms.*`) — see
 // `lib/zod-resolver.ts` for why the message is a key, not a sentence.
 import { z } from "zod";
-import { CONTRACT_DATE_RULES, ContractType, EMAP_CONTRACT_REF, refineDates } from "@ecapital/shared";
+import { CONTRACT_DATE_RULES, ContractType, EMAP_CONTRACT_REF, VatRate, refineDates } from "@ecapital/shared";
 
 // The fields the form edits. `contractorId` and `originalValue` are in the
 // create schema only — RULE (ADR-0015, contract `ContractUpdate`): a
@@ -40,6 +40,11 @@ export interface ContractFormValues {
   // empty value: required on a new contract, editable (including back to
   // nothing) afterwards.
   budgetCode: string;
+  // ADR-0038: the rate the contract is signed at. The original value is net;
+  // VAT and gross are worked out (live on the form, by the database on save).
+  // Editable later as a correction: the rate each variation and certificate
+  // already carries stays its own.
+  vatRate: VatRate;
 }
 
 export interface ContractCreateFormValues extends ContractFormValues {
@@ -107,6 +112,7 @@ const sharedFields = {
   // it means "clear it"); the create schema overrides it with
   // `budgetCodeRequired`.
   budgetCode: z.string(),
+  vatRate: VatRate,
 };
 
 /** S07a Νέα σύμβαση — `POST /projects/:id/contracts`. */

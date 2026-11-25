@@ -63,9 +63,9 @@ describe("CashflowSection — the cash-flow plan (ADR-0037)", () => {
     expect(within(editor).getByTestId("cashflow-plan-approved")).toHaveTextContent(eur(2_400_000));
     expect(within(editor).getByTestId("cashflow-plan-difference")).toHaveTextContent(eur(-2_000_000));
 
-    fireEvent.change(within(editor).getByLabelText("Ποσό (€) 03/2026"), { target: { value: "1.000.000,50" } });
+    fireEvent.change(within(editor).getByLabelText("Ποσό με ΦΠΑ (€) 03/2026"), { target: { value: "1.000.000,50" } });
     fireEvent.change(within(editor).getByLabelText("Σημείωση 03/2026"), { target: { value: "Παραλαβή εξοπλισμού" } });
-    fireEvent.change(within(editor).getByLabelText("Ποσό (€) 02/2026"), { target: { value: "" } });
+    fireEvent.change(within(editor).getByLabelText("Ποσό με ΦΠΑ (€) 02/2026"), { target: { value: "" } });
 
     // 150.000 + 1.000.000,50 — February emptied is out of the plan.
     expect(within(editor).getByTestId("cashflow-plan-total")).toHaveTextContent(eur(1_150_000.5));
@@ -86,7 +86,7 @@ describe("CashflowSection — the cash-flow plan (ADR-0037)", () => {
     const { onSavePlan } = renderSection();
     fireEvent.click(screen.getByRole("button", { name: "Επεξεργασία πλάνου" }));
     const editor = screen.getByTestId("cashflow-plan-editor");
-    fireEvent.change(within(editor).getByLabelText("Ποσό (€) 01/2026"), { target: { value: "-5" } });
+    fireEvent.change(within(editor).getByLabelText("Ποσό με ΦΠΑ (€) 01/2026"), { target: { value: "-5" } });
     expect(within(editor).getByText("Γράψτε ποσό μηδέν ή μεγαλύτερο.")).toBeInTheDocument();
     await act(async () => {
       fireEvent.click(within(editor).getByRole("button", { name: "Αποθήκευση" }));

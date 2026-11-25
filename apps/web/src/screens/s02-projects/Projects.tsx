@@ -49,6 +49,7 @@ import { PageTitle } from "@/components/app-shell";
 import { FilterBar, type FilterItem } from "@/components/filter-bar";
 import { RagChip } from "@/components/rag-chip";
 import { Table, type TableColumn, type TableState } from "@/components/table";
+import { allProjectsMatching } from "@/data/queries";
 import type { Locale } from "@/i18n/config";
 import { formatDate, formatEUR } from "@/lib/format";
 import { FacetFilter } from "./FacetFilter";
@@ -73,6 +74,12 @@ export interface ProjectsProps {
   roles?: AppRole[];
   /** Injectable "now" for the staleness rule (ADR-0035); defaults to the real clock. */
   today?: Date;
+  /**
+   * Every project matching `query`, for the export (owner, 25/11/2026: the
+   * whole filtered list, not the page). Defaults to paging through
+   * `GET /projects`; injectable so a test or the preview need no network.
+   */
+  exportAll?: (query: ProjectListQuery) => Promise<ProjectSummary[]>;
 }
 
 // Table headers wired to a sortable ProjectSort field, by column id.
@@ -88,7 +95,18 @@ const SORT_BY_COLUMN_ID: Partial<Record<string, ProjectSort>> = {
   rag: "rag",
 };
 
-export function Projects({ data, state, query, orgUnits, eyebrow, onRetry, noPermission, roles = [], today }: ProjectsProps) {
+export function Projects({
+  data,
+  state,
+  query,
+  orgUnits,
+  eyebrow,
+  onRetry,
+  noPermission,
+  roles = [],
+  today,
+  exportAll,
+}: ProjectsProps) {
   const t = useTranslations();
   const locale = useLocale() as Locale;
   const router = useRouter();
@@ -378,6 +396,10 @@ export function Projects({ data, state, query, orgUnits, eyebrow, onRetry, noPer
           emptyState={{ messageKey: "screens.s02.empty", actionLabelKey: "screens.s02.clearFilters", onAction: clearFilters }}
           onRowOpen={(row) => router.push(`/projects/${encodeURIComponent(row.id)}`)}
           onRetry={onRetry}
+          // Owner, 25/11/2026: the export is the whole filtered list, every
+          // page, not the fifty on screen — same filters, same sort, the
+          // columns on screen, through the same `POST /exports/table`.
+          exportRows={() => (exportAll ?? allProjectsMatching)(query)}
         />
       </div>
 

@@ -11,6 +11,10 @@ This screen shows every SHSO project on one page: what is approved, what is comm
 5. Click "Export to Excel" at the top right of the table to get the same figures with live formulas.
 6. Press "?" anywhere on the screen to open this guide in a side panel without leaving the page. Press Esc to close it.
 
+## VAT
+
+Every amount on this screen includes VAT. The approved budget is written with VAT, the commitment is the contracts' and approved variations' value with their VAT, and spend is posted with VAT. SHSO cannot recover VAT, so VAT is a cost to the project.
+
 ## What can go wrong
 
 - **The figures do not match SAP.** Spend is updated by the latest SAP file import. Check the date of the last import on the Administration page.

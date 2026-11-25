@@ -49,6 +49,7 @@ describe("periods", () => {
       periodTo: "2026-09-30",
       workDoneValue: 1,
       materialsOnSite: 0,
+      vatRate: "STANDARD_19",
     });
     expect(parsed.error?.issues[0]).toMatchObject({ path: ["periodTo"], message: "forms.dateEndBeforeStart" });
   });

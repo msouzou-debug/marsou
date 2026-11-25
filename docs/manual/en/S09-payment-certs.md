@@ -11,6 +11,10 @@ The screen shows a contract's payment certificates: how much is certified, how m
 5. Finance records the SAP invoice reference and clicks «Received by finance».
 6. Finance records the paid date and clicks «Mark as paid». If needed, they check «Release retention».
 
+## VAT
+
+A certificate certifies work excluding VAT. VAT goes on the net payable at the contract's "VAT rate", unless you pick another. Before you save, the form shows an estimate of the net payable, its VAT and the total; the stored figure is worked out by the system. "Payable incl. VAT" is what Finance pays.
+
 ## What can go wrong
 
 - **The «Engineer approval» button is disabled.** You cannot approve a certificate you created yourself — ask another engineer to approve it.

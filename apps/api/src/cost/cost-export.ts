@@ -17,10 +17,11 @@
  * a rounded-looking figure obviously rounded.
  */
 import ExcelJS from "exceljs";
-import type { AccrualRow, CostCategoryRow } from "@ecapital/shared";
+import { type AccrualRow, type CostCategoryRow, VAT_RATE_VALUE } from "@ecapital/shared";
 import type { I18nService } from "../common/i18n.service";
 
 const MONEY_FORMAT = "#,##0.00";
+const PERCENT_FORMAT = "0%";
 const HEADER_FILL = "FFEFEFEF";
 
 /** Row 1 Greek, row 2 English; the data starts at row 3. */
@@ -40,9 +41,15 @@ function headerRows(sheet: ExcelJS.Worksheet, el: string[], en: string[]): void 
 }
 
 /**
- * R18 — one sheet, one row per accrual, `accrual` as `=Fn−Gn` and a totals
- * row of `=SUM(...)`. The columns are fixed in this order because the formula
- * names them: F is what was certified, G is what was invoiced.
+ * R18 — one sheet, one row per accrual and a totals row of `=SUM(...)`. The
+ * columns are fixed in this order because the formulas name them:
+ *
+ *   F  certified net (the certificate's net payable, excl. VAT)
+ *   G  VAT rate
+ *   H  VAT            =ROUND(F*G,2)      (ADR-0038)
+ *   I  certified gross =F+H              — what finance pays
+ *   J  invoiced (posted gross)
+ *   K  accrual        =MAX(0,I−J)        — gross against gross
  */
 export async function accrualsWorkbook(
   rows: AccrualRow[],
@@ -61,6 +68,9 @@ export async function accrualsWorkbook(
     "contract",
     "certNumber",
     "certifiedNet",
+    "vatRate",
+    "vatAmount",
+    "certifiedGross",
     "invoiced",
     "accrual",
     "costCentre",
@@ -78,6 +88,9 @@ export async function accrualsWorkbook(
     { width: 18 },
     { width: 10 },
     { width: 18 },
+    { width: 10 },
+    { width: 16 },
+    { width: 18 },
     { width: 18 },
     { width: 18 },
     { width: 14 },
@@ -93,17 +106,23 @@ export async function accrualsWorkbook(
       row.contractRef,
       row.certNumber,
       row.certifiedNet,
+      VAT_RATE_VALUE[row.vatRate],
+      // ADR-0038: VAT and gross are formulas over the net and the rate.
+      { formula: `ROUND(F${at}*G${at},2)`, result: row.certifiedVat },
+      { formula: `F${at}+H${at}`, result: row.certifiedGross },
       row.invoiced,
-      // RULE (owner): a formula, never the answer. F − G, in the cell.
-      // Clamped to zero: invoiced above certified is over-invoicing, not a
-      // negative accrual (screenshot review 19/09/2026).
-      { formula: `MAX(0,F${at}-G${at})` },
+      // RULE (owner): a formula, never the answer. I − J, in the cell —
+      // gross against gross (ADR-0038). Clamped to zero: invoiced above
+      // certified is over-invoicing, not a negative accrual (screenshot
+      // review 19/09/2026).
+      { formula: `MAX(0,I${at}-J${at})`, result: row.accrual },
       row.costCentre ?? "",
       row.asOf,
     ]);
-    for (const column of ["F", "G", "H"]) {
+    for (const column of ["F", "H", "I", "J", "K"]) {
       added.getCell(column).numFmt = MONEY_FORMAT;
     }
+    added.getCell("G").numFmt = PERCENT_FORMAT;
   });
 
   const totalsAt = FIRST_DATA_ROW + rows.length;
@@ -116,13 +135,16 @@ export async function accrualsWorkbook(
     "",
     "",
     rows.length ? { formula: `SUM(F${first}:F${last})` } : 0,
-    rows.length ? { formula: `SUM(G${first}:G${last})` } : 0,
+    "",
     rows.length ? { formula: `SUM(H${first}:H${last})` } : 0,
+    rows.length ? { formula: `SUM(I${first}:I${last})` } : 0,
+    rows.length ? { formula: `SUM(J${first}:J${last})` } : 0,
+    rows.length ? { formula: `SUM(K${first}:K${last})` } : 0,
     "",
     `${year}`,
   ]);
   totals.font = { bold: true };
-  for (const column of ["F", "G", "H"]) {
+  for (const column of ["F", "H", "I", "J", "K"]) {
     totals.getCell(column).numFmt = MONEY_FORMAT;
   }
 

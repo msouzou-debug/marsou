@@ -62,8 +62,8 @@ describe("ProjectForm validation", () => {
   it("submits once every required field is valid", async () => {
     const { onSubmit } = renderForm();
     await userEvent.type(screen.getByLabelText("Τίτλος"), "Ανακαίνιση θαλάμου");
-    await userEvent.clear(screen.getByLabelText("Εγκεκριμένος προϋπολογισμός"));
-    await userEvent.type(screen.getByLabelText("Εγκεκριμένος προϋπολογισμός"), "125000");
+    await userEvent.clear(screen.getByLabelText("Εγκεκριμένος προϋπολογισμός (με ΦΠΑ)"));
+    await userEvent.type(screen.getByLabelText("Εγκεκριμένος προϋπολογισμός (με ΦΠΑ)"), "125000");
 
     await userEvent.click(screen.getByRole("button", { name: "Αποθήκευση" }));
 
@@ -82,7 +82,7 @@ describe("ProjectForm API errors", () => {
       apiError: "Δεν έχετε πρόσβαση για αυτή την ενέργεια.",
       budgetFieldError: "Μόνο η Οικονομική Διεύθυνση μπορεί να αλλάξει τον προϋπολογισμό μετά την έγκριση.",
     });
-    const budgetField = screen.getByLabelText("Εγκεκριμένος προϋπολογισμός");
+    const budgetField = screen.getByLabelText("Εγκεκριμένος προϋπολογισμός (με ΦΠΑ)");
     const budgetMessage = screen.getByText(
       "Μόνο η Οικονομική Διεύθυνση μπορεί να αλλάξει τον προϋπολογισμό μετά την έγκριση.",
     );

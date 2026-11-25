@@ -110,6 +110,51 @@ describe("tableWorkbook", () => {
   });
 });
 
+describe("VAT columns (ADR-0038)", () => {
+  const vat = TableExportRequest.parse({
+    title: "Συμβάσεις",
+    sheetName: "Συμβάσεις",
+    columns: [
+      { header: "Σύμβαση", kind: "text" },
+      { header: "Καθαρό ποσό", numeric: true, kind: "money" },
+      { header: "Συντελεστής ΦΠΑ", numeric: true, kind: "percent" },
+      { header: "Ποσό ΦΠΑ", numeric: true, kind: "money", formula: { op: "multiply", columns: [1, 2] } },
+      { header: "Σύνολο με ΦΠΑ", numeric: true, kind: "money", formula: { op: "add", columns: [1, 3] } },
+    ],
+    rows: [
+      ["CAP-2026-0001", 100_000, 0.19, 19_000, 119_000],
+      ["CAP-2026-0002", 2_000, 0, 0, 2_000],
+      ["CAP-2026-0003", null, 0.05, null, null],
+    ],
+  });
+
+  it("writes VAT as =ROUND(net*rate,2) and gross as =net+vat, row by row, with the screen's figure cached", async () => {
+    const workbook = await load(await tableWorkbook(vat, i18n, { locale: "el", now }));
+    const sheet = workbook.worksheets[0];
+    if (!sheet) throw new Error("no sheet");
+    expect(sheet.getCell("C2").value).toBe(0.19);
+    expect(sheet.getCell("C2").numFmt).toBe("0%");
+    expect(sheet.getCell("D2").formula).toBe("ROUND(B2*C2,2)");
+    expect(sheet.getCell("E2").formula).toBe("B2+D2");
+    expect(sheet.getCell("D3").formula).toBe("ROUND(B3*C3,2)");
+    expect(sheet.getCell("E2").result).toBe(119_000);
+    // No net on the row: blank, not a formula that reads as 0.
+    expect(sheet.getCell("D4").value).toBeNull();
+    // Totals under the money columns, never under the rate.
+    expect(sheet.getCell("B5").formula).toBe("SUBTOTAL(9,B2:B4)");
+    expect(sheet.getCell("D5").formula).toBe("SUBTOTAL(9,D2:D4)");
+    expect(sheet.getCell("E5").formula).toBe("SUBTOTAL(9,E2:E4)");
+    expect(sheet.getCell("C5").value).toBeNull();
+  });
+
+  it("refuses a formula that names itself or a column the table does not have", () => {
+    const columns = vat.columns.map((column, i) =>
+      i === 3 ? { ...column, formula: { op: "multiply" as const, columns: [3, 9] as [number, number] } } : column,
+    );
+    expect(TableExportRequest.safeParse({ ...vat, columns }).success).toBe(false);
+  });
+});
+
 describe("TableExportRequest", () => {
   it("refuses a row with the wrong number of values and more rows than the cap", () => {
     expect(

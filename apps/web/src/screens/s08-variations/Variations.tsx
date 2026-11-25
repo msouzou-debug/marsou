@@ -21,7 +21,8 @@ import type { AppRole, ContractDetail, VariationDecision as VariationDecisionTyp
 import { canDecideVariations, canRaiseVariations } from "@/auth/roles";
 import { PageTitle } from "@/components/app-shell";
 import { Table, type TableColumn } from "@/components/table";
-import { formatDate, formatEUR } from "@/lib/format";
+import { vatColumns } from "@/components/vat-fields";
+import { formatDate } from "@/lib/format";
 import { ContractTabs } from "@/screens/s07-contract/ContractTabs";
 import type { VariationFormValues } from "./schema";
 import { VariationCards } from "./VariationCards";
@@ -78,13 +79,16 @@ export function Variations({
       accessor: (row) => row.reason,
       cell: (row) => t(`variationReasons.${row.reason}`),
     },
-    {
-      id: "value",
-      headerKey: "screens.s08.columns.value",
-      accessor: (row) => row.value,
-      numeric: true,
-      cell: (row) => <span className={row.value < 0 ? "text-k-red" : undefined}>{formatEUR(row.value)}</span>,
-    },
+    // ADR-0038: net, rate, VAT and gross; the export keeps VAT and gross live.
+    ...vatColumns<VariationRow>({
+      net: (row) => row.value,
+      rate: (row) => row.vatRate,
+      vat: (row) => row.vat,
+      gross: (row) => row.gross,
+      rateLabel: (rate) => t(`vatRates.${rate}`),
+      netHeaderKey: "screens.s08.columns.value",
+      signed: true,
+    }),
     {
       id: "timeImpact",
       headerKey: "screens.s08.columns.timeImpact",
@@ -182,6 +186,8 @@ export function Variations({
           variation={selectedVariation}
           contractNo={data.contractNo}
           contractCurrentValue={data.currentValue}
+          contractCurrentGross={data.currentGross}
+          contractVatRate={data.vatRate}
           meUserId={meUserId}
           canDecide={canDecide}
           canEdit={canRaise}

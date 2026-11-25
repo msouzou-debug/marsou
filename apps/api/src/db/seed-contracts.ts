@@ -16,6 +16,7 @@
  * ecapital.allocate_variation_number, and the unique index on
  * (contract_id, number) is what keeps the two honest with each other.
  */
+import { DEFAULT_VAT_RATE, VAT_RATE_VALUE, type VatRate } from "@ecapital/shared";
 import { and, eq, sql } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import * as schema from "./schema";
@@ -93,6 +94,13 @@ function round2(value: number): number {
  * on every machine: a contract awarded below its budget is the ordinary case
  * and one awarded at the budget is the tight one.
  */
+/** ADR-0038: the third contract is at 5 %, the sixth exempt, the rest at 19 %. */
+export function vatRateFor(index: number): VatRate {
+  if (index === 2) return "REDUCED_5";
+  if (index === 5) return "EXEMPT";
+  return DEFAULT_VAT_RATE;
+}
+
 export function contractFor(
   project: SeedProject,
   index: number,
@@ -103,6 +111,7 @@ export function contractFor(
   startDate: string;
   completionDate: string;
   originalValue: number;
+  vatRate: VatRate;
   retentionPct: number;
   performanceBondValue: number;
   bondExpiry: string | null;
@@ -114,7 +123,15 @@ export function contractFor(
   const awardDate = addDays(base, -21);
   const startDate = base;
   const completionDate = project.plannedFinish ?? addDays(base, 365);
-  const originalValue = round2(project.approvedBudget * (0.85 + (index % 16) / 100));
+  // ADR-0038: the approved budget is written with VAT and the contract is
+  // signed without it, so the net is the share of the budget it takes,
+  // divided by one plus the rate — the gross commitment then sits where the
+  // net one sat before VAT was counted. Two contracts carry another rate, so
+  // the screens show more than 19 %.
+  const vatRate = vatRateFor(index);
+  const originalValue = round2(
+    (project.approvedBudget * (0.85 + (index % 16) / 100)) / (1 + VAT_RATE_VALUE[vatRate]),
+  );
 
   // The bond is returned once the works are over, so a contract whose
   // completion is well behind us carries none — except the one the fixture
@@ -134,6 +151,7 @@ export function contractFor(
     startDate,
     completionDate,
     originalValue,
+    vatRate,
     retentionPct: 5,
     performanceBondValue: round2(originalValue * 0.1),
     bondExpiry,
@@ -230,6 +248,7 @@ export async function seedContractRegister(db: Db): Promise<ContractSeedSummary>
       type: fixture.type,
       awardDate: fixture.awardDate,
       originalValue: String(fixture.originalValue),
+      vatRate: fixture.vatRate,
       startDate: fixture.startDate,
       completionDate: fixture.completionDate,
       // ADR-0035: `extension_days` is the sum of the extension rows, kept by

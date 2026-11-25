@@ -136,15 +136,28 @@ export function tableExportRequest<T>({ title, columns, rows, t, source }: Table
   const kept = columns
     .map((column) => ({ column, kind: exportKindOf(column, shown) }))
     .filter((entry): entry is { column: TableColumn<T>; kind: TableExportKind } => entry.kind !== "none");
+  // ADR-0038: a formula column names its two inputs by id; they become the
+  // inputs' positions among the columns that are actually sent.
+  const position = new Map(kept.map(({ column }, index) => [column.id, index]));
+  const formulaOf = (column: TableColumn<T>) => {
+    if (!column.exportFormula) return undefined;
+    const [a, b] = column.exportFormula.columns.map((id) => position.get(id));
+    if (a === undefined || b === undefined) return undefined;
+    return { op: column.exportFormula.op, columns: [a, b] as [number, number] };
+  };
   return {
     title,
     sheetName: title,
     source: source ?? (typeof window === "undefined" ? undefined : window.location.pathname),
-    columns: kept.map(({ column, kind }) => ({
-      header: t(column.headerKey).trim() || column.id,
-      numeric: column.numeric ?? false,
-      kind,
-    })),
+    columns: kept.map(({ column, kind }) => {
+      const formula = formulaOf(column);
+      return {
+        header: t(column.headerKey).trim() || column.id,
+        numeric: column.numeric ?? false,
+        kind,
+        ...(formula ? { formula } : {}),
+      };
+    }),
     rows: shown.map((row) => kept.map(({ column, kind }) => cellOf(column, kind, row, t))),
   };
 }

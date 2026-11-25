@@ -15,6 +15,10 @@ The screen uploads SAP export files (capital spending lines, FBL1N), or fetches 
 9. In the queue, each line shows under the vendor the SAP vendor number and the contract reference (CAP-…) where it has them. Lines that matched by themselves carry the label «Contract reference» or «eFinance invoice».
 10. Once every transaction is matched or skipped, click «Complete import».
 
+## VAT
+
+SAP lines carry one amount and the system takes it as including VAT. eFinance invoices carry a net amount and a rate per line, so they are posted with VAT and keep both. Matching to an eFinance invoice accepts either its net or its total with VAT until Finance confirms which SAP sends.
+
 ## What can go wrong
 
 - **The «Fetch from SAP» card says the connection is not set up.** The connector key has not been placed on the server yet. It is not your fault: ask IT to place it and use a file meanwhile.

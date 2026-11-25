@@ -206,6 +206,9 @@ export function Cost({
             state={state === "loading" ? "loading" : state === "error" ? "error" : "default"}
             onRetry={onRetry}
           />
+          {/* RULE (ADR-0038): budget control is gross. Said once, here,
+              so nobody reads the four ledgers as net. */}
+          <p className="mt-s-2 text-fs-14 text-k-text">{t("components.vat-fields.allGross")}</p>
         </div>
       )}
 

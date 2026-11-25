@@ -19,6 +19,10 @@ The screen shows a project's cost: the four figures (approved budget, commitment
 
 **Why eFinance's position is kept apart from the cost bar.** The budget position is eFinance's view by budget code, and the same code can also carry other projects' contracts. So it is not added to the project's four cost ledgers, and it is never summed across codes. «eFinance commitments» are eFinance's own commitments, not eCapital's «Commitments». «In flight» is invoices that are not booked yet; it says «Not counted» and is in neither «Actual spend» nor «Available».
 
+## VAT
+
+All four columns include VAT: the approved budget, the commitment (contracts and approved variations with their VAT), spend and the forecast. Contingency, budget lines and the cash-flow plan are also written with VAT. The warnings about passing the budget compare amounts with VAT.
+
 ## What can go wrong
 
 - **A value shows «—» instead of an amount.** No SAP import has been recorded for the project yet — it does not mean zero.

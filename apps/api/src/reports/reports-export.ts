@@ -35,6 +35,7 @@ import {
 import type { I18nService } from "../common/i18n.service";
 import { addDays } from "../maintenance/maintenance-rules";
 import { DEFECT_RATE_BASE } from "./report-rows";
+import { roundMoney as round2 } from "@ecapital/shared";
 import type { ContractorScorecardData } from "./reports.service";
 import { STATUTORY_ORDER } from "./statutory";
 
@@ -523,7 +524,23 @@ export async function contractorScorecardWorkbook(
     { key: "originalValue", width: 18, fmt: MONEY, input: (l) => l.facts.originalValue, total: "sum" },
     { key: "approvedVariations", width: 18, fmt: MONEY, input: (l) => l.facts.approvedVariations, total: "sum" },
     { key: "variationRatePct", width: 14, fmt: PCT, formula: pct("approvedVariations", "originalValue"), total: "same" },
+    // ADR-0038: net and VAT as inputs (the contracts carry mixed rates, so
+    // VAT is summed, not re-derived), gross as a formula over the two.
     { key: "contractValue", width: 18, fmt: MONEY, input: (l) => l.facts.contractValue, total: "sum" },
+    {
+      key: "contractVat",
+      width: 16,
+      fmt: MONEY,
+      input: (l) => round2(l.facts.contractValueGross - l.facts.contractValue),
+      total: "sum",
+    },
+    {
+      key: "contractValueGross",
+      width: 18,
+      fmt: MONEY,
+      formula: (c) => `${c("contractValue")}+${c("contractVat")}`,
+      total: "sum",
+    },
     { key: "defects", width: 11, fmt: INT, input: (l) => l.facts.defects, total: "sum" },
     { key: "openDefects", width: 11, fmt: INT, input: (l) => l.facts.openDefects, total: "sum" },
     {

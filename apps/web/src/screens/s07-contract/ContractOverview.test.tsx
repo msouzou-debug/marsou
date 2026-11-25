@@ -19,17 +19,31 @@ describe("ContractOverview — R31 warnings and money facts", () => {
     const data = buildContractDetail();
     renderWithIntl(<ContractOverview data={data} state="default" noPermission={noPermission} />);
 
-    const figure = screen.getByText(eur(data.approvedVariationsTotal));
+    // ADR-0038: the figure is gross; the percentage stays net ÷ net.
+    const figure = screen.getByText(eur(data.approvedVariationsGross)).parentElement!;
     expect(figure.className).toContain("text-k-red");
     expect(screen.getByText(`(${pct(data.variationPctOfOriginal)})`)).toHaveClass("text-k-red");
   });
 
   it("does not colour the approved-variations figure red at or under 10%", () => {
-    const data = buildContractDetail({ variationPctOfOriginal: 8, approvedVariationsTotal: 100_000 });
+    const data = buildContractDetail({
+      variationPctOfOriginal: 8,
+      approvedVariationsTotal: 100_000,
+      approvedVariationsGross: 119_000,
+    });
     renderWithIntl(<ContractOverview data={data} state="default" noPermission={noPermission} />);
 
-    const figure = screen.getByText(eur(100_000));
+    const figure = screen.getByText(eur(119_000)).parentElement!;
     expect(figure.className).not.toContain("text-k-red");
+  });
+
+  it("shows the current value net, its rate, its VAT and its gross (ADR-0038)", () => {
+    const data = buildContractDetail({ vatRate: "REDUCED_5", currentValue: 100_000, currentVat: 5_000, currentGross: 105_000 });
+    renderWithIntl(<ContractOverview data={data} state="default" noPermission={noPermission} />);
+    const block = screen.getByTestId("contract-vat");
+    expect(block).toHaveTextContent("Τρέχουσα αξία, καθαρό ποσό");
+    expect(block).toHaveTextContent("5%");
+    expect(block.textContent?.replace(/\s/g, " ")).toContain(`Σύνολο με ΦΠΑ${eur(105_000)}`);
   });
 
   it("marks an expired performance bond in red with an icon, and a live one in ink", () => {

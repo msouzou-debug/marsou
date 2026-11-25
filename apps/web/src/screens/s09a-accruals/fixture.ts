@@ -12,8 +12,12 @@ export function buildAccrualRow(overrides: Partial<AccrualRow> = {}): AccrualRow
     costCentre: "CC-100",
     certNumber: 3,
     certifiedNet: 480_000,
+    // ADR-0038: the accrual is the gross against what was invoiced (gross).
+    vatRate: "STANDARD_19",
+    certifiedVat: 91_200,
+    certifiedGross: 571_200,
     invoiced: 420_000,
-    accrual: 60_000,
+    accrual: 151_200,
     overInvoiced: false,
     asOf: "2026-12-31",
     ...overrides,

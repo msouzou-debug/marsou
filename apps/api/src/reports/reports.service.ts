@@ -286,6 +286,7 @@ export class ReportsService {
         contractNo: c.contractNo,
         originalValue: c.originalValue,
         currentValue: c.currentValue,
+        currentGross: c.currentGross,
         completionDate: c.completionDate,
         extensionDays: c.extensionDays,
         phase: schema.project.phase,
@@ -328,6 +329,7 @@ export class ReportsService {
           originalValue: 0,
           approvedVariations: 0,
           contractValue: 0,
+          contractValueGross: 0,
           defects: 0,
           openDefects: 0,
           rfis: 0,
@@ -358,6 +360,7 @@ export class ReportsService {
       facts.originalValue = round2(facts.originalValue + money(row.originalValue));
       facts.approvedVariations = round2(facts.approvedVariations + money(row.approvedVariations));
       facts.contractValue = round2(facts.contractValue + money(row.currentValue));
+      facts.contractValueGross = round2(facts.contractValueGross + money(row.currentGross));
       facts.defects += row.defects;
       facts.openDefects += row.openDefects;
       facts.rfis += row.rfis;
@@ -692,7 +695,9 @@ export class ReportsService {
       invoices: number;
       amount: string;
     }>(sql`
-      select i.contract_id, i.vendor_code, count(*)::int as invoices, coalesce(sum(i.net), 0)::text as amount
+      select i.contract_id, i.vendor_code, count(*)::int as invoices,
+             -- ADR-0038: gross, as the SAP side is taken (one figure, gross).
+             coalesce(sum(coalesce(i.gross, i.net + coalesce(i.vat, 0), i.net)), 0)::text as amount
         from ecapital.efinance_invoice i
        where i.ledger = 'booked' and i.currency = 'EUR'
          and i.invoice_date >= ${query.from}::date and i.invoice_date < ${query.to}::date

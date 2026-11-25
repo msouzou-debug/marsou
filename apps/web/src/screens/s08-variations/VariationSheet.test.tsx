@@ -15,6 +15,8 @@ describe("VariationSheet — SUBMITTED, decision panel", () => {
         variation={variation}
         contractNo="ΤΥ/2026/031"
         contractCurrentValue={2_400_000}
+        contractCurrentGross={2_856_000}
+        contractVatRate="STANDARD_19"
         meUserId="user-engineer"
         canDecide
         canEdit
@@ -49,6 +51,8 @@ describe("VariationSheet — SUBMITTED, decision panel", () => {
         variation={variation}
         contractNo="ΤΥ/2026/031"
         contractCurrentValue={2_400_000}
+        contractCurrentGross={2_856_000}
+        contractVatRate="STANDARD_19"
         meUserId="user-engineer"
         canDecide={false}
         canEdit
@@ -75,6 +79,8 @@ describe("VariationSheet — SUBMITTED, decision panel", () => {
         variation={variation}
         contractNo="ΤΥ/2026/031"
         contractCurrentValue={2_400_000}
+        contractCurrentGross={2_856_000}
+        contractVatRate="STANDARD_19"
         meUserId="user-other"
         canDecide
         canEdit={false}
@@ -92,9 +98,10 @@ describe("VariationSheet — SUBMITTED, decision panel", () => {
     const dialog = screen.getByRole("dialog");
     const dl = dialog.querySelector("dl");
     expect(dl?.querySelectorAll("dt")).toHaveLength(3);
-    expect(screen.getByText("48.000 €")).toBeInTheDocument();
+    // ADR-0038: the gross, with the net beside it.
+    expect(screen.getByText("57.120 € (καθαρό 48.000 €)")).toBeInTheDocument();
     expect(screen.getByText("Αλλαγή από τον φορέα")).toBeInTheDocument();
-    expect(screen.getByText("2.448.000 €")).toBeInTheDocument();
+    expect(screen.getByText("2.913.120 € (καθαρό 2.448.000 €)")).toBeInTheDocument();
 
     expect(screen.getByText("Απόρριψη")).toBeInTheDocument();
   });
@@ -109,6 +116,8 @@ describe("VariationSheet — SUBMITTED, no decision to make", () => {
         variation={variation}
         contractNo="ΤΥ/2026/031"
         contractCurrentValue={2_400_000}
+        contractCurrentGross={2_856_000}
+        contractVatRate="STANDARD_19"
         meUserId="user-other"
         canDecide={false}
         canEdit
@@ -139,6 +148,8 @@ describe("VariationSheet — REJECTED", () => {
         variation={variation}
         contractNo="ΤΥ/2026/031"
         contractCurrentValue={2_400_000}
+        contractCurrentGross={2_856_000}
+        contractVatRate="STANDARD_19"
         meUserId="user-other"
         canDecide={false}
         canEdit
@@ -166,6 +177,8 @@ describe("VariationSheet — DRAFT/RETURNED", () => {
         variation={variation}
         contractNo="ΤΥ/2026/031"
         contractCurrentValue={2_400_000}
+        contractCurrentGross={2_856_000}
+        contractVatRate="STANDARD_19"
         meUserId="user-engineer"
         canDecide={false}
         canEdit
@@ -192,6 +205,8 @@ describe("VariationSheet — DRAFT/RETURNED", () => {
         variation={variation}
         contractNo="ΤΥ/2026/031"
         contractCurrentValue={2_400_000}
+        contractCurrentGross={2_856_000}
+        contractVatRate="STANDARD_19"
         meUserId="user-engineer"
         canDecide={false}
         canEdit

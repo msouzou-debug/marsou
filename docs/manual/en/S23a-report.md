@@ -22,6 +22,10 @@ What each report shows:
 - **Statutory compliance.** Lifts, pressure vessels, medical gas, fire systems: how many inspections were done out of those due, and how many are overdue. The share done is green from 95 %, amber from 80 % and red below 80 %. These thresholds are the application's choice, not a regulation's. If the head of estates sets others, the application changes.
 - **SAP and eFinance reconciliation.** For each contract (or vendor, where SAP found no contract), what SAP posted on the capital spending accounts by posting date against what eFinance booked by invoice date, the difference and a status: «Agrees» (green), «Difference» (amber), «SAP only» or «eFinance only» (red). The largest differences come first. The «Lines without reference» column counts the SAP lines that carried no CAP- reference. Under the table, the line «SAP lines are not matched yet» gives the count and amount and links to the «SAP import». The report adds no second spend figure; it only compares the two sources. It prints on a landscape page.
 
+## VAT
+
+In the capital programme and exceptions reports every amount includes VAT. In the contractor scorecard the contract value shows net, with VAT and the VAT between them; the variation and defect rates are worked out on net amounts. The SAP reconciliation compares amounts with VAT.
+
 ## What can go wrong
 
 - **You see "There is no data for the period".** There is nothing to count for the unit and period you picked. Try another year or "ΟΚΥπΥ — all units".

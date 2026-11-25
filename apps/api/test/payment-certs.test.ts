@@ -305,14 +305,18 @@ describe("payment certificates (R11, R18, R31)", () => {
     await workbook.xlsx.load(response.body);
     const sheet = workbook.worksheets[0];
     // Greek in row 1, English in row 2 (CAPEX-01 §6.1).
-    expect(sheet.getCell("H1").value).toBe("Δεδουλευμένα");
-    expect(sheet.getCell("H2").value).toBe("Accrual");
+    expect(sheet.getCell("K1").value).toBe("Δεδουλευμένα (με ΦΠΑ)");
+    expect(sheet.getCell("K2").value).toBe("Accrual (incl. VAT)");
     expect(sheet.getCell("F1").value).toBe("Καθαρό πληρωτέο");
+    expect(sheet.getCell("G1").value).toBe("Συντελεστής ΦΠΑ");
 
     // The owner's requirement: live and auditable, never a pasted value —
     // clamped to zero, so invoiced above certified never exports negative.
-    const accrual = sheet.getCell("H3").value as { formula?: string };
-    expect(accrual.formula).toBe("MAX(0,F3-G3)");
+    // ADR-0038: VAT and gross are formulas too, and the accrual is gross.
+    expect((sheet.getCell("H3").value as { formula?: string }).formula).toBe("ROUND(F3*G3,2)");
+    expect((sheet.getCell("I3").value as { formula?: string }).formula).toBe("F3+H3");
+    const accrual = sheet.getCell("K3").value as { formula?: string };
+    expect(accrual.formula).toBe("MAX(0,I3-J3)");
     expect(sheet.getCell("F3").numFmt).toBe("#,##0.00");
 
     let totalsRow = 0;
@@ -320,8 +324,8 @@ describe("payment certificates (R11, R18, R31)", () => {
       if (row.getCell(1).value === "Σύνολο") totalsRow = number;
     });
     expect(totalsRow).toBeGreaterThan(2);
-    const total = sheet.getCell(`H${totalsRow}`).value as { formula?: string };
-    expect(total.formula).toMatch(/^SUM\(H3:H\d+\)$/);
+    const total = sheet.getCell(`K${totalsRow}`).value as { formula?: string };
+    expect(total.formula).toMatch(/^SUM\(K3:K\d+\)$/);
   });
 
   it("refuses a read-only account a certificate and a transition", async () => {

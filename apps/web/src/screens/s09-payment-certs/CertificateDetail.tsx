@@ -144,6 +144,22 @@ export function CertificateDetail({
           <dt className="text-fs-14 text-k-text">{t("screens.s09.columns.netPayable")}</dt>
           <dd className="num text-fs-16 font-bold text-k-ink">{formatEUR(cert.netPayable)}</dd>
         </div>
+        {/* RULE (ADR-0038): VAT on the net payable at the certificate's rate;
+            the gross is what finance pays. */}
+        <div>
+          <dt className="text-fs-14 text-k-text">{t("components.vat-fields.rate")}</dt>
+          <dd className="num text-fs-16 text-k-ink">{t(`vatRates.${cert.vatRate}`)}</dd>
+        </div>
+        <div>
+          <dt className="text-fs-14 text-k-text">{t("components.vat-fields.vat")}</dt>
+          <dd className="num text-fs-16 text-k-ink">{formatEUR(cert.vat)}</dd>
+        </div>
+        <div>
+          <dt className="text-fs-14 text-k-text">{t("screens.s09.columns.grossPayable")}</dt>
+          <dd className="num text-fs-16 font-bold text-k-ink" data-testid="cert-gross-payable">
+            {formatEUR(cert.grossPayable)}
+          </dd>
+        </div>
         <div>
           <dt className="text-fs-14 text-k-text">{t("screens.s09.columns.status")}</dt>
           <dd className="text-fs-16 text-k-ink">{t(`screens.s09.status.${cert.status}`)}</dd>

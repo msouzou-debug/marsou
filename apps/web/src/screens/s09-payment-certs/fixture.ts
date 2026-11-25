@@ -14,6 +14,10 @@ export function buildPaymentCert(overrides: Partial<PaymentCert> = {}): PaymentC
     retentionHeld: 24_600,
     previousCertified: 400_000,
     netPayable: 67_400,
+    // ADR-0038: 19 % on the net payable.
+    vatRate: "STANDARD_19",
+    vat: 12_806,
+    grossPayable: 80_206,
     status: "DRAFT",
     createdById: "user-engineer",
     createdByName: "Γιώργος Ιωάννου",

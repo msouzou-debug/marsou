@@ -19,6 +19,7 @@ import type { AppRole, PaymentCert } from "@ecapital/shared";
 import { canCreatePaymentCert } from "@/auth/roles";
 import { PageTitle } from "@/components/app-shell";
 import { Table, type TableColumn } from "@/components/table";
+import { vatColumns } from "@/components/vat-fields";
 import { formatEUR } from "@/lib/format";
 import { ContractTabs } from "@/screens/s07-contract/ContractTabs";
 
@@ -64,7 +65,16 @@ export function PaymentCerts({
     { id: "materials", headerKey: "screens.s09.columns.materials", accessor: (row) => row.materialsOnSite, numeric: true, cell: (row) => formatEUR(row.materialsOnSite) },
     { id: "retentionHeld", headerKey: "screens.s09.columns.retentionHeld", accessor: (row) => row.retentionHeld, numeric: true, cell: (row) => formatEUR(row.retentionHeld) },
     { id: "previousCertified", headerKey: "screens.s09.columns.previousCertified", accessor: (row) => row.previousCertified, numeric: true, cell: (row) => formatEUR(row.previousCertified) },
-    { id: "netPayable", headerKey: "screens.s09.columns.netPayable", accessor: (row) => row.netPayable, numeric: true, cell: (row) => formatEUR(row.netPayable) },
+    // ADR-0038: net payable, rate, VAT and the gross finance pays; the export keeps VAT and gross live.
+    ...vatColumns<PaymentCert>({
+      net: (row) => row.netPayable,
+      rate: (row) => row.vatRate,
+      vat: (row) => row.vat,
+      gross: (row) => row.grossPayable,
+      rateLabel: (rate) => t(`vatRates.${rate}`),
+      netHeaderKey: "screens.s09.columns.netPayable",
+      idPrefix: "payable",
+    }),
     { id: "status", headerKey: "screens.s09.columns.status", accessor: (row) => row.status, cell: (row) => t(`screens.s09.status.${row.status}`) },
     { id: "sapInvoiceRef", headerKey: "screens.s09.columns.sapInvoiceRef", accessor: (row) => row.sapInvoiceRef ?? "", cell: (row) => row.sapInvoiceRef ?? t("common.notAvailable") },
   ];

@@ -51,7 +51,8 @@ import type { Contract, OrgUnit } from "@ecapital/shared";
 import { EmptyState } from "@/components/empty-state";
 import { PageTitle } from "@/components/app-shell";
 import { FilterBar, type FilterItem } from "@/components/filter-bar";
-import { formatDate, formatEUR } from "@/lib/format";
+import { formatDate } from "@/lib/format";
+import { GrossAmount } from "@/components/vat-fields";
 import { FacetFilter } from "@/screens/s02-projects/FacetFilter";
 import {
   type ProjectOption,
@@ -286,7 +287,10 @@ export function Contracts({
                     </p>
                   )}
                 </div>
-                <span className="num text-fs-16 text-k-ink">{formatEUR(contract.currentValue)}</span>
+                {/* ADR-0038: gross, the net and the VAT in the tooltip. */}
+                <span className="num text-fs-16 text-k-ink">
+                  <GrossAmount gross={contract.currentGross} net={contract.currentValue} vat={contract.currentVat} />
+                </span>
               </li>
             ))}
           </ul>

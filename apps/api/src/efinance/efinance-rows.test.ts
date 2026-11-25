@@ -1,7 +1,15 @@
 import type { EFinanceRawInvoice } from "@ecapital/shared";
 import { describe, expect, it } from "vitest";
 import { isoUtc, toAmount, toMoneyString } from "./efinance-client";
-import { budgetPositionOf, isConflict, projectSummaryOf, projectedLines, summaryOf } from "./efinance-rows";
+import {
+  budgetPositionOf,
+  grossOfLine,
+  isConflict,
+  projectSummaryOf,
+  projectedLines,
+  summaryOf,
+  vatFraction,
+} from "./efinance-rows";
 
 const invoice = (ledger: EFinanceRawInvoice["ledger"], overrides: Partial<EFinanceRawInvoice> = {}): EFinanceRawInvoice => ({
   id: "77",
@@ -33,10 +41,23 @@ const invoice = (ledger: EFinanceRawInvoice["ledger"], overrides: Partial<EFinan
 describe("projectedLines (ADR-0029)", () => {
   it("posts a booked invoice line by line, from the lines and never the header, on the SAP batch date", () => {
     const lines = projectedLines(invoice("booked"));
-    expect(lines.map((line) => [line.sourceRef, line.amount, line.postingDate, line.docDate])).toEqual([
-      ["efinance:invoice:77:0", "100.00", "2026-09-15", "2026-06-30"],
-      ["efinance:invoice:77:2", "200.00", "2026-09-15", "2026-06-30"],
+    // ADR-0038: gross — the line's net total plus its own VAT, both halves kept.
+    expect(
+      lines.map((line) => [line.sourceRef, line.amount, line.netAmount, line.vatAmount, line.postingDate, line.docDate]),
+    ).toEqual([
+      ["efinance:invoice:77:0", "119.00", "100.00", "19.00", "2026-09-15", "2026-06-30"],
+      ["efinance:invoice:77:2", "238.00", "200.00", "38.00", "2026-09-15", "2026-06-30"],
     ]);
+  });
+
+  it("reads the line's rate as a percentage or a fraction, and posts a line with no rate as it is (ADR-0038)", () => {
+    expect(vatFraction("19.00")).toBe(0.19);
+    expect(vatFraction(5)).toBe(0.05);
+    expect(vatFraction("0.09")).toBe(0.09);
+    expect(vatFraction(null)).toBeNull();
+    expect(grossOfLine("10.50", "19")).toEqual({ gross: "12.50", net: "10.50", vat: "2.00" });
+    expect(grossOfLine("100.00", null)).toEqual({ gross: "100.00", net: null, vat: null });
+    expect(grossOfLine("100.00", 0)).toEqual({ gross: "100.00", net: "100.00", vat: "0.00" });
   });
 
   it("posts nothing for in flight, reversed, rejected, or a currency the ledger does not hold", () => {

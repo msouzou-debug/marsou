@@ -55,6 +55,8 @@ function unmatchedRow(index: number, overrides: Partial<UnmatchedRow> = {}): Unm
       docDate: "2026-09-01",
       postingDate: "2026-09-02",
       amount: 1250.5 + index,
+      netAmount: null,
+      vatAmount: null,
       currency: "EUR",
       description: `Τιμολόγιο προμηθευτή #${index}`,
       vendorName: "Αφοί Παπαδόπουλοι Α.Ε.",

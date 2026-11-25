@@ -27712,6 +27712,29 @@
                             "type": "number",
                             "minimum": 0
                           },
+                          "vatRate": {
+                            "default": "STANDARD_19",
+                            "type": "string",
+                            "enum": [
+                              "STANDARD_19",
+                              "REDUCED_9",
+                              "REDUCED_5",
+                              "ZERO",
+                              "EXEMPT"
+                            ]
+                          },
+                          "originalVat": {
+                            "type": "number"
+                          },
+                          "originalGross": {
+                            "type": "number"
+                          },
+                          "currentVat": {
+                            "type": "number"
+                          },
+                          "currentGross": {
+                            "type": "number"
+                          },
                           "currency": {
                             "type": "string",
                             "const": "EUR"
@@ -27838,6 +27861,11 @@
                           "awardDecisionDocId",
                           "originalValue",
                           "currentValue",
+                          "vatRate",
+                          "originalVat",
+                          "originalGross",
+                          "currentVat",
+                          "currentGross",
                           "currency",
                           "startDate",
                           "completionDate",
@@ -28005,6 +28033,17 @@
                     "type": "number",
                     "minimum": 0
                   },
+                  "vatRate": {
+                    "default": "STANDARD_19",
+                    "type": "string",
+                    "enum": [
+                      "STANDARD_19",
+                      "REDUCED_9",
+                      "REDUCED_5",
+                      "ZERO",
+                      "EXEMPT"
+                    ]
+                  },
                   "startDate": {
                     "type": [
                       "string",
@@ -28088,6 +28127,7 @@
                   "type",
                   "awardDate",
                   "originalValue",
+                  "vatRate",
                   "startDate",
                   "completionDate",
                   "retentionPct",
@@ -28161,6 +28201,29 @@
                     "currentValue": {
                       "type": "number",
                       "minimum": 0
+                    },
+                    "vatRate": {
+                      "default": "STANDARD_19",
+                      "type": "string",
+                      "enum": [
+                        "STANDARD_19",
+                        "REDUCED_9",
+                        "REDUCED_5",
+                        "ZERO",
+                        "EXEMPT"
+                      ]
+                    },
+                    "originalVat": {
+                      "type": "number"
+                    },
+                    "originalGross": {
+                      "type": "number"
+                    },
+                    "currentVat": {
+                      "type": "number"
+                    },
+                    "currentGross": {
+                      "type": "number"
                     },
                     "currency": {
                       "type": "string",
@@ -28435,6 +28498,23 @@
                           "value": {
                             "type": "number"
                           },
+                          "vatRate": {
+                            "default": "STANDARD_19",
+                            "type": "string",
+                            "enum": [
+                              "STANDARD_19",
+                              "REDUCED_9",
+                              "REDUCED_5",
+                              "ZERO",
+                              "EXEMPT"
+                            ]
+                          },
+                          "vat": {
+                            "type": "number"
+                          },
+                          "gross": {
+                            "type": "number"
+                          },
                           "timeImpactDays": {
                             "type": "integer",
                             "minimum": -9007199254740991,
@@ -28491,6 +28571,9 @@
                           "descriptionEl",
                           "reason",
                           "value",
+                          "vatRate",
+                          "vat",
+                          "gross",
                           "timeImpactDays",
                           "status",
                           "raisedById",
@@ -28508,6 +28591,12 @@
                       "type": "number"
                     },
                     "pendingVariationsTotal": {
+                      "type": "number"
+                    },
+                    "approvedVariationsGross": {
+                      "type": "number"
+                    },
+                    "pendingVariationsGross": {
                       "type": "number"
                     },
                     "variationPctOfOriginal": {
@@ -29236,6 +29325,11 @@
                     "awardDecisionDocId",
                     "originalValue",
                     "currentValue",
+                    "vatRate",
+                    "originalVat",
+                    "originalGross",
+                    "currentVat",
+                    "currentGross",
                     "currency",
                     "startDate",
                     "completionDate",
@@ -29260,6 +29354,8 @@
                     "variations",
                     "approvedVariationsTotal",
                     "pendingVariationsTotal",
+                    "approvedVariationsGross",
+                    "pendingVariationsGross",
                     "variationPctOfOriginal",
                     "warnings"
                   ],
@@ -29518,6 +29614,29 @@
                             "type": "number",
                             "minimum": 0
                           },
+                          "vatRate": {
+                            "default": "STANDARD_19",
+                            "type": "string",
+                            "enum": [
+                              "STANDARD_19",
+                              "REDUCED_9",
+                              "REDUCED_5",
+                              "ZERO",
+                              "EXEMPT"
+                            ]
+                          },
+                          "originalVat": {
+                            "type": "number"
+                          },
+                          "originalGross": {
+                            "type": "number"
+                          },
+                          "currentVat": {
+                            "type": "number"
+                          },
+                          "currentGross": {
+                            "type": "number"
+                          },
                           "currency": {
                             "type": "string",
                             "const": "EUR"
@@ -29644,6 +29763,11 @@
                           "awardDecisionDocId",
                           "originalValue",
                           "currentValue",
+                          "vatRate",
+                          "originalVat",
+                          "originalGross",
+                          "currentVat",
+                          "currentGross",
                           "currency",
                           "startDate",
                           "completionDate",
@@ -29988,6 +30112,29 @@
                       "type": "number",
                       "minimum": 0
                     },
+                    "vatRate": {
+                      "default": "STANDARD_19",
+                      "type": "string",
+                      "enum": [
+                        "STANDARD_19",
+                        "REDUCED_9",
+                        "REDUCED_5",
+                        "ZERO",
+                        "EXEMPT"
+                      ]
+                    },
+                    "originalVat": {
+                      "type": "number"
+                    },
+                    "originalGross": {
+                      "type": "number"
+                    },
+                    "currentVat": {
+                      "type": "number"
+                    },
+                    "currentGross": {
+                      "type": "number"
+                    },
                     "currency": {
                       "type": "string",
                       "const": "EUR"
@@ -30261,6 +30408,23 @@
                           "value": {
                             "type": "number"
                           },
+                          "vatRate": {
+                            "default": "STANDARD_19",
+                            "type": "string",
+                            "enum": [
+                              "STANDARD_19",
+                              "REDUCED_9",
+                              "REDUCED_5",
+                              "ZERO",
+                              "EXEMPT"
+                            ]
+                          },
+                          "vat": {
+                            "type": "number"
+                          },
+                          "gross": {
+                            "type": "number"
+                          },
                           "timeImpactDays": {
                             "type": "integer",
                             "minimum": -9007199254740991,
@@ -30317,6 +30481,9 @@
                           "descriptionEl",
                           "reason",
                           "value",
+                          "vatRate",
+                          "vat",
+                          "gross",
                           "timeImpactDays",
                           "status",
                           "raisedById",
@@ -30334,6 +30501,12 @@
                       "type": "number"
                     },
                     "pendingVariationsTotal": {
+                      "type": "number"
+                    },
+                    "approvedVariationsGross": {
+                      "type": "number"
+                    },
+                    "pendingVariationsGross": {
                       "type": "number"
                     },
                     "variationPctOfOriginal": {
@@ -31062,6 +31235,11 @@
                     "awardDecisionDocId",
                     "originalValue",
                     "currentValue",
+                    "vatRate",
+                    "originalVat",
+                    "originalGross",
+                    "currentVat",
+                    "currentGross",
                     "currency",
                     "startDate",
                     "completionDate",
@@ -31086,6 +31264,8 @@
                     "variations",
                     "approvedVariationsTotal",
                     "pendingVariationsTotal",
+                    "approvedVariationsGross",
+                    "pendingVariationsGross",
                     "variationPctOfOriginal",
                     "warnings"
                   ],
@@ -31215,6 +31395,16 @@
                   },
                   "awardDate": {
                     "type": "string"
+                  },
+                  "vatRate": {
+                    "type": "string",
+                    "enum": [
+                      "STANDARD_19",
+                      "REDUCED_9",
+                      "REDUCED_5",
+                      "ZERO",
+                      "EXEMPT"
+                    ]
                   },
                   "startDate": {
                     "type": [
@@ -31355,6 +31545,29 @@
                       "type": "number",
                       "minimum": 0
                     },
+                    "vatRate": {
+                      "default": "STANDARD_19",
+                      "type": "string",
+                      "enum": [
+                        "STANDARD_19",
+                        "REDUCED_9",
+                        "REDUCED_5",
+                        "ZERO",
+                        "EXEMPT"
+                      ]
+                    },
+                    "originalVat": {
+                      "type": "number"
+                    },
+                    "originalGross": {
+                      "type": "number"
+                    },
+                    "currentVat": {
+                      "type": "number"
+                    },
+                    "currentGross": {
+                      "type": "number"
+                    },
                     "currency": {
                       "type": "string",
                       "const": "EUR"
@@ -31628,6 +31841,23 @@
                           "value": {
                             "type": "number"
                           },
+                          "vatRate": {
+                            "default": "STANDARD_19",
+                            "type": "string",
+                            "enum": [
+                              "STANDARD_19",
+                              "REDUCED_9",
+                              "REDUCED_5",
+                              "ZERO",
+                              "EXEMPT"
+                            ]
+                          },
+                          "vat": {
+                            "type": "number"
+                          },
+                          "gross": {
+                            "type": "number"
+                          },
                           "timeImpactDays": {
                             "type": "integer",
                             "minimum": -9007199254740991,
@@ -31684,6 +31914,9 @@
                           "descriptionEl",
                           "reason",
                           "value",
+                          "vatRate",
+                          "vat",
+                          "gross",
                           "timeImpactDays",
                           "status",
                           "raisedById",
@@ -31701,6 +31934,12 @@
                       "type": "number"
                     },
                     "pendingVariationsTotal": {
+                      "type": "number"
+                    },
+                    "approvedVariationsGross": {
+                      "type": "number"
+                    },
+                    "pendingVariationsGross": {
                       "type": "number"
                     },
                     "variationPctOfOriginal": {
@@ -32429,6 +32668,11 @@
                     "awardDecisionDocId",
                     "originalValue",
                     "currentValue",
+                    "vatRate",
+                    "originalVat",
+                    "originalGross",
+                    "currentVat",
+                    "currentGross",
                     "currency",
                     "startDate",
                     "completionDate",
@@ -32453,6 +32697,8 @@
                     "variations",
                     "approvedVariationsTotal",
                     "pendingVariationsTotal",
+                    "approvedVariationsGross",
+                    "pendingVariationsGross",
                     "variationPctOfOriginal",
                     "warnings"
                   ],
@@ -33251,6 +33497,29 @@
                       "type": "number",
                       "minimum": 0
                     },
+                    "vatRate": {
+                      "default": "STANDARD_19",
+                      "type": "string",
+                      "enum": [
+                        "STANDARD_19",
+                        "REDUCED_9",
+                        "REDUCED_5",
+                        "ZERO",
+                        "EXEMPT"
+                      ]
+                    },
+                    "originalVat": {
+                      "type": "number"
+                    },
+                    "originalGross": {
+                      "type": "number"
+                    },
+                    "currentVat": {
+                      "type": "number"
+                    },
+                    "currentGross": {
+                      "type": "number"
+                    },
                     "currency": {
                       "type": "string",
                       "const": "EUR"
@@ -33524,6 +33793,23 @@
                           "value": {
                             "type": "number"
                           },
+                          "vatRate": {
+                            "default": "STANDARD_19",
+                            "type": "string",
+                            "enum": [
+                              "STANDARD_19",
+                              "REDUCED_9",
+                              "REDUCED_5",
+                              "ZERO",
+                              "EXEMPT"
+                            ]
+                          },
+                          "vat": {
+                            "type": "number"
+                          },
+                          "gross": {
+                            "type": "number"
+                          },
                           "timeImpactDays": {
                             "type": "integer",
                             "minimum": -9007199254740991,
@@ -33580,6 +33866,9 @@
                           "descriptionEl",
                           "reason",
                           "value",
+                          "vatRate",
+                          "vat",
+                          "gross",
                           "timeImpactDays",
                           "status",
                           "raisedById",
@@ -33597,6 +33886,12 @@
                       "type": "number"
                     },
                     "pendingVariationsTotal": {
+                      "type": "number"
+                    },
+                    "approvedVariationsGross": {
+                      "type": "number"
+                    },
+                    "pendingVariationsGross": {
                       "type": "number"
                     },
                     "variationPctOfOriginal": {
@@ -34325,6 +34620,11 @@
                     "awardDecisionDocId",
                     "originalValue",
                     "currentValue",
+                    "vatRate",
+                    "originalVat",
+                    "originalGross",
+                    "currentVat",
+                    "currentGross",
                     "currency",
                     "startDate",
                     "completionDate",
@@ -34349,6 +34649,8 @@
                     "variations",
                     "approvedVariationsTotal",
                     "pendingVariationsTotal",
+                    "approvedVariationsGross",
+                    "pendingVariationsGross",
                     "variationPctOfOriginal",
                     "warnings"
                   ],
@@ -34635,6 +34937,29 @@
                       "type": "number",
                       "minimum": 0
                     },
+                    "vatRate": {
+                      "default": "STANDARD_19",
+                      "type": "string",
+                      "enum": [
+                        "STANDARD_19",
+                        "REDUCED_9",
+                        "REDUCED_5",
+                        "ZERO",
+                        "EXEMPT"
+                      ]
+                    },
+                    "originalVat": {
+                      "type": "number"
+                    },
+                    "originalGross": {
+                      "type": "number"
+                    },
+                    "currentVat": {
+                      "type": "number"
+                    },
+                    "currentGross": {
+                      "type": "number"
+                    },
                     "currency": {
                       "type": "string",
                       "const": "EUR"
@@ -34908,6 +35233,23 @@
                           "value": {
                             "type": "number"
                           },
+                          "vatRate": {
+                            "default": "STANDARD_19",
+                            "type": "string",
+                            "enum": [
+                              "STANDARD_19",
+                              "REDUCED_9",
+                              "REDUCED_5",
+                              "ZERO",
+                              "EXEMPT"
+                            ]
+                          },
+                          "vat": {
+                            "type": "number"
+                          },
+                          "gross": {
+                            "type": "number"
+                          },
                           "timeImpactDays": {
                             "type": "integer",
                             "minimum": -9007199254740991,
@@ -34964,6 +35306,9 @@
                           "descriptionEl",
                           "reason",
                           "value",
+                          "vatRate",
+                          "vat",
+                          "gross",
                           "timeImpactDays",
                           "status",
                           "raisedById",
@@ -34981,6 +35326,12 @@
                       "type": "number"
                     },
                     "pendingVariationsTotal": {
+                      "type": "number"
+                    },
+                    "approvedVariationsGross": {
+                      "type": "number"
+                    },
+                    "pendingVariationsGross": {
                       "type": "number"
                     },
                     "variationPctOfOriginal": {
@@ -35709,6 +36060,11 @@
                     "awardDecisionDocId",
                     "originalValue",
                     "currentValue",
+                    "vatRate",
+                    "originalVat",
+                    "originalGross",
+                    "currentVat",
+                    "currentGross",
                     "currency",
                     "startDate",
                     "completionDate",
@@ -35733,6 +36089,8 @@
                     "variations",
                     "approvedVariationsTotal",
                     "pendingVariationsTotal",
+                    "approvedVariationsGross",
+                    "pendingVariationsGross",
                     "variationPctOfOriginal",
                     "warnings"
                   ],
@@ -35970,6 +36328,29 @@
                       "type": "number",
                       "minimum": 0
                     },
+                    "vatRate": {
+                      "default": "STANDARD_19",
+                      "type": "string",
+                      "enum": [
+                        "STANDARD_19",
+                        "REDUCED_9",
+                        "REDUCED_5",
+                        "ZERO",
+                        "EXEMPT"
+                      ]
+                    },
+                    "originalVat": {
+                      "type": "number"
+                    },
+                    "originalGross": {
+                      "type": "number"
+                    },
+                    "currentVat": {
+                      "type": "number"
+                    },
+                    "currentGross": {
+                      "type": "number"
+                    },
                     "currency": {
                       "type": "string",
                       "const": "EUR"
@@ -36243,6 +36624,23 @@
                           "value": {
                             "type": "number"
                           },
+                          "vatRate": {
+                            "default": "STANDARD_19",
+                            "type": "string",
+                            "enum": [
+                              "STANDARD_19",
+                              "REDUCED_9",
+                              "REDUCED_5",
+                              "ZERO",
+                              "EXEMPT"
+                            ]
+                          },
+                          "vat": {
+                            "type": "number"
+                          },
+                          "gross": {
+                            "type": "number"
+                          },
                           "timeImpactDays": {
                             "type": "integer",
                             "minimum": -9007199254740991,
@@ -36299,6 +36697,9 @@
                           "descriptionEl",
                           "reason",
                           "value",
+                          "vatRate",
+                          "vat",
+                          "gross",
                           "timeImpactDays",
                           "status",
                           "raisedById",
@@ -36316,6 +36717,12 @@
                       "type": "number"
                     },
                     "pendingVariationsTotal": {
+                      "type": "number"
+                    },
+                    "approvedVariationsGross": {
+                      "type": "number"
+                    },
+                    "pendingVariationsGross": {
                       "type": "number"
                     },
                     "variationPctOfOriginal": {
@@ -37044,6 +37451,11 @@
                     "awardDecisionDocId",
                     "originalValue",
                     "currentValue",
+                    "vatRate",
+                    "originalVat",
+                    "originalGross",
+                    "currentVat",
+                    "currentGross",
                     "currency",
                     "startDate",
                     "completionDate",
@@ -37068,6 +37480,8 @@
                     "variations",
                     "approvedVariationsTotal",
                     "pendingVariationsTotal",
+                    "approvedVariationsGross",
+                    "pendingVariationsGross",
                     "variationPctOfOriginal",
                     "warnings"
                   ],
@@ -37290,6 +37704,29 @@
                       "type": "number",
                       "minimum": 0
                     },
+                    "vatRate": {
+                      "default": "STANDARD_19",
+                      "type": "string",
+                      "enum": [
+                        "STANDARD_19",
+                        "REDUCED_9",
+                        "REDUCED_5",
+                        "ZERO",
+                        "EXEMPT"
+                      ]
+                    },
+                    "originalVat": {
+                      "type": "number"
+                    },
+                    "originalGross": {
+                      "type": "number"
+                    },
+                    "currentVat": {
+                      "type": "number"
+                    },
+                    "currentGross": {
+                      "type": "number"
+                    },
                     "currency": {
                       "type": "string",
                       "const": "EUR"
@@ -37563,6 +38000,23 @@
                           "value": {
                             "type": "number"
                           },
+                          "vatRate": {
+                            "default": "STANDARD_19",
+                            "type": "string",
+                            "enum": [
+                              "STANDARD_19",
+                              "REDUCED_9",
+                              "REDUCED_5",
+                              "ZERO",
+                              "EXEMPT"
+                            ]
+                          },
+                          "vat": {
+                            "type": "number"
+                          },
+                          "gross": {
+                            "type": "number"
+                          },
                           "timeImpactDays": {
                             "type": "integer",
                             "minimum": -9007199254740991,
@@ -37619,6 +38073,9 @@
                           "descriptionEl",
                           "reason",
                           "value",
+                          "vatRate",
+                          "vat",
+                          "gross",
                           "timeImpactDays",
                           "status",
                           "raisedById",
@@ -37636,6 +38093,12 @@
                       "type": "number"
                     },
                     "pendingVariationsTotal": {
+                      "type": "number"
+                    },
+                    "approvedVariationsGross": {
+                      "type": "number"
+                    },
+                    "pendingVariationsGross": {
                       "type": "number"
                     },
                     "variationPctOfOriginal": {
@@ -38364,6 +38827,11 @@
                     "awardDecisionDocId",
                     "originalValue",
                     "currentValue",
+                    "vatRate",
+                    "originalVat",
+                    "originalGross",
+                    "currentVat",
+                    "currentGross",
                     "currency",
                     "startDate",
                     "completionDate",
@@ -38388,6 +38856,8 @@
                     "variations",
                     "approvedVariationsTotal",
                     "pendingVariationsTotal",
+                    "approvedVariationsGross",
+                    "pendingVariationsGross",
                     "variationPctOfOriginal",
                     "warnings"
                   ],
@@ -38627,6 +39097,29 @@
                       "type": "number",
                       "minimum": 0
                     },
+                    "vatRate": {
+                      "default": "STANDARD_19",
+                      "type": "string",
+                      "enum": [
+                        "STANDARD_19",
+                        "REDUCED_9",
+                        "REDUCED_5",
+                        "ZERO",
+                        "EXEMPT"
+                      ]
+                    },
+                    "originalVat": {
+                      "type": "number"
+                    },
+                    "originalGross": {
+                      "type": "number"
+                    },
+                    "currentVat": {
+                      "type": "number"
+                    },
+                    "currentGross": {
+                      "type": "number"
+                    },
                     "currency": {
                       "type": "string",
                       "const": "EUR"
@@ -38900,6 +39393,23 @@
                           "value": {
                             "type": "number"
                           },
+                          "vatRate": {
+                            "default": "STANDARD_19",
+                            "type": "string",
+                            "enum": [
+                              "STANDARD_19",
+                              "REDUCED_9",
+                              "REDUCED_5",
+                              "ZERO",
+                              "EXEMPT"
+                            ]
+                          },
+                          "vat": {
+                            "type": "number"
+                          },
+                          "gross": {
+                            "type": "number"
+                          },
                           "timeImpactDays": {
                             "type": "integer",
                             "minimum": -9007199254740991,
@@ -38956,6 +39466,9 @@
                           "descriptionEl",
                           "reason",
                           "value",
+                          "vatRate",
+                          "vat",
+                          "gross",
                           "timeImpactDays",
                           "status",
                           "raisedById",
@@ -38973,6 +39486,12 @@
                       "type": "number"
                     },
                     "pendingVariationsTotal": {
+                      "type": "number"
+                    },
+                    "approvedVariationsGross": {
+                      "type": "number"
+                    },
+                    "pendingVariationsGross": {
                       "type": "number"
                     },
                     "variationPctOfOriginal": {
@@ -39701,6 +40220,11 @@
                     "awardDecisionDocId",
                     "originalValue",
                     "currentValue",
+                    "vatRate",
+                    "originalVat",
+                    "originalGross",
+                    "currentVat",
+                    "currentGross",
                     "currency",
                     "startDate",
                     "completionDate",
@@ -39725,6 +40249,8 @@
                     "variations",
                     "approvedVariationsTotal",
                     "pendingVariationsTotal",
+                    "approvedVariationsGross",
+                    "pendingVariationsGross",
                     "variationPctOfOriginal",
                     "warnings"
                   ],
@@ -39959,6 +40485,29 @@
                       "type": "number",
                       "minimum": 0
                     },
+                    "vatRate": {
+                      "default": "STANDARD_19",
+                      "type": "string",
+                      "enum": [
+                        "STANDARD_19",
+                        "REDUCED_9",
+                        "REDUCED_5",
+                        "ZERO",
+                        "EXEMPT"
+                      ]
+                    },
+                    "originalVat": {
+                      "type": "number"
+                    },
+                    "originalGross": {
+                      "type": "number"
+                    },
+                    "currentVat": {
+                      "type": "number"
+                    },
+                    "currentGross": {
+                      "type": "number"
+                    },
                     "currency": {
                       "type": "string",
                       "const": "EUR"
@@ -40232,6 +40781,23 @@
                           "value": {
                             "type": "number"
                           },
+                          "vatRate": {
+                            "default": "STANDARD_19",
+                            "type": "string",
+                            "enum": [
+                              "STANDARD_19",
+                              "REDUCED_9",
+                              "REDUCED_5",
+                              "ZERO",
+                              "EXEMPT"
+                            ]
+                          },
+                          "vat": {
+                            "type": "number"
+                          },
+                          "gross": {
+                            "type": "number"
+                          },
                           "timeImpactDays": {
                             "type": "integer",
                             "minimum": -9007199254740991,
@@ -40288,6 +40854,9 @@
                           "descriptionEl",
                           "reason",
                           "value",
+                          "vatRate",
+                          "vat",
+                          "gross",
                           "timeImpactDays",
                           "status",
                           "raisedById",
@@ -40305,6 +40874,12 @@
                       "type": "number"
                     },
                     "pendingVariationsTotal": {
+                      "type": "number"
+                    },
+                    "approvedVariationsGross": {
+                      "type": "number"
+                    },
+                    "pendingVariationsGross": {
                       "type": "number"
                     },
                     "variationPctOfOriginal": {
@@ -41033,6 +41608,11 @@
                     "awardDecisionDocId",
                     "originalValue",
                     "currentValue",
+                    "vatRate",
+                    "originalVat",
+                    "originalGross",
+                    "currentVat",
+                    "currentGross",
                     "currency",
                     "startDate",
                     "completionDate",
@@ -41057,6 +41637,8 @@
                     "variations",
                     "approvedVariationsTotal",
                     "pendingVariationsTotal",
+                    "approvedVariationsGross",
+                    "pendingVariationsGross",
                     "variationPctOfOriginal",
                     "warnings"
                   ],
@@ -41322,6 +41904,29 @@
                       "type": "number",
                       "minimum": 0
                     },
+                    "vatRate": {
+                      "default": "STANDARD_19",
+                      "type": "string",
+                      "enum": [
+                        "STANDARD_19",
+                        "REDUCED_9",
+                        "REDUCED_5",
+                        "ZERO",
+                        "EXEMPT"
+                      ]
+                    },
+                    "originalVat": {
+                      "type": "number"
+                    },
+                    "originalGross": {
+                      "type": "number"
+                    },
+                    "currentVat": {
+                      "type": "number"
+                    },
+                    "currentGross": {
+                      "type": "number"
+                    },
                     "currency": {
                       "type": "string",
                       "const": "EUR"
@@ -41595,6 +42200,23 @@
                           "value": {
                             "type": "number"
                           },
+                          "vatRate": {
+                            "default": "STANDARD_19",
+                            "type": "string",
+                            "enum": [
+                              "STANDARD_19",
+                              "REDUCED_9",
+                              "REDUCED_5",
+                              "ZERO",
+                              "EXEMPT"
+                            ]
+                          },
+                          "vat": {
+                            "type": "number"
+                          },
+                          "gross": {
+                            "type": "number"
+                          },
                           "timeImpactDays": {
                             "type": "integer",
                             "minimum": -9007199254740991,
@@ -41651,6 +42273,9 @@
                           "descriptionEl",
                           "reason",
                           "value",
+                          "vatRate",
+                          "vat",
+                          "gross",
                           "timeImpactDays",
                           "status",
                           "raisedById",
@@ -41668,6 +42293,12 @@
                       "type": "number"
                     },
                     "pendingVariationsTotal": {
+                      "type": "number"
+                    },
+                    "approvedVariationsGross": {
+                      "type": "number"
+                    },
+                    "pendingVariationsGross": {
                       "type": "number"
                     },
                     "variationPctOfOriginal": {
@@ -42396,6 +43027,11 @@
                     "awardDecisionDocId",
                     "originalValue",
                     "currentValue",
+                    "vatRate",
+                    "originalVat",
+                    "originalGross",
+                    "currentVat",
+                    "currentGross",
                     "currency",
                     "startDate",
                     "completionDate",
@@ -42420,6 +43056,8 @@
                     "variations",
                     "approvedVariationsTotal",
                     "pendingVariationsTotal",
+                    "approvedVariationsGross",
+                    "pendingVariationsGross",
                     "variationPctOfOriginal",
                     "warnings"
                   ],
@@ -42649,6 +43287,29 @@
                       "type": "number",
                       "minimum": 0
                     },
+                    "vatRate": {
+                      "default": "STANDARD_19",
+                      "type": "string",
+                      "enum": [
+                        "STANDARD_19",
+                        "REDUCED_9",
+                        "REDUCED_5",
+                        "ZERO",
+                        "EXEMPT"
+                      ]
+                    },
+                    "originalVat": {
+                      "type": "number"
+                    },
+                    "originalGross": {
+                      "type": "number"
+                    },
+                    "currentVat": {
+                      "type": "number"
+                    },
+                    "currentGross": {
+                      "type": "number"
+                    },
                     "currency": {
                       "type": "string",
                       "const": "EUR"
@@ -42922,6 +43583,23 @@
                           "value": {
                             "type": "number"
                           },
+                          "vatRate": {
+                            "default": "STANDARD_19",
+                            "type": "string",
+                            "enum": [
+                              "STANDARD_19",
+                              "REDUCED_9",
+                              "REDUCED_5",
+                              "ZERO",
+                              "EXEMPT"
+                            ]
+                          },
+                          "vat": {
+                            "type": "number"
+                          },
+                          "gross": {
+                            "type": "number"
+                          },
                           "timeImpactDays": {
                             "type": "integer",
                             "minimum": -9007199254740991,
@@ -42978,6 +43656,9 @@
                           "descriptionEl",
                           "reason",
                           "value",
+                          "vatRate",
+                          "vat",
+                          "gross",
                           "timeImpactDays",
                           "status",
                           "raisedById",
@@ -42995,6 +43676,12 @@
                       "type": "number"
                     },
                     "pendingVariationsTotal": {
+                      "type": "number"
+                    },
+                    "approvedVariationsGross": {
+                      "type": "number"
+                    },
+                    "pendingVariationsGross": {
                       "type": "number"
                     },
                     "variationPctOfOriginal": {
@@ -43723,6 +44410,11 @@
                     "awardDecisionDocId",
                     "originalValue",
                     "currentValue",
+                    "vatRate",
+                    "originalVat",
+                    "originalGross",
+                    "currentVat",
+                    "currentGross",
                     "currency",
                     "startDate",
                     "completionDate",
@@ -43747,6 +44439,8 @@
                     "variations",
                     "approvedVariationsTotal",
                     "pendingVariationsTotal",
+                    "approvedVariationsGross",
+                    "pendingVariationsGross",
                     "variationPctOfOriginal",
                     "warnings"
                   ],
@@ -43946,6 +44640,16 @@
                     "type": "integer",
                     "minimum": -9007199254740991,
                     "maximum": 9007199254740991
+                  },
+                  "vatRate": {
+                    "type": "string",
+                    "enum": [
+                      "STANDARD_19",
+                      "REDUCED_9",
+                      "REDUCED_5",
+                      "ZERO",
+                      "EXEMPT"
+                    ]
                   }
                 },
                 "required": [
@@ -43992,6 +44696,23 @@
                       ]
                     },
                     "value": {
+                      "type": "number"
+                    },
+                    "vatRate": {
+                      "default": "STANDARD_19",
+                      "type": "string",
+                      "enum": [
+                        "STANDARD_19",
+                        "REDUCED_9",
+                        "REDUCED_5",
+                        "ZERO",
+                        "EXEMPT"
+                      ]
+                    },
+                    "vat": {
+                      "type": "number"
+                    },
+                    "gross": {
                       "type": "number"
                     },
                     "timeImpactDays": {
@@ -44050,6 +44771,9 @@
                     "descriptionEl",
                     "reason",
                     "value",
+                    "vatRate",
+                    "vat",
+                    "gross",
                     "timeImpactDays",
                     "status",
                     "raisedById",
@@ -44233,6 +44957,16 @@
                     "type": "integer",
                     "minimum": -9007199254740991,
                     "maximum": 9007199254740991
+                  },
+                  "vatRate": {
+                    "type": "string",
+                    "enum": [
+                      "STANDARD_19",
+                      "REDUCED_9",
+                      "REDUCED_5",
+                      "ZERO",
+                      "EXEMPT"
+                    ]
                   }
                 },
                 "additionalProperties": false
@@ -44273,6 +45007,23 @@
                       ]
                     },
                     "value": {
+                      "type": "number"
+                    },
+                    "vatRate": {
+                      "default": "STANDARD_19",
+                      "type": "string",
+                      "enum": [
+                        "STANDARD_19",
+                        "REDUCED_9",
+                        "REDUCED_5",
+                        "ZERO",
+                        "EXEMPT"
+                      ]
+                    },
+                    "vat": {
+                      "type": "number"
+                    },
+                    "gross": {
                       "type": "number"
                     },
                     "timeImpactDays": {
@@ -44331,6 +45082,9 @@
                     "descriptionEl",
                     "reason",
                     "value",
+                    "vatRate",
+                    "vat",
+                    "gross",
                     "timeImpactDays",
                     "status",
                     "raisedById",
@@ -44554,6 +45308,23 @@
                     "value": {
                       "type": "number"
                     },
+                    "vatRate": {
+                      "default": "STANDARD_19",
+                      "type": "string",
+                      "enum": [
+                        "STANDARD_19",
+                        "REDUCED_9",
+                        "REDUCED_5",
+                        "ZERO",
+                        "EXEMPT"
+                      ]
+                    },
+                    "vat": {
+                      "type": "number"
+                    },
+                    "gross": {
+                      "type": "number"
+                    },
                     "timeImpactDays": {
                       "type": "integer",
                       "minimum": -9007199254740991,
@@ -44610,6 +45381,9 @@
                     "descriptionEl",
                     "reason",
                     "value",
+                    "vatRate",
+                    "vat",
+                    "gross",
                     "timeImpactDays",
                     "status",
                     "raisedById",
@@ -44832,6 +45606,23 @@
                     "value": {
                       "type": "number"
                     },
+                    "vatRate": {
+                      "default": "STANDARD_19",
+                      "type": "string",
+                      "enum": [
+                        "STANDARD_19",
+                        "REDUCED_9",
+                        "REDUCED_5",
+                        "ZERO",
+                        "EXEMPT"
+                      ]
+                    },
+                    "vat": {
+                      "type": "number"
+                    },
+                    "gross": {
+                      "type": "number"
+                    },
                     "timeImpactDays": {
                       "type": "integer",
                       "minimum": -9007199254740991,
@@ -44888,6 +45679,9 @@
                     "descriptionEl",
                     "reason",
                     "value",
+                    "vatRate",
+                    "vat",
+                    "gross",
                     "timeImpactDays",
                     "status",
                     "raisedById",
@@ -46457,6 +47251,20 @@
                               "amount": {
                                 "type": "number"
                               },
+                              "netAmount": {
+                                "default": null,
+                                "type": [
+                                  "number",
+                                  "null"
+                                ]
+                              },
+                              "vatAmount": {
+                                "default": null,
+                                "type": [
+                                  "number",
+                                  "null"
+                                ]
+                              },
                               "currency": {
                                 "type": "string",
                                 "const": "EUR"
@@ -46556,6 +47364,8 @@
                               "docDate",
                               "postingDate",
                               "amount",
+                              "netAmount",
+                              "vatAmount",
                               "currency",
                               "description",
                               "vendorName",
@@ -46848,6 +47658,20 @@
                                 "amount": {
                                   "type": "number"
                                 },
+                                "netAmount": {
+                                  "default": null,
+                                  "type": [
+                                    "number",
+                                    "null"
+                                  ]
+                                },
+                                "vatAmount": {
+                                  "default": null,
+                                  "type": [
+                                    "number",
+                                    "null"
+                                  ]
+                                },
                                 "currency": {
                                   "type": "string",
                                   "const": "EUR"
@@ -46947,6 +47771,8 @@
                                 "docDate",
                                 "postingDate",
                                 "amount",
+                                "netAmount",
+                                "vatAmount",
                                 "currency",
                                 "description",
                                 "vendorName",
@@ -47288,6 +48114,20 @@
                                 "amount": {
                                   "type": "number"
                                 },
+                                "netAmount": {
+                                  "default": null,
+                                  "type": [
+                                    "number",
+                                    "null"
+                                  ]
+                                },
+                                "vatAmount": {
+                                  "default": null,
+                                  "type": [
+                                    "number",
+                                    "null"
+                                  ]
+                                },
                                 "currency": {
                                   "type": "string",
                                   "const": "EUR"
@@ -47387,6 +48227,8 @@
                                 "docDate",
                                 "postingDate",
                                 "amount",
+                                "netAmount",
+                                "vatAmount",
                                 "currency",
                                 "description",
                                 "vendorName",
@@ -47961,6 +48803,23 @@
                       "certifiedNet": {
                         "type": "number"
                       },
+                      "vatRate": {
+                        "default": "STANDARD_19",
+                        "type": "string",
+                        "enum": [
+                          "STANDARD_19",
+                          "REDUCED_9",
+                          "REDUCED_5",
+                          "ZERO",
+                          "EXEMPT"
+                        ]
+                      },
+                      "certifiedVat": {
+                        "type": "number"
+                      },
+                      "certifiedGross": {
+                        "type": "number"
+                      },
                       "invoiced": {
                         "type": "number"
                       },
@@ -47984,6 +48843,9 @@
                       "costCentre",
                       "certNumber",
                       "certifiedNet",
+                      "vatRate",
+                      "certifiedVat",
+                      "certifiedGross",
                       "invoiced",
                       "accrual",
                       "overInvoiced",
@@ -51056,6 +51918,23 @@
                       "netPayable": {
                         "type": "number"
                       },
+                      "vatRate": {
+                        "default": "STANDARD_19",
+                        "type": "string",
+                        "enum": [
+                          "STANDARD_19",
+                          "REDUCED_9",
+                          "REDUCED_5",
+                          "ZERO",
+                          "EXEMPT"
+                        ]
+                      },
+                      "vat": {
+                        "type": "number"
+                      },
+                      "grossPayable": {
+                        "type": "number"
+                      },
                       "status": {
                         "type": "string",
                         "enum": [
@@ -51117,6 +51996,9 @@
                       "retentionHeld",
                       "previousCertified",
                       "netPayable",
+                      "vatRate",
+                      "vat",
+                      "grossPayable",
                       "status",
                       "createdById",
                       "createdByName",
@@ -51251,6 +52133,16 @@
                   "materialsOnSite": {
                     "type": "number",
                     "minimum": 0
+                  },
+                  "vatRate": {
+                    "type": "string",
+                    "enum": [
+                      "STANDARD_19",
+                      "REDUCED_9",
+                      "REDUCED_5",
+                      "ZERO",
+                      "EXEMPT"
+                    ]
                   }
                 },
                 "required": [
@@ -51307,6 +52199,23 @@
                       "type": "number"
                     },
                     "netPayable": {
+                      "type": "number"
+                    },
+                    "vatRate": {
+                      "default": "STANDARD_19",
+                      "type": "string",
+                      "enum": [
+                        "STANDARD_19",
+                        "REDUCED_9",
+                        "REDUCED_5",
+                        "ZERO",
+                        "EXEMPT"
+                      ]
+                    },
+                    "vat": {
+                      "type": "number"
+                    },
+                    "grossPayable": {
                       "type": "number"
                     },
                     "status": {
@@ -51370,6 +52279,9 @@
                     "retentionHeld",
                     "previousCertified",
                     "netPayable",
+                    "vatRate",
+                    "vat",
+                    "grossPayable",
                     "status",
                     "createdById",
                     "createdByName",
@@ -51594,6 +52506,23 @@
                     "netPayable": {
                       "type": "number"
                     },
+                    "vatRate": {
+                      "default": "STANDARD_19",
+                      "type": "string",
+                      "enum": [
+                        "STANDARD_19",
+                        "REDUCED_9",
+                        "REDUCED_5",
+                        "ZERO",
+                        "EXEMPT"
+                      ]
+                    },
+                    "vat": {
+                      "type": "number"
+                    },
+                    "grossPayable": {
+                      "type": "number"
+                    },
                     "status": {
                       "type": "string",
                       "enum": [
@@ -51655,6 +52584,9 @@
                     "retentionHeld",
                     "previousCertified",
                     "netPayable",
+                    "vatRate",
+                    "vat",
+                    "grossPayable",
                     "status",
                     "createdById",
                     "createdByName",
@@ -51827,6 +52759,23 @@
                     "netPayable": {
                       "type": "number"
                     },
+                    "vatRate": {
+                      "default": "STANDARD_19",
+                      "type": "string",
+                      "enum": [
+                        "STANDARD_19",
+                        "REDUCED_9",
+                        "REDUCED_5",
+                        "ZERO",
+                        "EXEMPT"
+                      ]
+                    },
+                    "vat": {
+                      "type": "number"
+                    },
+                    "grossPayable": {
+                      "type": "number"
+                    },
                     "status": {
                       "type": "string",
                       "enum": [
@@ -51888,6 +52837,9 @@
                     "retentionHeld",
                     "previousCertified",
                     "netPayable",
+                    "vatRate",
+                    "vat",
+                    "grossPayable",
                     "status",
                     "createdById",
                     "createdByName",
@@ -54407,6 +55359,23 @@
                     "value": {
                       "type": "number"
                     },
+                    "vatRate": {
+                      "default": "STANDARD_19",
+                      "type": "string",
+                      "enum": [
+                        "STANDARD_19",
+                        "REDUCED_9",
+                        "REDUCED_5",
+                        "ZERO",
+                        "EXEMPT"
+                      ]
+                    },
+                    "vat": {
+                      "type": "number"
+                    },
+                    "gross": {
+                      "type": "number"
+                    },
                     "timeImpactDays": {
                       "type": "integer",
                       "minimum": -9007199254740991,
@@ -54463,6 +55432,9 @@
                     "descriptionEl",
                     "reason",
                     "value",
+                    "vatRate",
+                    "vat",
+                    "gross",
                     "timeImpactDays",
                     "status",
                     "raisedById",
@@ -66505,6 +67477,10 @@
                             "type": "number",
                             "minimum": 0
                           },
+                          "contractValueNet": {
+                            "type": "number",
+                            "minimum": 0
+                          },
                           "overdueContracts": {
                             "type": "integer",
                             "minimum": 0,
@@ -69635,8 +70611,44 @@
                             "text",
                             "money",
                             "number",
-                            "date"
+                            "date",
+                            "percent"
                           ]
+                        },
+                        "formula": {
+                          "type": "object",
+                          "properties": {
+                            "op": {
+                              "type": "string",
+                              "enum": [
+                                "multiply",
+                                "add"
+                              ]
+                            },
+                            "columns": {
+                              "type": "array",
+                              "prefixItems": [
+                                {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
+                                },
+                                {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
+                                }
+                              ],
+                              "items": false,
+                              "minItems": 2,
+                              "maxItems": 2
+                            }
+                          },
+                          "required": [
+                            "op",
+                            "columns"
+                          ],
+                          "additionalProperties": false
                         }
                       },
                       "required": [

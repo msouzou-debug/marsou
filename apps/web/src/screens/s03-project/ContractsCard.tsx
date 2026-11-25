@@ -19,7 +19,7 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 import type { AppRole, Contract } from "@ecapital/shared";
 import { canWriteContracts } from "@/auth/roles";
-import { formatEUR } from "@/lib/format";
+import { GrossAmount } from "@/components/vat-fields";
 
 export interface ContractsCardProps {
   projectId: string;
@@ -78,7 +78,10 @@ export function ContractsCard({ projectId, roles, contracts, loading = false, er
                 </Link>
                 <p className="text-fs-12 text-k-text">{contract.contractorName}</p>
               </div>
-              <span className="num text-fs-14 text-k-ink">{formatEUR(contract.currentValue)}</span>
+              {/* ADR-0038: gross, the net and the VAT in the tooltip. */}
+                <span className="num text-fs-14 text-k-ink">
+                  <GrossAmount gross={contract.currentGross} net={contract.currentValue} vat={contract.currentVat} />
+                </span>
             </li>
           ))}
         </ul>

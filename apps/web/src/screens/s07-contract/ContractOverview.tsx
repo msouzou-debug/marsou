@@ -36,6 +36,7 @@ import { PageTitle } from "@/components/app-shell";
 import { CostBar } from "@/components/cost-bar";
 import type { Locale } from "@/i18n/config";
 import { formatEUR, formatPct } from "@/lib/format";
+import { GrossAmount } from "@/components/vat-fields";
 import { BoqSection, type BoqDraftRow } from "./BoqSection";
 import { ContractFacts } from "./ContractFacts";
 import { EFinancePanel, type EFinancePushResult } from "./EFinancePanel";
@@ -204,13 +205,36 @@ export function ContractOverview({
               current contract value, not the glossary's own words, so the
               legend labels are overridden rather than adding a second, mono
               line underneath repeating the same three figures. */}
+          {/* ADR-0038: the bar is gross — the commitment budget control uses. */}
           <CostBar
-            approved={data.originalValue}
-            committed={data.currentValue}
+            approved={data.originalGross}
+            committed={data.currentGross}
             spent={null}
             forecast={null}
             labels={{ approved: t("screens.s07.cost.originalValueLabel"), committed: t("screens.s07.cost.currentValueLabel") }}
           />
+
+          {/* RULE (ADR-0038): net, rate, VAT and gross of the current value,
+              side by side. The contract is signed net; the gross is what the
+              project pays, because ΟΚΥπΥ cannot recover the VAT. */}
+          <dl className="grid gap-s-2 rounded-k border border-k-grey bg-k-white p-s-3 text-fs-14" data-testid="contract-vat">
+            <div className="flex items-baseline justify-between gap-s-3">
+              <dt className="text-k-text">{t("screens.s07.cost.currentNet")}</dt>
+              <dd className="num text-k-ink">{formatEUR(data.currentValue)}</dd>
+            </div>
+            <div className="flex items-baseline justify-between gap-s-3">
+              <dt className="text-k-text">{t("components.vat-fields.rate")}</dt>
+              <dd className="num text-k-ink">{t(`vatRates.${data.vatRate}`)}</dd>
+            </div>
+            <div className="flex items-baseline justify-between gap-s-3">
+              <dt className="text-k-text">{t("components.vat-fields.vat")}</dt>
+              <dd className="num text-k-ink">{formatEUR(data.currentVat)}</dd>
+            </div>
+            <div className="flex items-baseline justify-between gap-s-3">
+              <dt className="font-bold text-k-ink">{t("components.vat-fields.gross")}</dt>
+              <dd className="num font-bold text-k-ink">{formatEUR(data.currentGross)}</dd>
+            </div>
+          </dl>
 
           <dl className="grid gap-s-2 text-fs-14">
             <div className="flex items-baseline justify-between gap-s-3">
@@ -218,8 +242,16 @@ export function ContractOverview({
               <dd className="num">
                 {/* RULE (R31): over 10% of the original value, --k-red — as
                     its own element so it stays queryable/testable on its own,
-                    not as one text node shared with the percentage next to it. */}
-                <span className={overTen ? "text-k-red" : "text-k-ink"}>{formatEUR(data.approvedVariationsTotal)}</span>{" "}
+                    not as one text node shared with the percentage next to it.
+                    ADR-0038: the amount is gross; the percentage stays net ÷
+                    net, the contractual 10 %. */}
+                <span className={overTen ? "text-k-red" : "text-k-ink"}>
+                  <GrossAmount
+                    gross={data.approvedVariationsGross}
+                    net={data.approvedVariationsTotal}
+                    vat={data.approvedVariationsGross - data.approvedVariationsTotal}
+                  />
+                </span>{" "}
                 <span className={overTen ? "text-k-red" : "text-k-text"}>
                   ({formatPct(data.variationPctOfOriginal)})
                 </span>
@@ -227,7 +259,13 @@ export function ContractOverview({
             </div>
             <div className="flex items-baseline justify-between gap-s-3">
               <dt className="text-k-text">{t("screens.s07.cost.pendingVariations")}</dt>
-              <dd className="num text-k-ink">{formatEUR(data.pendingVariationsTotal)}</dd>
+              <dd className="num text-k-ink">
+                <GrossAmount
+                  gross={data.pendingVariationsGross}
+                  net={data.pendingVariationsTotal}
+                  vat={data.pendingVariationsGross - data.pendingVariationsTotal}
+                />
+              </dd>
             </div>
             {/* RULE (build brief §5): retention is its own line, never netted
                 into the current value above it. */}

@@ -31,6 +31,7 @@ import {
   ProjectDetail,
   ProjectPeople,
   ProjectList,
+  TABLE_EXPORT_MAX_ROWS,
   QrLabel,
   ReplacementForecastRow,
   Rfi,
@@ -267,6 +268,26 @@ export function useAreaTree(orgUnitId: string) {
  * The API's page is at most 200 (`ProjectListQuery.pageSize`), so this asks
  * for page after page until it holds `total`. Exported for its test.
  */
+/**
+ * S02's export: every project matching the list's filters, in its sort
+ * order, paged through the API 200 at a time (its largest page) and capped
+ * at what one export may carry. The page and page size on screen are
+ * ignored: the owner wants the whole filtered list, not the page.
+ */
+export async function allProjectsMatching(
+  query: ProjectListQuery,
+  fetchPage: (path: string) => Promise<ProjectList> = (path) => proxyFetch(path, ProjectList),
+): Promise<ProjectList["items"]> {
+  const pageSize = 200;
+  const items: ProjectList["items"] = [];
+  for (let page = 1; items.length < TABLE_EXPORT_MAX_ROWS; page += 1) {
+    const result = await fetchPage(projectsApiPath({ ...query, page, pageSize }));
+    items.push(...result.items);
+    if (result.items.length < pageSize || items.length >= result.total) break;
+  }
+  return items.slice(0, TABLE_EXPORT_MAX_ROWS);
+}
+
 export async function allProjectsForUnit(
   orgUnitId: string,
   fetchPage: (path: string) => Promise<ProjectList> = (path) => proxyFetch(path, ProjectList),

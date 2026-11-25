@@ -57,7 +57,8 @@ describe("migrations", () => {
     expect(result.applied).toContain("0027_unit_people");
     expect(result.applied).toContain("0028_project_cashflow_plan");
     expect(result.applied).toContain("0029_claim_documents");
-    expect(result.lastMigrationId).toBe("0029_claim_documents");
+    expect(result.applied).toContain("0031_vat");
+    expect(result.lastMigrationId).toBe("0031_vat");
 
     const client = new Client({ connectionString: targetUrl });
     await client.connect();
@@ -875,6 +876,166 @@ describe("migrations", () => {
       await client.end();
     }
   });
+
+  /**
+   * ADR-0038, 0031. A register written before VAT: every contract, variation
+   * and certificate is taken as NET at 19 %, the gross commitment rises by
+   * 19 %, eFinance's booked lines (posted net) become gross from the line's
+   * own rate, and a second run changes nothing and writes no audit row.
+   */
+  it("0031 takes existing amounts as net at 19 %, makes eFinance's lines gross, and is idempotent", async () => {
+    const legacyDb = "ecapital_migration_0031_test";
+    const legacyUrl = adminUrl.replace(/\/postgres$/, `/${legacyDb}`);
+
+    const admin = new Client({ connectionString: adminUrl });
+    await admin.connect();
+    await admin.query(`drop database if exists ${legacyDb}`);
+    await admin.query(`create database ${legacyDb}`);
+    await admin.end();
+
+    const client = new Client({ connectionString: legacyUrl });
+    await client.connect();
+    try {
+      const files = readMigrations();
+      const before0031 = files.filter((m) => m.id < "0031");
+      const vat = files.find((m) => m.id === "0031_vat");
+      expect(vat).toBeDefined();
+
+      await client.query("create schema if not exists ecapital");
+      for (const migration of before0031) await client.query(migration.sql);
+
+      const C = "00000000-0000-4000-8000-0000000031c1";
+      const P = "00000000-0000-4000-8000-000000003101";
+      await client.query(`
+        insert into ecapital.org_unit (id, code, name_el, name_en, type, directorate, entity_code, efinance_code)
+        values ('larnaca-general', 'LGH', 'Γενικό Νοσοκομείο Λάρνακας', 'Larnaca General Hospital',
+                'HOSPITAL', 'LARNAKAS_AMMOCHOSTOU', 'LGH', 'LGH')`);
+      await client.query(`
+        insert into ecapital.app_user (id, subject, name, email) values
+          ('00000000-0000-4000-8000-0000000031a1', 'raiser', 'Μηχανικός', 'raiser@example.test'),
+          ('00000000-0000-4000-8000-0000000031a2', 'approver', 'Προϊστάμενος', 'approver@example.test')`);
+      await client.query(`
+        insert into ecapital.project (id, org_unit_id, code, title_el, category, phase, approved_budget)
+        values ('${P}', 'larnaca-general', ecapital.allocate_project_code('larnaca-general', 2026),
+                'Ανακαίνιση πτέρυγας', 'RENOVATION', 'IN_PROGRESS', 1500000)`);
+      await client.query(`insert into ecapital.contractor (id, name) values
+        ('00000000-0000-4000-8000-0000000031b1', 'Ανάδοχος ΦΠΑ')`);
+      await client.query(`
+        insert into ecapital.contract (id, project_id, org_unit_id, contractor_id, ref, contract_no, type,
+                                       award_date, original_value, current_value)
+        values ('${C}', '${P}', '', '00000000-0000-4000-8000-0000000031b1',
+                ecapital.allocate_contract_ref(2026), 'ΤΥ/2026/031', 'BOQ', '2026-01-10', 100000, 100000)`);
+      await client.query(`
+        insert into ecapital.variation (contract_id, org_unit_id, number, description_el, reason, value, status,
+                                        raised_by, decided_by, decided_at)
+        values ('${C}', '', 1, 'Πρόσθετες εργασίες', 'CLIENT_CHANGE', 10000, 'APPROVED',
+                '00000000-0000-4000-8000-0000000031a1', '00000000-0000-4000-8000-0000000031a2', now()),
+               ('${C}', '', 2, 'Υπό εξέταση', 'SITE_CONDITION', 5000, 'SUBMITTED',
+                '00000000-0000-4000-8000-0000000031a1', null, null)`);
+      await client.query(`
+        insert into ecapital.payment_cert (contract_id, org_unit_id, number, period_from, period_to,
+                                           work_done_value, net_payable, created_by)
+        values ('${C}', '', 1, '2026-02-01', '2026-02-28', 20000, 19000, '00000000-0000-4000-8000-0000000031a1')`);
+      await client.query(`
+        insert into ecapital.efinance_invoice (id, org_unit_id, contract_id, currency, net, vat, gross, ledger,
+                                               updated_at, raw)
+        values ('9031', 'larnaca-general', '${C}', 'EUR', 3000, 570, 3570, 'booked', now(), '{}')`);
+      await client.query(`
+        insert into ecapital.efinance_invoice_line (invoice_id, line_no, line_total, vat_rate)
+        values ('9031', 0, 1000, 19.00), ('9031', 1, 2000, 19), ('9031', 2, 500, null)`);
+      await client.query(`
+        insert into ecapital.cost_txn (org_unit_id, project_id, contract_id, txn_type, source, source_ref,
+                                       posting_date, amount, matched_by)
+        values ('larnaca-general', '${P}', '${C}', 'ACTUAL', 'EFINANCE', 'efinance:invoice:9031:0', '2026-03-01', 1000, 'RULE'),
+               ('larnaca-general', '${P}', '${C}', 'ACTUAL', 'EFINANCE', 'efinance:invoice:9031:1', '2026-03-01', 2000, 'RULE'),
+               ('larnaca-general', '${P}', '${C}', 'ACTUAL', 'EFINANCE', 'efinance:invoice:9031:2', '2026-03-01', 500, 'RULE'),
+               ('larnaca-general', '${P}', '${C}', 'ACTUAL', 'SAP_EXTRACT', 'SAP:1', '2026-03-01', 4000, 'PO')`);
+
+      await client.query(vat!.sql);
+
+      // 1. The contract: net unchanged, 19 %, gross = net × 1,19; the
+      //    commitment is the original plus the APPROVED variation, gross.
+      const { rows: [contract] } = await client.query(`
+        select vat_rate::text, original_value::text, original_vat::text, original_gross::text,
+               current_value::text, current_gross::text
+          from ecapital.contract where id = '${C}'`);
+      expect(contract).toEqual({
+        vat_rate: "STANDARD_19",
+        original_value: "100000.00",
+        original_vat: "19000.00",
+        original_gross: "119000.00",
+        current_value: "110000.00",
+        current_gross: "130900.00",
+      });
+
+      // 2. Variations and the certificate: 19 %, VAT and gross generated.
+      const { rows: variations } = await client.query(`
+        select number, vat_rate::text, vat_amount::text, gross_value::text
+          from ecapital.variation where contract_id = '${C}' order by number`);
+      expect(variations).toEqual([
+        { number: 1, vat_rate: "STANDARD_19", vat_amount: "1900.00", gross_value: "11900.00" },
+        { number: 2, vat_rate: "STANDARD_19", vat_amount: "950.00", gross_value: "5950.00" },
+      ]);
+      const { rows: [cert] } = await client.query(`
+        select vat_rate::text, vat_amount::text, gross_payable::text from ecapital.payment_cert where contract_id = '${C}'`);
+      expect(cert).toEqual({ vat_rate: "STANDARD_19", vat_amount: "3610.00", gross_payable: "22610.00" });
+
+      // 3. eFinance's lines are gross from their own rate; a line with no
+      //    rate and a SAP line stay as posted (taken as gross).
+      const { rows: txns } = await client.query(`
+        select source_ref, amount::text, net_amount::text, vat_amount::text
+          from ecapital.cost_txn where contract_id = '${C}' order by source_ref`);
+      expect(txns).toEqual([
+        { source_ref: "SAP:1", amount: "4000.00", net_amount: null, vat_amount: null },
+        { source_ref: "efinance:invoice:9031:0", amount: "1190.00", net_amount: "1000.00", vat_amount: "190.00" },
+        { source_ref: "efinance:invoice:9031:1", amount: "2380.00", net_amount: "2000.00", vat_amount: "380.00" },
+        { source_ref: "efinance:invoice:9031:2", amount: "500.00", net_amount: null, vat_amount: null },
+      ]);
+
+      // 4. Idempotent: a second run changes no figure and writes no audit row.
+      const snapshot = async () =>
+        (await client.query(`
+          select (select json_agg(c order by c.id) from (select id, vat_rate, current_gross from ecapital.contract) c)::text as c,
+                 (select json_agg(t order by t.source_ref) from (select source_ref, amount, net_amount from ecapital.cost_txn) t)::text as t,
+                 (select count(*) from ecapital.audit_log)::text as audit`)).rows[0];
+      const first = await snapshot();
+      await client.query(vat!.sql);
+      expect(await snapshot()).toEqual(first);
+
+      // 5. A new variation and certificate take the contract's rate; the
+      //    rate moves the gross and the gross commitment follows.
+      await client.query(`update ecapital.contract set vat_rate = 'REDUCED_5' where id = '${C}'`);
+      const { rows: [moved] } = await client.query(
+        `select original_gross::text, current_gross::text from ecapital.contract where id = '${C}'`);
+      // 105.000 + the approved variation at its own 19 %: 11.900.
+      expect(moved).toEqual({ original_gross: "105000.00", current_gross: "116900.00" });
+      await client.query(`
+        insert into ecapital.variation (contract_id, org_unit_id, number, description_el, reason, value, raised_by)
+        values ('${C}', '', 3, 'Νέα', 'OTHER', 1000, '00000000-0000-4000-8000-0000000031a1')`);
+      const { rows: [inherited] } = await client.query(
+        `select vat_rate::text, gross_value::text from ecapital.variation where contract_id = '${C}' and number = 3`);
+      expect(inherited).toEqual({ vat_rate: "REDUCED_5", gross_value: "1050.00" });
+      await client.query(`
+        update ecapital.variation set status = 'APPROVED', decided_by = '00000000-0000-4000-8000-0000000031a2',
+               decided_at = now() where contract_id = '${C}' and number = 3`);
+      const { rows: [approved] } = await client.query(
+        `select current_value::text, current_gross::text from ecapital.contract where id = '${C}'`);
+      expect(approved).toEqual({ current_value: "111000.00", current_gross: "117950.00" });
+
+      // 6. No policy is added or dropped on the four tables (RLS unchanged).
+      const { rows: rls } = await client.query<{ relname: string; relrowsecurity: boolean }>(`
+        select c.relname, c.relrowsecurity from pg_class c join pg_namespace n on n.oid = c.relnamespace
+         where n.nspname = 'ecapital' and c.relname in ('contract', 'variation', 'payment_cert', 'cost_txn')
+         order by c.relname`);
+      expect(rls.every((r) => r.relrowsecurity)).toBe(true);
+    } finally {
+      await client.end();
+      const cleanup = new Client({ connectionString: adminUrl });
+      await cleanup.connect();
+      await cleanup.query(`drop database if exists ${legacyDb}`);
+      await cleanup.end();
+    }
+  }, 180_000);
 
   it("leaves row-level security on every table that has a policy", async () => {
     const client = new Client({ connectionString: targetUrl });

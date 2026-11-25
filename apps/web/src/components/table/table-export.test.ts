@@ -93,6 +93,55 @@ describe("tableExportRequest", () => {
   });
 });
 
+describe("VAT columns (ADR-0038)", () => {
+  interface Money {
+    id: string;
+    net: number;
+    rate: number;
+    vat: number;
+    gross: number;
+  }
+  const money: Money[] = [{ id: "a", net: 100_000, rate: 0.19, vat: 19_000, gross: 119_000 }];
+  const moneyColumns: TableColumn<Money>[] = [
+    { id: "net", headerKey: "Καθαρό ποσό", accessor: (r) => r.net, numeric: true, exportKind: "money" },
+    { id: "rate", headerKey: "Συντελεστής ΦΠΑ", accessor: (r) => r.rate, numeric: true, exportKind: "percent" },
+    {
+      id: "vat",
+      headerKey: "Ποσό ΦΠΑ",
+      accessor: (r) => r.vat,
+      numeric: true,
+      exportKind: "money",
+      exportFormula: { op: "multiply", columns: ["net", "rate"] },
+    },
+    {
+      id: "gross",
+      headerKey: "Σύνολο με ΦΠΑ",
+      accessor: (r) => r.gross,
+      numeric: true,
+      exportKind: "money",
+      exportFormula: { op: "add", columns: ["net", "vat"] },
+    },
+  ];
+
+  it("names the formula's inputs by their position among the columns sent", () => {
+    const request = tableExportRequest({ title: "Συμβάσεις", columns: moneyColumns, rows: money, t: (k) => k });
+    expect(request.columns.map((c) => c.formula)).toEqual([
+      undefined,
+      undefined,
+      { op: "multiply", columns: [0, 1] },
+      { op: "add", columns: [0, 2] },
+    ]);
+    expect(request.rows).toEqual([[100_000, 0.19, 19_000, 119_000]]);
+  });
+
+  it("sends the figure without a formula when an input column is left out", () => {
+    const withoutRate = moneyColumns.filter((c) => c.id !== "rate");
+    const request = tableExportRequest({ title: "Συμβάσεις", columns: withoutRate, rows: money, t: (k) => k });
+    expect(request.columns[1]?.formula).toBeUndefined();
+    expect(request.columns[2]?.formula).toEqual({ op: "add", columns: [0, 1] });
+  });
+});
+
 describe("plainValue", () => {
   it("turns what an accessor returns into something Excel can hold", () => {
     expect(plainValue(true, t)).toBe("Ναι");

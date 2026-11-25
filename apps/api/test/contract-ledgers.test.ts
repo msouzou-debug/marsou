@@ -45,7 +45,7 @@ describe("the commitment ledger", () => {
     return ContractList.parse(response.body);
   }
 
-  it("adds up the current value of the project's own contracts", async () => {
+  it("adds up the current value of the project's own contracts, incl. VAT (ADR-0038)", async () => {
     const list = await projects(USERS.admin);
     const seeded = list.items.filter((p) => p.sourceRowRef !== null);
     const awarded = seeded.filter((p) => p.ledgers.committed !== null);
@@ -55,8 +55,11 @@ describe("the commitment ledger", () => {
 
     for (const project of awarded.slice(0, 5)) {
       const contracts = await contractsOf(USERS.admin, project.id);
-      const expected = contracts.items.reduce((sum, c) => sum + c.currentValue, 0);
+      const expected = contracts.items.reduce((sum, c) => sum + c.currentGross, 0);
       expect(project.ledgers.committed).toBeCloseTo(expected, 2);
+      // Gross is net plus each contract's own VAT, never less than the net.
+      const net = contracts.items.reduce((sum, c) => sum + c.currentValue, 0);
+      expect(expected).toBeGreaterThanOrEqual(net);
     }
   });
 

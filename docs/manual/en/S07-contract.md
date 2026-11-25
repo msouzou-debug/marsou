@@ -28,6 +28,10 @@ The line above the title gives the contract reference (`CAP-2026-0031`) first an
 
 A dash "—" means eFinance has no figure. It does not mean zero.
 
+## VAT
+
+A contract is signed excluding VAT. The screen shows the current value as "Net amount", the "VAT rate", the "VAT amount" and the "Total incl. VAT". The cost bar and the variations show the total with VAT; hover over an amount to see its net and its VAT. The variation share (10 % limit) is worked out on the net amounts, as the contract sets it. Delay penalties, claims, bonds and retention carry no VAT.
+
 ## What can go wrong
 
 - **"You do not have access to this page".** The contract is not yours, or it does not exist — this screen does not tell the two apart. Ask the system administrator for access.

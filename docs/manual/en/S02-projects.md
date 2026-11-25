@@ -11,6 +11,12 @@ This screen lists every project you can see, with each one's budget, commitments
 5. The "Updated" column shows when anything on the project, or under it, last changed. At 30 days or more the date is red and its title says for how many days there has been no update.
 6. Save a filter combination you use often from "Saved views", or press "Clear all" to reset it.
 
+## VAT
+
+The budget, commitment and spend in the list include VAT.
+
+"Export to Excel" gives every project matching the filters, across all pages, in the screen's sort order and with the columns you see. It is not limited to the page you have open.
+
 ## What can go wrong
 
 - **"No projects match these filters".** Nothing matches the combination you chose. Press "Clear filters" to start from the full list.

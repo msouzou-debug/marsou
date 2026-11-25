@@ -88,6 +88,8 @@ interface InvoiceCandidate {
   projectId: string;
   /** The net amount in cents, so equality is exact. */
   netCents: number;
+  /** ADR-0038: the gross amount in cents, null when eFinance sent none. */
+  grossCents: number | null;
   invoiceDate: string;
 }
 
@@ -797,7 +799,9 @@ export class CostImportsService {
   /**
    * RULE (ADR-0036 §2): a capital line finds its contract by
    *  (a) its CAP- reference, when the reference names a contract here;
-   *  (b) the vendor number, the net amount to the cent and the document date
+   *  (b) the vendor number, the net or the gross amount to the cent
+   *      (ADR-0038: a SAP line is one figure and is taken as gross, but
+   *      until Finance confirms which, either matches) and the document date
    *      within three days, against a booked eFinance invoice on a contract
    *      whose contractor carries that SAP vendor number — and only when
    *      exactly one invoice answers, because two equal candidates are a
@@ -824,7 +828,7 @@ export class CostImportsService {
       const candidates = (index.invoicesByVendor.get(vendor) ?? []).filter(
         (invoice) =>
           !used.has(invoice.id) &&
-          invoice.netCents === cents &&
+          (invoice.netCents === cents || invoice.grossCents === cents) &&
           daysBetween(invoice.invoiceDate, docDate) <= INVOICE_DATE_WINDOW_DAYS,
       );
       if (candidates.length === 1) {
@@ -936,9 +940,10 @@ export class CostImportsService {
       project_id: string;
       sap_vendor_id: string;
       net: string;
+      gross: string | null;
       invoice_date: string;
     }>(sql`
-      select i.id, i.contract_id, c.project_id, k.sap_vendor_id, i.net::text as net,
+      select i.id, i.contract_id, c.project_id, k.sap_vendor_id, i.net::text as net, i.gross::text as gross,
              to_char(i.invoice_date, 'YYYY-MM-DD') as invoice_date
         from ecapital.efinance_invoice i
         join ecapital.contract c on c.id = i.contract_id
@@ -956,6 +961,7 @@ export class CostImportsService {
         contractId: invoice.contract_id,
         projectId: invoice.project_id,
         netCents: Math.round(Number(invoice.net) * 100),
+        grossCents: invoice.gross === null ? null : Math.round(Number(invoice.gross) * 100),
         invoiceDate: invoice.invoice_date,
       });
       index.invoicesByVendor.set(key, list);
@@ -1233,6 +1239,8 @@ const TXN_COLUMNS = {
   docDate: schema.costTxn.docDate,
   postingDate: schema.costTxn.postingDate,
   amount: schema.costTxn.amount,
+  netAmount: schema.costTxn.netAmount,
+  vatAmount: schema.costTxn.vatAmount,
   description: schema.costTxn.description,
   vendorName: schema.costTxn.vendorName,
   sapWbs: schema.costTxn.sapWbs,

@@ -10,7 +10,8 @@ import type {
   EFinanceRawContractSpend,
   EFinanceRawInvoice,
 } from "@ecapital/shared";
-import { isoUtc, toAmount } from "./efinance-client";
+import { roundMoney } from "@ecapital/shared";
+import { isoUtc, toAmount, toMoneyString } from "./efinance-client";
 
 /** What `contract.efinance_spend` holds: eFinance's own strings, and when we read them. */
 export interface StoredSpend {
@@ -102,7 +103,11 @@ export function invoiceSourcePrefix(invoiceId: string): string {
 
 export interface ProjectedLine {
   sourceRef: string;
+  /** ADR-0038: GROSS — the line's net total plus its VAT. */
   amount: string;
+  /** ADR-0038: the line's net total and its VAT; both null when eFinance sent no rate. */
+  netAmount: string | null;
+  vatAmount: string | null;
   description: string | null;
   postingDate: string | null;
   docDate: string | null;
@@ -123,6 +128,11 @@ export interface ProjectedLine {
  * than euro is kept in the history but not posted: the ledger is EUR only.
  * `sap_batch_date` is the posting date (the cash-flow month); invoice_date
  * is never one.
+ *
+ * RULE (ADR-0038): the ledger is gross. `line_total` is qty × unit_price,
+ * net of VAT (INTEGRATION §3), and the line carries its own `vat_rate`, so
+ * the row posts net + VAT and keeps both halves. A line with no rate posts
+ * its total as it is and is taken as gross, like a SAP line.
  */
 export function projectedLines(invoice: EFinanceRawInvoice): ProjectedLine[] {
   if (invoice.ledger !== "booked") return [];
@@ -130,9 +140,12 @@ export function projectedLines(invoice: EFinanceRawInvoice): ProjectedLine[] {
   const lines: ProjectedLine[] = [];
   invoice.lines.forEach((line, index) => {
     if (line.line_total === null) return;
+    const split = grossOfLine(line.line_total, line.vat_rate);
     lines.push({
       sourceRef: lineSourceRef(String(invoice.id), index),
-      amount: line.line_total,
+      amount: split.gross,
+      netAmount: split.net,
+      vatAmount: split.vat,
       description: line.descr ?? invoice.invoice_no,
       postingDate: dateOnly(invoice.sap_batch_date),
       docDate: dateOnly(invoice.invoice_date),
@@ -143,6 +156,29 @@ export function projectedLines(invoice: EFinanceRawInvoice): ProjectedLine[] {
     });
   });
   return lines;
+}
+
+/**
+ * eFinance's VAT rate on a line as a fraction. It has been seen as «19» and
+ * «19.00» (a percentage); a value of 1 or less is read as a fraction already.
+ * The same rule as `ecapital.efinance_vat_fraction` in 0031.
+ */
+export function vatFraction(rate: string | number | null | undefined): number | null {
+  const value = toNumber(rate);
+  if (value === null || value < 0) return null;
+  return value > 1 ? value / 100 : value;
+}
+
+/** ADR-0038: a line's net total and rate as the three 2-decimal strings the ledger keeps. */
+export function grossOfLine(
+  lineTotal: string,
+  rate: string | number | null | undefined,
+): { gross: string; net: string | null; vat: string | null } {
+  const fraction = vatFraction(rate);
+  if (fraction === null) return { gross: lineTotal, net: null, vat: null };
+  const net = Number(lineTotal);
+  const vat = roundMoney(net * fraction);
+  return { gross: toMoneyString(roundMoney(net + vat)), net: toMoneyString(net), vat: toMoneyString(vat) };
 }
 
 export function dateOnly(value: string | null | undefined): string | null {

@@ -9,6 +9,10 @@ The screen shows accruals by project and contract: certified amounts not yet inv
 3. Read the table by project and contract: certified net, invoiced and accrual, with the total at the bottom.
 4. Click «Export to Excel» to download the file with the same figures the screen shows.
 
+## VAT
+
+Each row shows the certified net amount, the rate, the VAT and the total with VAT. The accrual is the total with VAT less what was invoiced, which is posted with VAT. In Excel the VAT, the total and the accrual are formulas.
+
 ## What can go wrong
 
 - **You cannot see the screen at all.** It is visible to Finance, the administrator, the head of estates and the two read-only roles.

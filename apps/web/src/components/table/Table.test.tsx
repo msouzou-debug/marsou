@@ -105,7 +105,7 @@ describe("Table", () => {
     expect(body.title).toBe("Κόστος ανά κατηγορία — Ανακαίνιση χειρουργείων Γ.Ν. Λάρνακας");
     expect(body.columns).toEqual([
       { header: "Κατηγορία κόστους", numeric: false, kind: "text" },
-      { header: "Πρόβλεψη τελικού κόστους", numeric: true, kind: "money" },
+      { header: "Πρόβλεψη τελικού κόστους με ΦΠΑ", numeric: true, kind: "money" },
     ]);
     expect(body.rows).toEqual([
       ["Οικοδομικές εργασίες", 1_260_000],
@@ -133,7 +133,7 @@ describe("Table", () => {
 
     expect(await screen.findByRole("alert")).toHaveTextContent("Η εξαγωγή δεν έγινε.");
     const body = JSON.parse(String((fetchMock.mock.calls[0] as [string, RequestInit])[1].body));
-    expect(body.columns.map((c: { header: string }) => c.header)).toEqual(["Πρόβλεψη τελικού κόστους"]);
+    expect(body.columns.map((c: { header: string }) => c.header)).toEqual(["Πρόβλεψη τελικού κόστους με ΦΠΑ"]);
   });
 
   it("keeps the export button rendered but disabled when offline, with the reason in the title", () => {

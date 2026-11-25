@@ -10,6 +10,12 @@
  *   Spent      the actual postings.
  *   Forecast   committed + pending variations at a weight + contingency.
  *
+ * RULE (ADR-0038, owner decision item 23): all four are GROSS, incl. VAT.
+ * ΟΚΥπΥ cannot recover input VAT, so VAT is a cost to the project and the
+ * budget, which is written with VAT, is compared with the gross commitment
+ * (`contract.current_gross`), the gross pending variations, the actuals
+ * (posted gross) and a contingency the engineer writes with VAT.
+ *
  * RULE (the convention the cost screens keep, and the reason this file is
  * full of nulls): a ledger with no source is null, never zero. A project
  * nobody has committed anything on has no commitment; saying €0 would read as
@@ -520,7 +526,7 @@ export class ProjectCostService {
       select (select sum(t.amount) from ecapital.cost_txn t
                where t.project_id = ${projectId}::uuid and t.txn_type = 'COMMITMENT'
                  and t.source in ('SAP_EXTRACT', 'SAP_MCP'))::text as sap_commitment,
-             (select sum(c.current_value) from ecapital.contract c
+             (select sum(c.current_gross) from ecapital.contract c
                where c.project_id = ${projectId}::uuid)::text as contract_commitment,
              exists (select 1 from ecapital.contract c
                       where c.project_id = ${projectId}::uuid) as has_contracts,
@@ -530,7 +536,7 @@ export class ProjectCostService {
              exists (select 1 from ecapital.cost_txn t
                       where t.project_id = ${projectId}::uuid and t.txn_type = 'ACTUAL'
                         and ecapital.cost_txn_counts_as_spent(t.source, t.contract_id)) as has_actuals,
-             (select sum(v.value) from ecapital.variation v
+             (select sum(v.gross_value) from ecapital.variation v
                join ecapital.contract c on c.id = v.contract_id
               where c.project_id = ${projectId}::uuid and v.status = 'SUBMITTED')::text
                as pending_variations,
