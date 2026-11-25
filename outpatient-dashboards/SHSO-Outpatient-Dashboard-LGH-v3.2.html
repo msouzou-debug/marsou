@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:; connect-src 'none'; frame-src 'none'; object-src 'none'; form-action 'none'; base-uri 'none'">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>ΟΚΥπΥ · Εξωτερικά Ιατρεία · Γ.Ν. Λάρνακας · v3.1</title>
+<title>ΟΚΥπΥ · Εξωτερικά Ιατρεία · Γ.Ν. Λάρνακας · v3.2</title>
 <style>
 :root{
   --ink:#1D2A35; --ink-2:#5A6673; --ink-3:#8A94A0;
@@ -124,7 +124,7 @@ footer{padding:16px 22px 34px;font-size:11.5px;color:var(--ink-3);text-align:cen
 </head>
 <body>
 <div class="hosp-band" style="background:#8A5A0C;color:#fff;padding:7px 22px;font:800 15px/1.3 'Segoe UI',system-ui,Arial,sans-serif;letter-spacing:.04em;display:flex;gap:10px;align-items:center;flex-wrap:wrap;-webkit-print-color-adjust:exact;print-color-adjust:exact"><span style="text-transform:uppercase">Γενικό Νοσοκομείο Λάρνακας</span><span style="background:rgba(255,255,255,.22);border-radius:4px;padding:1px 8px;font-size:12px">LGH</span><span style="margin-left:auto;font-weight:600;font-size:12px;opacity:.9">Εργαλείο ανάλυσης Εξωτερικών Ιατρείων</span></div>
-<div id="buildTag" style="position:fixed;right:10px;bottom:5px;font-size:10px;color:#8A94A0;z-index:5;pointer-events:none">Γ.Ν. Λάρνακας · Έκδοση 3.1 · 23/11/2026 · SheetJS 0.20.3 · λειτουργεί χωρίς σύνδεση</div>
+<div id="buildTag" style="position:fixed;right:10px;bottom:5px;font-size:10px;color:#8A94A0;z-index:5;pointer-events:none">Γ.Ν. Λάρνακας · Έκδοση 3.2 · 25/11/2026 · SheetJS 0.20.3 · λειτουργεί χωρίς σύνδεση</div>
 <style>@media print{#buildTag{display:none}}</style>
 
 
@@ -169,6 +169,7 @@ footer{padding:16px 22px 34px;font-size:11.5px;color:var(--ink-3);text-align:cen
     <div class="f"><label>Από</label><input type="date" id="fFrom"></div>
     <div class="f"><label>Έως</label><input type="date" id="fTo"></div>
     <div class="f"><label>&nbsp;</label><div class="chk"><input type="checkbox" id="fNoAug"><label for="fNoAug" style="text-transform:none;font-size:13px">Εξαίρεση Αυγούστου</label></div></div>
+    <div class="f"><label>&nbsp;</label><div class="chk"><input type="checkbox" id="fInclExt"><label for="fInclExt" style="text-transform:none;font-size:13px" title="Οδοντιατρική, Ψυχολόγοι, Παιδοψυχιατρική, Εργοθεραπεία, Γενική Ιατρική, Φαρμακείο, Παραπομπές από άλλα νοσοκομεία">Και ειδικότητες εκτός Διεύθυνσης ΓΝΛΑ</label></div></div>
     <div class="f"><label>&nbsp;</label><button id="btnApply">Εφαρμογή</button></div>
     <div class="f"><label>&nbsp;</label><button class="sec" id="btnClear">Καθαρισμός</button></div>
   </div>
@@ -552,8 +553,11 @@ if(location.hash==="#print") window.addEventListener("load",function(){setTimeou
         MinAppt ραντεβού· οι ειδικότητες χωρίς ραντεβού μένουν στην εκτίμηση. Εγγραφές χωρίς ιατρείο, εγγραφές προς
         ραντεβού, ιατρεία χωρίς εγγραφές. Πακέτο αρχείων ανά κλινική (ZIP). Νέοι έλεγχοι ακρίβειας.
    3.1  Όταν ένα βιβλίο εργασίας έχει πάνω από ένα φύλλο δεδομένων (π.χ. «Data» και «Data_updated»), διαβάζεται μόνο
-        ένα, ώστε να μη μετρηθούν οι ίδιες εγγραφές δύο φορές. */
-const TOOL={code:"LGH", hospital:"Γ.Ν. Λάρνακας", version:"3.1", date:"23/11/2026", full:"Γενικό Νοσοκομείο Λάρνακας", color:"#8A5A0C"};
+        ένα, ώστε να μη μετρηθούν οι ίδιες εγγραφές δύο φορές.
+   3.2  Κανόνες του νοσοκομείου (25/11/2026): ειδικότητες εκτός Διεύθυνσης ΓΝΛΑ μένουν εκτός, ονομασίες της ίδιας
+        ειδικότητας ενώνονται, οι μικροεπεμβάσεις (Day Care) μένουν χωριστή γραμμή μέσα στην Κλινική τους,
+        διορθώσεις ειδικότητας για τρεις επαγγελματίες. Το πακέτο βγαίνει πλέον ανά Κλινική. */
+const TOOL={code:"LGH", hospital:"Γ.Ν. Λάρνακας", version:"3.2", date:"25/11/2026", full:"Γενικό Νοσοκομείο Λάρνακας", color:"#8A5A0C"};
 
 
 const CFG = {
@@ -590,7 +594,7 @@ let ALIASES = [];        // merge log
 let FILES = [];          // loaded file names
 let PROBLEMS = [];       // parse-time data quality notes
 let VIEW = null;         // current analysis result
-let FILTER = {spec:[], doc:"", from:null, to:null, noAug:false};
+let FILTER = {spec:[], doc:"", from:null, to:null, noAug:false, inclExt:false};
 let TAB = "concl";
 let SORT = {};
 
@@ -667,6 +671,56 @@ function headerIndex(row){
   return idx;
 }
 
+/* ===================== ΚΑΝΟΝΕΣ ΤΟΥ ΝΟΣΟΚΟΜΕΙΟΥ =====================
+   Όπως επιβεβαιώθηκαν από το Γραφείο ΕΓΔ του Γ.Ν. Λάρνακας στις 25/11/2026. Αλλάζουν μόνο εδώ. */
+const RULES = {
+  // ονομασίες που είναι η ίδια ειδικότητα: [όπως στο αρχείο, όπως θα εμφανίζεται]
+  merge: [
+    ["ΜΑΙΕΥΤΙΚΗ","ΓΥΝΑΙΚΟΛΟΓΙΑ - ΜΑΙΕΥΤΙΚΗ"], ["ΓΥΝΑΙΚΟΛΟΓΙΑ","ΓΥΝΑΙΚΟΛΟΓΙΑ - ΜΑΙΕΥΤΙΚΗ"],
+    ["ΠΑΙΔΙΑΤΡΙΚΗ ΕΙΔΙΚΟΤΗΤΑ","ΠΑΙΔΙΑΤΡΙΚΗ"], ["ΠΑΙΔΙΑΤΡΙΚΗ - ΕΣΩΤΕΡΙΚΗ ΝΟΣΗΛΕΙΑ","ΠΑΙΔΙΑΤΡΙΚΗ"],
+    ["ΦΥΣΙΟΘΕΡΑΠΕΙΑ (ΓΕΣΥ)","ΦΥΣΙΟΘΕΡΑΠΕΙΑ"], ["ΦΥΣΙΟΘΕΡΑΠΕΙΑ (ΕΚΤΟΣ ΓΕΣΥ)","ΦΥΣΙΟΘΕΡΑΠΕΙΑ"],
+    ["ΚΛΙΝΙΚΟΣ ΔΙΑΙΤΟΛΟΓΟΣ","ΔΙΑΙΤΟΛΟΓΙΑ"],
+    ["ΦΥΜΑΤΙΩΣΗ","ΠΝΕΥΜΟΝΙΟΛΟΓΙΑ"],
+    ["ΑΚΟΥΟΓΡΑΦΗΜΜΑΤΑ","ΩΤΟΡΙΝΟΛΑΡΥΓΓΟΛΟΓΙΚΗ"]
+  ],
+  // μικροεπεμβάσεις (Day Care που καταχωρίζονται ως εξωτερικοί): χωριστή γραμμή, αλλά στο πακέτο της Κλινικής τους
+  clinic: [
+    ["ΟΡΘΟΠΕΔΙΚΕΣ ΜΙΚΡΟΕΠΕΜΒΑΣΕΙΣ","ΟΡΘΟΠΑΙΔΙΚΗ"], ["ΧΕΙΡΟΥΡΓΙΚΕΣ ΜΙΚΡΟΕΠΕΜΒΑΣΕΙΣ","ΓΕΝΙΚΗ ΧΕΙΡΟΥΡΓΙΚΗ"],
+    ["ΟΦΘΑΛΜΟΛΟΓΙΚΕΣ ΕΠΕΜΒΑΣΕΙΣ","ΟΦΘΑΛΜΟΛΟΓΙΑ"], ["ΟΥΡΟΛΟΓΙΚΕΣ ΕΠΕΜΒΑΣΕΙΣ","ΟΥΡΟΛΟΓΙΑ"]
+  ],
+  // ειδικότητες που δεν ανήκουν στη Διεύθυνση ΓΝΛΑ: μένουν εκτός, εκτός αν ζητηθούν από το φίλτρο
+  outside: ["ΟΔΟΝΤΙΑΤΡΙΚΗ","ΨΥΧΟΛΟΓΟΣ","ΚΛΙΝΙΚΟΣ ΨΥΧΟΛΟΓΟΣ","ΠΑΙΔΟΨΥΧΙΑΤΡΙΚΗ","ΝΟΣΗΛΕΥΤΗΣ ΨΥΧΙΚΗΣ ΥΓΕΙΑΣ","ΕΡΓΟΘΕΡΑΠΕΙΑ",
+            "ΕΡΓΟΘΕΡΑΠΕΥΤΗΣ","ΓΕΝΙΚΗ ΙΑΤΡΙΚΗ","ΦΑΡΜΑΚΕΙΟ","ΠΑΡΑΠ. ΑΠΟ ΑΛΛΑ ΝΟΣΟΚ. & ΙΔΡΥΜΑΤΑ"],
+  // επαγγελματίες καταχωρισμένοι σε λάθος ειδικότητα: [ονοματεπώνυμο, από, σε]
+  doctor: [
+    ["ΓΙΑΛΛΟΥΡΟΣ ΧΡΥΣΟΣΤΟΜΟΣ","ΓΕΝΙΚΗ ΧΕΙΡΟΥΡΓΙΚΗ","ΠΛΑΣΤΙΚΗ ΧΕΙΡΟΥΡΓΙΚΗ"],
+    ["ΓΕΩΡΓΙΟΥ ΙΩΑΝΝΑ","ΠΑΘΟΛΟΓΙΑ","ΓΡΗΓΟΡΙΟΣ ΚΛΙΝΙΚΗ"],
+    ["ΚΩΝΣΤΑΝΤΙΝΟΥ ΜΑΡΛΕΝ","ΠΑΘΟΛΟΓΙΑ","ΚΛΙΝΙΚΟΣ ΨΥΧΟΛΟΓΟΣ"]
+  ]
+};
+let RULE_N = null, RULE_LOG = {moved:{}, merged:{}, outside:{}};
+function ruleIndex(){
+  if(RULE_N) return RULE_N;
+  RULE_N = {merge:new Map(RULES.merge.map(([a,b])=>[normSpec(a),{key:normSpec(b),disp:b}])),
+            clinic:new Map(RULES.clinic.map(([a,b])=>[normSpec(a),{key:normSpec(b),disp:b}])),
+            outside:new Set(RULES.outside.map(normSpec)),
+            doctor:RULES.doctor.map(([d,f,t])=>({dk:exactKey(d),from:normSpec(f),to:normSpec(t),disp:t,label:d+": "+f+" → "+t}))};
+  return RULE_N;
+}
+/* Εφαρμόζεται σε κάθε γραμμή μόλις διαβαστεί. Προσθέτει clinicKey/clinic (Κλινική για το πακέτο) και ext (εκτός Διεύθυνσης). */
+function applyRules(rec){
+  const R = ruleIndex(), dk = exactKey(rec.docRaw), n = rec.count||0;
+  for(const d of R.doctor) if(d.dk===dk && d.from===rec.specKey){
+    rec.specKey = d.to; rec.spec = d.disp; RULE_LOG.moved[d.label] = (RULE_LOG.moved[d.label]||0) + n; break; }
+  const m = R.merge.get(rec.specKey);
+  if(m){ const lab = rec.spec+" → "+m.disp; RULE_LOG.merged[lab] = (RULE_LOG.merged[lab]||0) + n; rec.specKey = m.key; rec.spec = m.disp; }
+  const c = R.clinic.get(rec.specKey);
+  rec.clinicKey = c ? c.key : rec.specKey; rec.clinic = c ? c.disp : rec.spec;
+  rec.ext = R.outside.has(rec.specKey);
+  if(rec.ext) RULE_LOG.outside[rec.spec] = (RULE_LOG.outside[rec.spec]||0) + n;
+  return rec;
+}
+
 /* Σύνολα όπως διαβάστηκαν από τα αρχεία, πριν από κάθε επεξεργασία. Χρησιμεύουν στους ελέγχους ακρίβειας. */
 let SRC = {rAm:0, rPm:0, aAm:0, aPm:0, aExcl:0};
 /* Νέα μορφή αρχείου: Ημερομηνία | Ημέρα | Doctor | Spec | Ραντεβού Πρωί | Εγγραφές Πρωί | Ραντεβού Απόγευμα | Εγγραφές Απόγευμα */
@@ -700,8 +754,8 @@ function readApptSheet(aoa, x, fname, parsed, problems){
     const spec = specDisplay(sp0||"—");
     const dayEn = x.day!=null && row[x.day] ? String(row[x.day]).trim() : DAY_ORDER[(d.getDay()+6)%7];
     const base = {date:d, docRaw:String(doc).trim(), spec, specKey:normSpec(spec), day:dayEn, file:fname};
-    if(rAm>0 || aAm>0){ parsed.push(Object.assign({count:rAm, appt:aAm, session:"AM"}, base)); used++; }
-    if(rPm>0 || aPm>0){ parsed.push(Object.assign({count:rPm, appt:aPm, session:"PM"}, base)); used++;
+    if(rAm>0 || aAm>0){ parsed.push(applyRules(Object.assign({count:rAm, appt:aAm, session:"AM"}, base))); used++; }
+    if(rPm>0 || aPm>0){ parsed.push(applyRules(Object.assign({count:rPm, appt:aPm, session:"PM"}, base))); used++;
       pmAll+=rPm; if(aPm===0) pmNoAppt+=rPm; }
   }
   if(nullRows) problems.push(`${nullRows} γραμμές με ειδικότητα «NULL» ή κενή και καμία εγγραφή (${nullAppt} ραντεβού) αγνοήθηκαν. Ρωτήστε την Πληροφορική τι είναι.`);
@@ -715,6 +769,7 @@ async function readFiles(files){
   const parsed = [];        // {file, key(date|nameKey|spec|session), rec}
   const problems = [];
   SRC = {rAm:0, rPm:0, aAm:0, aPm:0, aExcl:0};
+  RULE_LOG = {moved:{}, merged:{}, outside:{}};
   let n = 0;
   for(const f of files){
     const buf = await f.arrayBuffer();
@@ -750,8 +805,8 @@ async function readFiles(files){
         if(!isFinite(cnt)) continue;
         const spec = specDisplay(row[idx.spec]||"—");
         const dayEn = row[idx.day] ? String(row[idx.day]).trim() : DAY_ORDER[(d.getDay()+6)%7];
-        parsed.push({date:d, docRaw:String(doc).trim(), spec, specKey:normSpec(spec),
-                     day:dayEn, count:cnt, session:kind, file:f.name});
+        parsed.push(applyRules({date:d, docRaw:String(doc).trim(), spec, specKey:normSpec(spec),
+                     day:dayEn, count:cnt, session:kind, file:f.name}));
         SRC[kind==="AM"?"rAm":"rPm"] += cnt;
         used++;
       }
@@ -876,6 +931,7 @@ function analyse(){
     if(FILTER.from && r.date < FILTER.from) return false;
     if(FILTER.to && r.date > FILTER.to) return false;
     if(FILTER.noAug && r.date.getMonth()===7) return false;
+    if(r.ext && !FILTER.inclExt) return false;
     if(FILTER.spec.length && !FILTER.spec.includes(r.specKey)) return false;
     if(FILTER.doc && r.docKey!==FILTER.doc) return false;
     return true;
@@ -921,7 +977,7 @@ function analyse(){
   const D = new Map();
   for(const r of rows){
     const k = r.docKey+"|"+r.specKey;
-    if(!D.has(k)) D.set(k,{docKey:r.docKey, doc:r.doc, spec:r.spec, specKey:r.specKey,
+    if(!D.has(k)) D.set(k,{docKey:r.docKey, doc:r.doc, spec:r.spec, specKey:r.specKey, clinic:r.clinic, clinicKey:r.clinicKey,
       amV:0, amD:new Set(), amSV:0, amSD:new Set(), pmV:0, pmD:new Set(),
       dayV:{}, dayD:{}, daily:[], months:{}, coreDays:new Set(), apptSV:0, walk:0, emptyD:0});
     const g = D.get(k);
@@ -948,7 +1004,7 @@ function analyse(){
     const mean = g.daily.length? g.daily.reduce((a,b)=>a+b,0)/g.daily.length : 0;
     const sd = g.daily.length>1? Math.sqrt(g.daily.reduce((a,b)=>a+(b-mean)**2,0)/(g.daily.length-1)) : 0;
     list.push({
-      docKey:g.docKey, doc:g.doc, spec:g.spec, specKey:g.specKey,
+      docKey:g.docKey, doc:g.doc, spec:g.spec, specKey:g.specKey, clinic:g.clinic, clinicKey:g.clinicKey,
       amV:g.amV, amD, amSD, amSV:g.amSV, adhocD:amD-amSD, adhocV:g.amV-g.amSV,
       byAppt:!!specAppt[g.specKey], apptSV:g.apptSV, walk:g.walk, emptyD:g.emptyD, att:g.apptSV? g.amSV/g.apptSV : null,
       avgAll, avgSched, cap, capSrc:(CAP[g.specKey]||{}).source, util: cap? avgSched/cap : 0,
@@ -982,7 +1038,7 @@ function analyse(){
   // specialty roll-up
   const S = new Map();
   for(const d of list){
-    if(!S.has(d.specKey)) S.set(d.specKey,{spec:d.spec, specKey:d.specKey, docs:0,
+    if(!S.has(d.specKey)) S.set(d.specKey,{spec:d.spec, specKey:d.specKey, clinic:d.clinic, clinicKey:d.clinicKey, docs:0,
       amV:0, amD:0, amSD:0, amSV:0, pmV:0, pmD:0, cap:d.cap, capSrc:d.capSrc,
       byAppt:d.byAppt, apptSV:0, walk:0, emptyD:0});
     const s=S.get(d.specKey);
@@ -1278,7 +1334,7 @@ function renderPanel(){
     const trendOf = s => V.months.map(m=>
       V.list.filter(d=>d.specKey===s.specKey).reduce((a,d)=>a+(d.months[m]||0),0));
     const cols=[
-      {h:"Κλινική", v:r=>r.spec, f:r=>esc(r.spec)},
+      {h:"Κλινική", v:r=>r.spec, f:r=>esc(r.spec)+(r.clinicKey!==r.specKey?` <span class="pill p-src" title="Day Care που καταχωρίζεται ως εξωτερικοί ασθενείς. Στο πακέτο πηγαίνει μαζί με την Κλινική.">${esc(r.clinic)}</span>`:"")},
       {h:"Τάση", v:r=>{const a=trendOf(r);return a[a.length-1]-a[0];}, f:r=>sparkline(trendOf(r),72,18),
        tip:"Μηνιαία εξέλιξη πρωινών επισκέψεων"},
       {h:"Ιατροί", num:1, v:r=>r.docs, f:r=>nf(r.docs)},
@@ -1430,6 +1486,11 @@ function renderPanel(){
     const k=VIEW.kpi;
     if(PROBLEMS.length) issues.push({t:"Παρατηρήσεις κατά την ανάγνωση", n:PROBLEMS.length, sev:"warn",
       d:PROBLEMS.slice(0,25).map(esc).join("<br>")+(PROBLEMS.length>25?`<br>… και άλλες ${PROBLEMS.length-25}`:"")});
+    const lg = o => Object.entries(o).sort((a,b)=>b[1]-a[1]).map(([t,n])=>`${esc(t)}: ${nf(n)} εγγραφές`).join("<br>");
+    if(Object.keys(RULE_LOG.outside).length) issues.push({t:"Ειδικότητες εκτός Διεύθυνσης ΓΝΛΑ", n:Object.keys(RULE_LOG.outside).length, sev:"warn",
+      d:(FILTER.inclExt?"Περιλαμβάνονται, επειδή είναι επιλεγμένο το σχετικό φίλτρο.":"Δεν περιλαμβάνονται στους υπολογισμούς. Όλη η περίοδος των αρχείων:")+"<br>"+lg(RULE_LOG.outside)});
+    if(Object.keys(RULE_LOG.merged).length) issues.push({t:"Ονομασίες που ενώθηκαν", n:Object.keys(RULE_LOG.merged).length, sev:"warn", d:lg(RULE_LOG.merged)});
+    if(Object.keys(RULE_LOG.moved).length) issues.push({t:"Διορθώσεις ειδικότητας επαγγελματιών", n:Object.keys(RULE_LOG.moved).length, sev:"warn", d:lg(RULE_LOG.moved)});
     if(ALIASES.length) issues.push({t:"Ενοποίηση ονομάτων", n:ALIASES.length, sev:"warn",
       d:ALIASES.map(a=>`<b>${esc(a.display)}</b> ← ${a.variants.map(esc).join(" / ")}`).join("<br>")});
     const bigDays=VIEW.rows.filter(r=>r.session==="AM" && r.count > 2*((CAP[r.specKey]||{slots:99}).slots));
@@ -1611,6 +1672,7 @@ function readFilters(){
   FILTER.from=$("#fFrom").value? new Date($("#fFrom").value+"T00:00:00"):null;
   FILTER.to=$("#fTo").value? new Date($("#fTo").value+"T23:59:59"):null;
   FILTER.noAug=$("#fNoAug").checked;
+  FILTER.inclExt=$("#fInclExt").checked;
 }
 function refresh(){
   VIEW=analyse();
@@ -1626,7 +1688,7 @@ const dz=$("#drop");
 ["dragleave","drop"].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();dz.classList.remove("over");}));
 dz.addEventListener("drop",e=>load(e.dataTransfer.files));
 $("#btnApply").onclick=()=>{readFilters();refresh();};
-$("#btnClear").onclick=()=>{$("#fSpec").selectedIndex=-1;$("#fDoc").value="";$("#fNoAug").checked=false;
+$("#btnClear").onclick=()=>{$("#fSpec").selectedIndex=-1;$("#fDoc").value="";$("#fNoAug").checked=false;$("#fInclExt").checked=false;
   const ds=RAW.map(r=>r.date);$("#fFrom").value=iso(new Date(Math.min(...ds)));$("#fTo").value=iso(new Date(Math.max(...ds)));
   readFilters();refresh();};
 $("#btnReload").onclick=()=>{RAW=[];FILES=[];CAP={};VIEW=null;
@@ -2416,6 +2478,8 @@ function rptPayload(){
     checks:rptChecks(V),
     method:[
       "Πηγή: εξαγωγή του νοσοκομείου, μία γραμμή ανά ιατρό και ημέρα, με ραντεβού και εγγραφές για πρωί και απόγευμα.",
+      ...(FILTER.inclExt?[]:["Δεν περιλαμβάνονται οι ειδικότητες που δεν ανήκουν στη Διεύθυνση ΓΝΛΑ: "+RULES.outside.join(", ")+"."]),
+      "Οι μικροεπεμβάσεις (Day Care που καταχωρίζεται ως εξωτερικοί ασθενείς) εμφανίζονται σε δική τους γραμμή και δεν μπαίνουν στον μέσο όρο των Εξωτερικών Ιατρείων της Κλινικής.",
       ...(k.hasAppt?["Προγραμματισμένο ιατρείο: πρωινό με τουλάχιστον "+CFG.minAppt+" ραντεβού. Οι εγγραφές σε ημέρες χωρίς ιατρείο μετρούν στον όγκο αλλά όχι στον μέσο όρο.",
         "Πρωινά με ραντεβού αλλά καμία εγγραφή δεν μπαίνουν στον μέσο όρο· αναφέρονται χωριστά.",
         "Εγγραφές προς ραντεβού: οι εγγραφές των προγραμματισμένων ιατρείων διά τα ραντεβού τους. Πάνω από 100% σημαίνει εγγραφές επιπλέον των ραντεβού.",
@@ -2441,35 +2505,42 @@ function rptPayload(){
 /* Για κάθε επιλεγμένη κλινική βγαίνει ξεχωριστός φάκελος μέσα σε ένα ZIP. Κάθε αρχείο περιέχει μόνο τα στοιχεία της κλινικής·
    το νοσοκομείο εμφανίζεται μόνο ως μία συνολική γραμμή σύγκρισης. */
 const safeName = RPT.safeName;
-async function clinicPacks(specKeys, fm, onStep){
+async function clinicPacks(clinicKeys, fm, onStep){
   const keep = {spec:FILTER.spec.slice(), doc:FILTER.doc};
   const zip = new JSZip(); let done = 0;
+  const allProblems = PROBLEMS;     // οι σημειώσεις φόρτωσης αφορούν όλο το νοσοκομείο· στο πακέτο μπαίνουν μόνο της Κλινικής
   try{
     FILTER.spec = []; FILTER.doc = "";
     const H = analyse(), hk = H.kpi;
-    for(const sk of specKeys){
-      FILTER.spec = [sk]; VIEW = analyse();
+    for(const ck of clinicKeys){
+      const keys = H.specs.filter(x=>x.clinicKey===ck).map(x=>x.specKey);
+      if(!keys.length) continue;
+      FILTER.spec = keys; VIEW = analyse();
       if(!VIEW) continue;
-      const V = VIEW, s = V.specs[0], k = V.kpi, f1 = v=>nf(v,1);
-      onStep(`${++done} από ${specKeys.length}: ${s.spec}`);
+      const V = VIEW, k = V.kpi, f1 = v=>nf(v,1), many = V.specs.length>1;
+      PROBLEMS = allProblems.filter(x=>!/ · /.test(x) || V.specs.some(sp=>x.includes(" · "+sp.spec+" ")));
+      const name = (V.specs.find(x=>x.specKey===ck)||V.specs[0]).clinic;
+      onStep(`${++done} από ${clinicKeys.length}: ${name}`);
       const p = rptPayload();
-      p.scope = "Κλινική: "+s.spec;
-      const ms = V.months.map(m=>({l:GR_MON[+m.split("-")[1]-1], v:V.list.reduce((a,d)=>a+(d.months[m]||0),0)}));
-      p.conclusions = [{t:"Η κλινική με μια ματιά", items:clinicNotes(s, V.list, ms).map(esc)}];
-      p.chartSpecs = {title:"Πρωινές επισκέψεις ανά ιατρό", items:V.list.slice().sort((a,b)=>b.amV-a.amV).slice(0,12).map(d=>({l:d.doc,v:d.amV}))};
+      p.scope = "Κλινική: "+name;
+      p.conclusions = V.specs.map(sp=>{
+        const docs = V.list.filter(d=>d.specKey===sp.specKey);
+        const ms = V.months.map(m=>({l:GR_MON[+m.split("-")[1]-1], v:docs.reduce((a,d)=>a+(d.months[m]||0),0)}));
+        return {t: many ? sp.spec : "Η κλινική με μια ματιά", items:clinicNotes(sp, docs, ms).map(esc)}; });
+      p.chartSpecs = {title:"Πρωινές επισκέψεις ανά ιατρό", items:V.list.slice().sort((a,b)=>b.amV-a.amV).slice(0,12).map(d=>({l:d.doc+(many?" · "+d.spec:""),v:d.amV}))};
       p.specTable = {title:"Ιατροί της κλινικής",
-        cols:[{h:"Ιατρός"},{h:"Επισκέψεις πρωινά",num:1},{h:"Προγρ. ημέρες",num:1},{h:"Μ.Ο./προγρ. ημέρα",num:1},{h:"Πληρότητα",num:1},
+        cols:[{h:"Ιατρός"},...(many?[{h:"Ειδικότητα"}]:[]),{h:"Επισκέψεις πρωινά",num:1},{h:"Προγρ. ημέρες",num:1},{h:"Μ.Ο./προγρ. ημέρα",num:1},{h:"Πληρότητα",num:1},
               {h:"Εγγρ. χωρίς ιατρείο",num:1},{h:"Εγγρ./ραντεβού",num:1},{h:"Απογ. συνεδρίες",num:1},{h:"Μ.Ο. απογευματινού",num:1}],
-        rows:V.list.map(d=>[d.doc,nf(d.amV),nf(d.amSD),f1(d.avgSched),pc(d.util),nf(d.adhocV),d.att==null?"—":pc(d.att),nf(d.pmD),d.pmD?f1(d.pmAvg):"—"])};
+        rows:V.list.map(d=>[d.doc,...(many?[d.spec]:[]),nf(d.amV),nf(d.amSD),f1(d.avgSched),pc(d.util),nf(d.adhocV),d.att==null?"—":pc(d.att),nf(d.pmD),d.pmD?f1(d.pmAvg):"—"])};
       p.sectionTitle = "Η κλινική αναλυτικά";
       p.bench = {title:"Σύγκριση με το σύνολο του νοσοκομείου", cols:["Δείκτης","Κλινική","Νοσοκομείο"], rows:[
-        ["Μ.Ο. ανά προγραμματισμένη ημέρα", f1(s.avgSched), f1(hk.avgSched)],
-        ["Πληρότητα", pc(s.util), pc(hk.wUtil)],
-        ["Ημέρες εκτός προγράμματος", pc(s.adhocPct,1), pc(hk.adhocPct,1)],
-        ["Εγγραφές χωρίς ιατρείο, % των πρωινών", pc(s.amV?s.adhocV/s.amV:0,1), pc(hk.amV?hk.adhocV/hk.amV:0,1)],
-        ...(s.att!=null?[["Εγγραφές προς ραντεβού", pc(s.att), pc(hk.att)]]:[]),
-        ["Μ.Ο. απογευματινού ιατρείου", s.pmD?f1(s.pmAvg):"—", f1(hk.pmAvg)]]};
-      const dir = zip.folder(safeName(s.spec)), base = safeName(s.spec)+" - ";
+        ["Μ.Ο. ανά προγραμματισμένη ημέρα", f1(k.avgSched), f1(hk.avgSched)],
+        ["Πληρότητα", pc(k.wUtil), pc(hk.wUtil)],
+        ["Ημέρες εκτός προγράμματος", pc(k.adhocPct,1), pc(hk.adhocPct,1)],
+        ["Εγγραφές χωρίς ιατρείο, % των πρωινών", pc(k.amV?k.adhocV/k.amV:0,1), pc(hk.amV?hk.adhocV/hk.amV:0,1)],
+        ...(k.att!=null?[["Εγγραφές προς ραντεβού", pc(k.att), pc(hk.att)]]:[]),
+        ["Μ.Ο. απογευματινού ιατρείου", k.pmD?f1(k.pmAvg):"—", f1(hk.pmAvg)]]};
+      const dir = zip.folder(safeName(name)), base = safeName(name)+" - ";
       if(fm.laptop) dir.file(base+"Αναφορά laptop.html", RPT.html(p,"laptop"));
       if(fm.phone)  dir.file(base+"Αναφορά κινητό.html", RPT.html(p,"phone"));
       if(fm.pptx)   dir.file(base+"Παρουσίαση.pptx", await RPT.pptx(p,true));
@@ -2477,7 +2548,7 @@ async function clinicPacks(specKeys, fm, onStep){
       if(fm.inter)  dir.file(base+"Διαδραστική αναφορά.html", reportHtmlString());
       await new Promise(r=>setTimeout(r,0));
     }
-  } finally { FILTER.spec = keep.spec; FILTER.doc = keep.doc; refresh(); }
+  } finally { PROBLEMS = allProblems; FILTER.spec = keep.spec; FILTER.doc = keep.doc; refresh(); }
   onStep("Συμπίεση…");
   const blob = await zip.generateAsync({type:"blob", compression:"DEFLATE"});
   dl(blob, `SHSO-Outpatient-${TOOL.code}-v${TOOL.version}-ClinicPacks-${iso(new Date())}.zip`);
@@ -2486,9 +2557,11 @@ async function clinicPacks(specKeys, fm, onStep){
 function openPackDialog(){
   const keep = {spec:FILTER.spec.slice(), doc:FILTER.doc};
   FILTER.spec = []; FILTER.doc = ""; const H = analyse(); FILTER.spec = keep.spec; FILTER.doc = keep.doc;
+  const cl = new Map();
+  for(const x of H.specs){ const o = cl.get(x.clinicKey) || {key:x.clinicKey, label:x.clinic, n:0, parts:[]}; o.n += x.amV+x.pmV; o.parts.push(x.spec); cl.set(x.clinicKey, o); }
   RPT.packDialog({title:"Πακέτο ανά κλινική", itemsLabel:"Κλινικές",
-    intro:"Κάθε κλινική παίρνει δικό της φάκελο μέσα σε ένα ZIP. Τα αρχεία περιέχουν μόνο τα δικά της στοιχεία και μία γραμμή σύγκρισης με το σύνολο του νοσοκομείου. Ισχύει η περίοδος των φίλτρων.",
-    items:H.specs.slice().sort((a,b)=>a.spec.localeCompare(b.spec,"el")).map(s=>({key:s.specKey,label:s.spec,n:s.amV+s.pmV})),
+    intro:"Κάθε κλινική παίρνει δικό της φάκελο μέσα σε ένα ZIP. Τα αρχεία περιέχουν μόνο τα δικά της στοιχεία και μία γραμμή σύγκρισης με το σύνολο του νοσοκομείου. Οι μικροεπεμβάσεις πηγαίνουν στον φάκελο της Κλινικής τους, σε χωριστή γραμμή. Ισχύει η περίοδος των φίλτρων.",
+    items:Array.from(cl.values()).sort((a,b)=>a.label.localeCompare(b.label,"el")).map(o=>({key:o.key,label:o.label+(o.parts.length>1?" (με "+o.parts.filter(t=>t!==o.label).join(", ")+")":""),n:o.n})),
     formats:[{key:"laptop",label:"HTML laptop",on:1},{key:"phone",label:"HTML κινητό"},{key:"pptx",label:"PowerPoint",on:1},
              {key:"xlsx",label:"Excel με τύπους",on:1},{key:"inter",label:"Διαδραστική αναφορά"}],
     note:"Για PDF ανοίξτε την αναφορά laptop της κλινικής και πατήστε «Εκτύπωση / PDF».",
@@ -2702,7 +2775,7 @@ const REPORT_HTML = `<!DOCTYPE html>
 <html lang="el"><head><meta charset="utf-8">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:; connect-src 'none'; frame-src 'none'; object-src 'none'; form-action 'none'; base-uri 'none'">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>ΟΚΥπΥ · Απόδοση Εξωτερικών Ιατρείων · Γ.Ν. Λάρνακας · v3.1</title>
+<title>ΟΚΥπΥ · Απόδοση Εξωτερικών Ιατρείων · Γ.Ν. Λάρνακας · v3.2</title>
 <style>
 :root{
  --ink:#1D2A35; --ink-2:#5A6673; --ink-3:#8A94A0;
