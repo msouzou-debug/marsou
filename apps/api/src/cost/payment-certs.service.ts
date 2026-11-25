@@ -18,9 +18,17 @@
  * saved and fires a warning. Finance decides on blocking later.
  */
 import { Injectable } from "@nestjs/common";
-import type { PaymentCert, PaymentCertCreate, PaymentCertStatus } from "@ecapital/shared";
+import {
+  PAYMENT_CERT_DATE_RULES,
+  PAYMENT_CERT_TRANSITION_DATE_RULES,
+  type PaymentCert,
+  type PaymentCertCreate,
+  type PaymentCertStatus,
+  dateIssues,
+} from "@ecapital/shared";
 import { and, asc, eq, sql } from "drizzle-orm";
 import { UUID, callerUserId } from "../common/actor";
+import { assertDates } from "../common/dates";
 import { AppError } from "../common/errors";
 import { CHECK_VIOLATION, INSUFFICIENT_PRIVILEGE, sqlState } from "../common/sql-error";
 import { currentTx } from "../db/client";
@@ -63,7 +71,9 @@ export class PaymentCertsService {
     const contract = await this.loadContract(contractId);
     const caller = await callerUserId();
 
-    if (input.periodTo < input.periodFrom) {
+    // PAYMENT_CERT_DATE_RULES. 422 with its own sentence, as since R11: the
+    // shared rule, the certificate's long-standing answer.
+    if (dateIssues(input, PAYMENT_CERT_DATE_RULES).length) {
       throw AppError.unprocessable("errors.certPeriodNotValid");
     }
 
@@ -167,6 +177,8 @@ export class PaymentCertsService {
     }
     if (input.to === "PAID") {
       if (!input.paidDate) throw AppError.unprocessable("errors.paidDateNeeded");
+      // PAYMENT_CERT_TRANSITION_DATE_RULES: paid by today, not tomorrow.
+      assertDates(input, PAYMENT_CERT_TRANSITION_DATE_RULES);
       values.paidDate = input.paidDate;
     }
     if (input.retentionReleased !== undefined) {

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { DateRules } from "./calendar-date";
 import { EFinanceContractSummary } from "./efinance";
 
 // ------------------------------------------------------------ M2 (R11, R13–R18, R31)
@@ -257,6 +258,15 @@ export const PaymentCertTransition = z.object({
   paidDate: z.string().nullable().default(null), // required for PAID
 });
 export type PaymentCertTransition = z.infer<typeof PaymentCertTransition>;
+
+// Date sanity (`calendar-date.ts`). The period of work a certificate covers cannot
+// end before it starts; the day it was paid is a fact, so not after today.
+export const PAYMENT_CERT_DATE_RULES = {
+  ordered: [["periodFrom", "periodTo"]],
+} as const satisfies DateRules<keyof PaymentCertCreate & string>;
+export const PAYMENT_CERT_TRANSITION_DATE_RULES = {
+  happened: ["paidDate"],
+} as const satisfies DateRules<keyof PaymentCertTransition & string>;
 
 // Cash flow (R17): by month, per project or unit.
 //

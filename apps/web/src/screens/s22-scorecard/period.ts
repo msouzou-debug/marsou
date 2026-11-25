@@ -1,6 +1,7 @@
 // S22 — R37. The contract pays quarterly (ADR-0031 §9), so the scorecard's
 // presets are calendar quarters in Nicosia time. `to` is exclusive, as the
 // contract's `ScorecardQuery.to` is; the screen shows the inclusive last day.
+import { PERIOD_DATE_RULES, dateIssues } from "@ecapital/shared";
 
 export interface Period {
   from: string; // ISO date, inclusive
@@ -29,4 +30,14 @@ export function shiftDay(date: string, days: number): string {
   const d = new Date(`${date}T00:00:00Z`);
   d.setUTCDate(d.getUTCDate() + days);
   return d.toISOString().slice(0, 10);
+}
+
+/**
+ * RULE (date sanity, PERIOD_DATE_RULES): a period that ends before it starts
+ * is no period. Judged on what a person reads — the inclusive last day —
+ * so a one-day period (from = last day) is fine. S22 and S23a both hold a
+ * backwards period back and say so under «Έως»; the API refuses one too.
+ */
+export function periodBackwards(from: string, lastDay: string): boolean {
+  return dateIssues({ from, to: lastDay }, PERIOD_DATE_RULES).length > 0;
 }

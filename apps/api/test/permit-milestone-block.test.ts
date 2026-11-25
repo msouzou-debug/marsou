@@ -72,7 +72,7 @@ describe("an open permit blocks a milestone (R24)", () => {
         titleEl: milestone.titleEl,
         baselineDate: milestone.baselineDate,
         forecastDate: milestone.forecastDate,
-        actualDate: "2027-06-28",
+        actualDate: "2026-06-28",
         isGate: milestone.isGate,
         sortOrder: 900,
       });
@@ -102,7 +102,7 @@ describe("an open permit blocks a milestone (R24)", () => {
 
     const after = await complete(project.id, milestone);
     expect(after.status).toBe(200);
-    expect((after.body as Milestone).actualDate).toBe("2027-06-28");
+    expect((after.body as Milestone).actualDate).toBe("2026-06-28");
   });
 
   it("lets a draft permit through — nobody has asked for anything yet", async () => {
@@ -127,7 +127,7 @@ describe("an open permit blocks a milestone (R24)", () => {
         titleEl: "Ολοκλήρωση ηλεκτρολογικών εργασιών",
         baselineDate: milestone.baselineDate,
         forecastDate: milestone.forecastDate,
-        actualDate: "2027-06-28",
+        actualDate: "2026-06-28",
         isGate: milestone.isGate,
         sortOrder: 900,
       });

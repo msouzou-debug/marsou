@@ -81,7 +81,7 @@ export class ContractsController {
   @ApiParam({ name: "id", schema: { type: "string", format: "uuid" } })
   @ApiBody({ schema: jsonSchema(ContractCreate) as never })
   @ApiZodResponse(201, ContractDetail, "The contract as stored, with its empty bill and no variations")
-  @ApiZodError(400, "The body is not a valid contract, or budgetCode does not name an active code")
+  @ApiZodError(400, "The body is not a valid contract, an award after today or a completion before the start, or budgetCode does not name an active code")
   @ApiZodError(403, "A read-only account, or a role that does not run projects")
   @ApiZodError(404, "No such project, or none the caller may see")
   @ApiZodError(422, "The contractor is blacklisted, or the project has not been awarded yet")
@@ -97,7 +97,20 @@ export class ContractsController {
    */
   @Get("contracts")
   @ApiOperation({ summary: "Every contract the caller may see, newest award first" })
-  @ApiQuery({ name: "unit", required: false, schema: { type: "string" } })
+  @ApiQuery({
+    name: "unit",
+    required: false,
+    description: "Org unit id; repeat the parameter for several",
+    schema: { type: "array", items: { type: "string" } },
+    style: "form",
+    explode: true,
+  })
+  @ApiQuery({
+    name: "project",
+    required: false,
+    description: "Only the contracts of this project",
+    schema: { type: "string", format: "uuid" },
+  })
   @ApiQuery({ name: "q", required: false, schema: { type: "string" } })
   @ApiZodResponse(200, ContractList, "The caller's contracts, newest award first")
   @ApiZodError(400, "The query is not valid")
@@ -141,7 +154,7 @@ export class ContractsController {
   @ApiParam({ name: "id", schema: { type: "string", format: "uuid" } })
   @ApiBody({ schema: jsonSchema(ContractUpdate) as never })
   @ApiZodResponse(200, ContractDetail, "The contract after the change")
-  @ApiZodError(400, "The body is not a valid change, or budgetCode does not name an active code")
+  @ApiZodError(400, "The body is not a valid change, a date out of order or after today, or budgetCode does not name an active code")
   @ApiZodError(403, "A read-only account, or a role that does not run projects")
   @ApiZodError(404, "No such contract, or none the caller may see")
   @ApiZodError(422, "Another contract in the unit already carries that number")
@@ -192,7 +205,7 @@ export class ContractsController {
   @ApiParam({ name: "id", schema: { type: "string", format: "uuid" } })
   @ApiBody({ schema: jsonSchema(ContractSectionWrite) as never })
   @ApiZodResponse(201, ContractDetail, "The contract with the section on it")
-  @ApiZodError(400, "The body is not a valid section")
+  @ApiZodError(400, "The body is not a valid section, or its handover is after today")
   @ApiZodError(403, "A role that does not write contracts, or a read-only account")
   @ApiZodError(404, "No such contract, or none the caller may see")
   @ApiZodError(422, "Another section of the contract already carries that code")
@@ -209,7 +222,7 @@ export class ContractsController {
   @ApiParam({ name: "sid", schema: { type: "string", format: "uuid" } })
   @ApiBody({ schema: jsonSchema(SectionChange) as never })
   @ApiZodResponse(200, ContractDetail, "The contract after the change")
-  @ApiZodError(400, "The body is not a valid change")
+  @ApiZodError(400, "The body is not a valid change, or the handover is after today")
   @ApiZodError(403, "A role that does not write contracts, or a read-only account")
   @ApiZodError(404, "No such contract or section")
   @ApiZodError(422, "Another section of the contract already carries that code")
@@ -242,7 +255,7 @@ export class ContractsController {
   @ApiParam({ name: "id", schema: { type: "string", format: "uuid" } })
   @ApiBody({ schema: jsonSchema(ContractExtensionWrite) as never })
   @ApiZodResponse(201, ContractDetail, "The contract with the extension and the moved due date")
-  @ApiZodError(400, "The body is not a valid extension")
+  @ApiZodError(400, "The body is not a valid extension, or approved after today or before the award")
   @ApiZodError(403, "A role that does not write contracts, or a read-only account")
   @ApiZodError(404, "No such contract, or none the caller may see")
   @ApiZodError(422, "The section named is not one of this contract's")
@@ -271,7 +284,7 @@ export class ContractsController {
   @ApiParam({ name: "id", schema: { type: "string", format: "uuid" } })
   @ApiBody({ schema: jsonSchema(ContractClaimWrite) as never })
   @ApiZodResponse(201, ContractDetail, "The contract with the claim on it")
-  @ApiZodError(400, "The body is not a valid claim")
+  @ApiZodError(400, "The body is not a valid claim, or notified after today or before the award")
   @ApiZodError(403, "A role that does not write contracts, or a read-only account")
   @ApiZodError(404, "No such contract, or none the caller may see")
   addClaim(@Param("id") id: string, @Body() body: unknown): Promise<ContractDetail> {
@@ -287,7 +300,7 @@ export class ContractsController {
   @ApiParam({ name: "cid", schema: { type: "string", format: "uuid" } })
   @ApiBody({ schema: jsonSchema(ClaimChange) as never })
   @ApiZodResponse(200, ContractDetail, "The contract after the change")
-  @ApiZodError(400, "The body is not a valid change")
+  @ApiZodError(400, "The body is not a valid change, or notified after today or before the award")
   @ApiZodError(403, "A role that does not write contracts, or a read-only account")
   @ApiZodError(404, "No such contract or claim")
   updateClaim(
@@ -313,7 +326,7 @@ export class ContractsController {
   @ApiParam({ name: "id", schema: { type: "string", format: "uuid" } })
   @ApiBody({ schema: jsonSchema(DelayActivation) as never })
   @ApiZodResponse(200, ContractDetail, "The contract with the activation on the clock")
-  @ApiZodError(400, "The body is not a valid activation")
+  @ApiZodError(400, "The body is not a valid activation, or one dated after today")
   @ApiZodError(403, "A role that does not approve on contracts, or a read-only account")
   @ApiZodError(404, "No such contract, or none the caller may see")
   @ApiZodError(422, "The section is not this contract's, or the contract has sections and no clock of its own")

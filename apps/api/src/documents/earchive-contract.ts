@@ -113,6 +113,8 @@ export const SOURCE_MODULES = [
   "asset_document",
   // M5: a photograph or the contractor's report on a work order. ADR-0031 §11.
   "work_order_document",
+  // ADR-0035 §4, 0029: a claim's letter, the reply to it, a lawyer's letter.
+  "claim_document",
 ] as const;
 
 /** «ΤΥ, Αρχείο Τεχνικών Υπηρεσιών», numbering ΤΥ/2026/00001. */

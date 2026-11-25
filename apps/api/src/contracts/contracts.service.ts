@@ -1,5 +1,10 @@
 import { Injectable } from "@nestjs/common";
 import {
+  CONTRACT_CLAIM_DATE_RULES,
+  CONTRACT_DATE_RULES,
+  CONTRACT_EXTENSION_DATE_RULES,
+  CONTRACT_SECTION_DATE_RULES,
+  DELAY_ACTIVATION_DATE_RULES,
   type BoqItem,
   type BoqItemWrite,
   type ContractClaimWrite,
@@ -19,7 +24,8 @@ import {
   type VariationCreate,
   type VariationDecision,
 } from "@ecapital/shared";
-import { and, asc, desc, eq, isNull, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, or, sql } from "drizzle-orm";
+import { assertDates, merged } from "../common/dates";
 import { AppError } from "../common/errors";
 import { I18nService } from "../common/i18n.service";
 import {
@@ -102,14 +108,21 @@ export class ContractsService {
    * `/contracts` on the web and for anybody arriving from eFinance without a
    * reference. No permission check here either: the row policy is what
    * decides which contracts come back, so a caller sees their own units and
-   * nothing else whatever `unit` says (ADR-0010).
+   * nothing else whatever `unit` says (ADR-0010). `unit` narrows to one or
+   * more units, `project` to one project; S07e's two filters.
    */
   async listAll(query: ContractListQuery): Promise<ContractList> {
     const tx = currentTx();
     if (!tx) throw AppError.internal();
 
     const where = [];
-    if (query.unit) where.push(eq(schema.contract.orgUnitId, query.unit));
+    if (query.unit.length) where.push(inArray(schema.contract.orgUnitId, query.unit));
+    // A project id that is not a uuid names no project; the answer is an
+    // empty register, not a 500 from the cast.
+    if (query.project !== undefined) {
+      if (!UUID.test(query.project)) return { items: [], total: 0 };
+      where.push(eq(schema.contract.projectId, query.project));
+    }
     if (query.q?.trim()) {
       where.push(matchesListable(query.q.trim()));
     }
@@ -182,6 +195,9 @@ export class ContractsService {
     const project = await this.loadProject(projectId);
 
     if (input.projectId !== projectId) throw AppError.badRequest("errors.contractNotValid");
+    // Date sanity (CONTRACT_DATE_RULES): awarded by today, completed no
+    // earlier than started.
+    assertDates(input, CONTRACT_DATE_RULES);
     if (phaseIndex(project.phase) < phaseIndex(CONTRACT_FROM)) {
       throw AppError.unprocessable("errors.projectNotAwarded", { project: project.titleEl });
     }
@@ -358,7 +374,17 @@ export class ContractsService {
   async update(id: string, input: ContractUpdate): Promise<ContractDetail> {
     const tx = currentTx();
     if (!tx) throw AppError.internal();
-    await this.load(id);
+    const stored = await this.load(id);
+    // Date sanity on the contract as it will be: a new completion date
+    // against the start already on it, and the other way round.
+    assertDates(
+      {
+        awardDate: input.awardDate,
+        startDate: merged(input.startDate, stored.startDate),
+        completionDate: merged(input.completionDate, stored.completionDate),
+      },
+      CONTRACT_DATE_RULES,
+    );
 
     // RULE (ADR-0025): editable later, by the same roles that edit a
     // contract at all (the row policy). Clearing it (`null`) is allowed;
@@ -469,6 +495,7 @@ export class ContractsService {
     const tx = currentTx();
     if (!tx) throw AppError.internal();
     await this.load(contractId);
+    assertDates(input, CONTRACT_SECTION_DATE_RULES);
     try {
       await tx.db.insert(schema.contractSection).values({
         contractId,
@@ -497,6 +524,7 @@ export class ContractsService {
     if (!tx) throw AppError.internal();
     await this.load(contractId);
     await this.sectionOf(contractId, sectionId, "errors.sectionNotFound");
+    assertDates(input, CONTRACT_SECTION_DATE_RULES);
 
     const values = pruned({
       code: input.code?.trim(),
@@ -557,7 +585,11 @@ export class ContractsService {
   async addExtension(contractId: string, input: ContractExtensionWrite): Promise<ContractDetail> {
     const tx = currentTx();
     if (!tx) throw AppError.internal();
-    await this.load(contractId);
+    const contract = await this.load(contractId);
+    // Approved by today, and not before the contract it extends was awarded.
+    assertDates({ ...input, awardDate: contract.awardDate }, CONTRACT_EXTENSION_DATE_RULES, {
+      dateOrder: "errors.dateBeforeAward",
+    });
     if (input.sectionId !== null) {
       await this.sectionOf(contractId, input.sectionId, "errors.sectionNotOnContract", 422);
     }
@@ -613,7 +645,11 @@ export class ContractsService {
   async addClaim(contractId: string, input: ContractClaimWrite): Promise<ContractDetail> {
     const tx = currentTx();
     if (!tx) throw AppError.internal();
-    await this.load(contractId);
+    const contract = await this.load(contractId);
+    // «Ημερομηνία κοινοποίησης»: by today, and not before the award.
+    assertDates({ ...input, awardDate: contract.awardDate }, CONTRACT_CLAIM_DATE_RULES, {
+      dateOrder: "errors.dateBeforeAward",
+    });
     try {
       await tx.db.insert(schema.contractClaim).values({
         contractId,
@@ -640,7 +676,7 @@ export class ContractsService {
   ): Promise<ContractDetail> {
     const tx = currentTx();
     if (!tx) throw AppError.internal();
-    await this.load(contractId);
+    const contract = await this.load(contractId);
     if (!UUID.test(claimId)) throw AppError.notFound("errors.claimNotFound");
     const [found] = await tx.db
       .select({ id: schema.contractClaim.id })
@@ -648,6 +684,9 @@ export class ContractsService {
       .where(and(eq(schema.contractClaim.id, claimId), eq(schema.contractClaim.contractId, contractId)))
       .limit(1);
     if (!found) throw AppError.notFound("errors.claimNotFound");
+    assertDates({ ...input, awardDate: contract.awardDate }, CONTRACT_CLAIM_DATE_RULES, {
+      dateOrder: "errors.dateBeforeAward",
+    });
 
     const values = pruned({
       direction: input.direction,
@@ -685,6 +724,7 @@ export class ContractsService {
     const tx = currentTx();
     if (!tx) throw AppError.internal();
     await this.load(contractId);
+    assertDates(input, DELAY_ACTIVATION_DATE_RULES);
     const values = {
       ldActivatedAt: input.activatedAt,
       ldActivationNoteEl: input.noteEl.trim(),

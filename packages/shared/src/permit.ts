@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { AreaType, PatientRiskGroup } from "./area";
+import type { DateRules } from "./calendar-date";
 import { SlaState } from "./site";
 
 // ------------------------------------------------------------ M3 (R19–R25)
@@ -318,6 +319,14 @@ export const ShutdownPermitDraft = z.object({
   ilsmTriggers: z.array(IlsmTrigger).default([]),
 });
 export type ShutdownPermitDraft = z.infer<typeof ShutdownPermitDraft>;
+
+// Date sanity (`calendar-date.ts`). The window is planned, so the future is its
+// whole point; only its end cannot come before its start. The API has said
+// so since M3 (errors.permitWindowBackwards, and the database refuses an
+// empty window as well); the wizard now says it under the field.
+export const PERMIT_DATE_RULES = {
+  ordered: [["plannedStart", "plannedEnd"]],
+} as const satisfies DateRules<keyof ShutdownPermitDraft & string>;
 
 // S12 step 4: the requester acknowledged every control (RULE in UI §5 S12).
 export const IcraSubmission = z.object({

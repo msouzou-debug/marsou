@@ -84,12 +84,23 @@ describe("delay penalties, extensions of time and claims (ADR-0035)", () => {
     return body === undefined ? call : call.send(body as object);
   }
 
-  /** A Larnaca contract, past its completion, at €1.000 a day. */
+  /**
+   * A Larnaca contract, past its completion, at €1.000 a day. Awarded and
+   * started in 2022, as the real one was: a completion in 2024 cannot come
+   * before its own start, and the claim notified in 2025 and the extension
+   * approved in 2026 cannot come before the award (the date rules).
+   */
   async function larnacaContract(stamp: string, overrides: Record<string, unknown> = {}) {
     const created = await makeContract(
       app,
       stamp,
-      { completionDate: "2024-12-03", liquidatedDamagesPerDay: 1000, ...overrides },
+      {
+        awardDate: "2022-05-16",
+        startDate: "2022-06-06",
+        completionDate: "2024-12-03",
+        liquidatedDamagesPerDay: 1000,
+        ...overrides,
+      },
       USERS.admin,
       LARNACA,
     );
@@ -280,6 +291,8 @@ describe("delay penalties, extensions of time and claims (ADR-0035)", () => {
 
   it("lets the head of estates activate the penalty and refuses the engineer and finance", async () => {
     const nicosia = await makeContract(app, `act-${Date.now()}`, {
+      awardDate: "2025-01-13",
+      startDate: "2025-02-03",
       completionDate: "2026-01-10",
       liquidatedDamagesPerDay: 300,
     });

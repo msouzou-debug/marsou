@@ -29,7 +29,17 @@
  */
 import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
-import type { CauseCode, FailureCode, RemedyCode, WorkOrderAction, WorkOrderKind, WorkOrderTransition } from "@ecapital/shared";
+import {
+  WORK_ORDER_TRANSITION_DATE_RULES,
+  dateIssues,
+  nicosiaDateOf,
+  type CauseCode,
+  type FailureCode,
+  type RemedyCode,
+  type WorkOrderAction,
+  type WorkOrderKind,
+  type WorkOrderTransition,
+} from "@ecapital/shared";
 import { localInputToIsoInstant } from "@/lib/datetime";
 import { CAUSE_CODES, codesComplete, dateInputToIso, FAILURE_CODES, needsCodes, REMEDY_CODES, type CompleteCodes } from "./actions";
 
@@ -95,7 +105,14 @@ export function TransitionDialog(props: TransitionDialogProps) {
   const costInvalid = costValue !== undefined && (Number.isNaN(costValue) || costValue < 0);
   const reasonMissing = isCancel && note.trim().length === 0;
   const codesMissing = codesNeeded && !codesComplete(codes);
-  const blocked = reasonMissing || codesMissing || costInvalid;
+  // RULE (date sanity, WORK_ORDER_TRANSITION_DATE_RULES): the step and the
+  // report are recorded after they happened, so neither is dated after today.
+  // The API holds both to the minute as well (errors.workOrderTimeNotValid).
+  const dateIssue = (field: "at" | "reportReceivedAt") =>
+    dateIssues({ at, reportReceivedAt: reportDate }, WORK_ORDER_TRANSITION_DATE_RULES).find((i) => i.field === field);
+  const atIssue = dateIssue("at");
+  const reportIssue = isComplete ? dateIssue("reportReceivedAt") : undefined;
+  const blocked = reasonMissing || codesMissing || costInvalid || atIssue !== undefined || reportIssue !== undefined;
 
   function submit() {
     setTouched(true);
@@ -124,6 +141,7 @@ export function TransitionDialog(props: TransitionDialogProps) {
     >
       {action && (
         <form
+          noValidate
           onSubmit={(e) => {
             e.preventDefault();
             submit();
@@ -187,7 +205,19 @@ export function TransitionDialog(props: TransitionDialogProps) {
               </label>
               <label className="flex flex-col gap-s-1 text-fs-14 text-k-text">
                 {t("screens.s18detail.dialog.reportReceived")}
-                <input type="date" value={reportDate} onChange={(e) => setReportDate(e.target.value)} className={`num ${inputClass}`} />
+                <input
+                  type="date"
+                  max={nicosiaDateOf()}
+                  value={reportDate}
+                  onChange={(e) => setReportDate(e.target.value)}
+                  aria-invalid={reportIssue ? "true" : undefined}
+                  className={`num ${inputClass}`}
+                />
+                {reportIssue && (
+                  <span role="alert" className="text-fs-14 text-k-red">
+                    {t(`forms.${reportIssue.rule}`)}
+                  </span>
+                )}
               </label>
               {touched && costInvalid && (
                 <p role="alert" className="text-fs-14 text-k-red tablet:col-span-2">
@@ -211,8 +241,20 @@ export function TransitionDialog(props: TransitionDialogProps) {
           <div className="grid gap-s-1">
             <label className="flex flex-col gap-s-1 text-fs-14 text-k-text">
               {t("screens.s18detail.dialog.at")}
-              <input type="datetime-local" value={at} onChange={(e) => setAt(e.target.value)} aria-describedby="wo-transition-at-hint" className={`num ${inputClass}`} />
+              <input
+                type="datetime-local"
+                value={at}
+                onChange={(e) => setAt(e.target.value)}
+                aria-describedby="wo-transition-at-hint"
+                aria-invalid={atIssue ? "true" : undefined}
+                className={`num ${inputClass}`}
+              />
             </label>
+            {atIssue && (
+              <p role="alert" className="text-fs-14 text-k-red">
+                {t(`forms.${atIssue.rule}`)}
+              </p>
+            )}
             <p id="wo-transition-at-hint" className="text-fs-14 text-k-text">
               {t("screens.s18detail.dialog.atHint")}
             </p>

@@ -14,10 +14,20 @@
  * | contractors | Contractor[]                            | The register; blacklisted ones are not offered.|
  * | canManage   | boolean                                 | `canManageMaintenanceContract`.               |
  * | onSave      | (write, id?) => Promise<void>           | POST /maintenance/contracts or PATCH …/:id.   |
+ *
+ * RULE (date sanity, MAINTENANCE_CONTRACT_DATE_RULES — the API and the
+ * database say it too): the agreement cannot end before it starts. Said
+ * under «Λήξη», and the save waits for it.
  */
 import { useState } from "react";
 import { useTranslations } from "next-intl";
-import type { Contractor, MaintenanceContract, MaintenanceContractWrite } from "@ecapital/shared";
+import {
+  MAINTENANCE_CONTRACT_DATE_RULES,
+  dateIssues,
+  type Contractor,
+  type MaintenanceContract,
+  type MaintenanceContractWrite,
+} from "@ecapital/shared";
 import { formatDate, formatEUR, formatEURorDash, formatInt, formatPct } from "@/lib/format";
 
 export interface AgreementCardProps {
@@ -65,6 +75,7 @@ function Fact({ label, value }: { label: string; value: string }) {
 export function AgreementCard({ agreement, unitId, contractors, canManage, offline, onSave }: AgreementCardProps) {
   const t = useTranslations("screens.s18plan.agreement");
   const tb = useTranslations("buttons");
+  const tf = useTranslations("forms");
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState(() => toForm(agreement));
   const [saving, setSaving] = useState(false);
@@ -73,11 +84,17 @@ export function AgreementCard({ agreement, unitId, contractors, canManage, offli
   const required = form.contractorId && form.ref.trim() && form.titleEl.trim() && form.startDate;
   const numbersOk = [form.availabilityHoursYear, form.availabilityPenaltyCriticalPerHour, form.availabilityPenaltyOtherPerHour, form.penaltyCapPct].every((v) => !Number.isNaN(num(v)) && num(v) >= 0) && (form.contractValue.trim() === "" || num(form.contractValue) >= 0);
 
+  const endIssue = dateIssues(
+    { startDate: form.startDate, endDate: form.endDate },
+    MAINTENANCE_CONTRACT_DATE_RULES,
+  )[0];
+
   async function save() {
     if (!required || !numbersOk) {
       setError(t("required"));
       return;
     }
+    if (endIssue) return;
     setSaving(true);
     setError(undefined);
     try {
@@ -155,6 +172,7 @@ export function AgreementCard({ agreement, unitId, contractors, canManage, offli
 
       {editing && (
         <form
+          noValidate
           onSubmit={(e) => {
             e.preventDefault();
             void save();
@@ -188,7 +206,19 @@ export function AgreementCard({ agreement, unitId, contractors, canManage, offli
           </label>
           <label className={labelClass}>
             {t("endDate")}
-            <input type="date" value={form.endDate} onChange={(e) => setForm({ ...form, endDate: e.target.value })} className={`num ${inputClass}`} />
+            <input
+              type="date"
+              value={form.endDate}
+              min={form.startDate || undefined}
+              onChange={(e) => setForm({ ...form, endDate: e.target.value })}
+              aria-invalid={endIssue ? "true" : undefined}
+              className={`num ${inputClass}`}
+            />
+            {endIssue && (
+              <span role="alert" className="text-fs-14 text-k-red">
+                {tf("dateEndBeforeStart")}
+              </span>
+            )}
           </label>
           <label className={labelClass}>
             {t("status")}

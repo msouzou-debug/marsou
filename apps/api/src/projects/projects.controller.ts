@@ -71,7 +71,7 @@ export class ProjectsController {
   @ApiOperation({ summary: "Open a new project; the API allocates the code" })
   @ApiBody({ schema: jsonSchema(ProjectCreate) as never })
   @ApiZodResponse(201, ProjectDetail, "The project as stored, code included")
-  @ApiZodError(400, "The body is not a valid project")
+  @ApiZodError(400, "The body is not a valid project, or its planned finish is before its start")
   @ApiZodError(403, "A read-only account, or a role that does not run projects")
   create(@Body() body: unknown): Promise<ProjectDetail> {
     const parsed = ProjectCreate.safeParse(body);
@@ -84,7 +84,7 @@ export class ProjectsController {
   @ApiParam({ name: "id", schema: { type: "string", format: "uuid" } })
   @ApiBody({ schema: jsonSchema(ProjectUpdate) as never })
   @ApiZodResponse(200, ProjectDetail, "The project after the change")
-  @ApiZodError(400, "The body is not a valid change")
+  @ApiZodError(400, "The body is not a valid change, or the planned finish would be before the start")
   @ApiZodError(403, "A read-only account, or a role that does not run projects")
   @ApiZodError(404, "No such project, or none the caller may see")
   update(@Param("id") id: string, @Body() body: unknown): Promise<ProjectDetail> {
@@ -123,7 +123,7 @@ export class ProjectsController {
   @ApiParam({ name: "id", schema: { type: "string", format: "uuid" } })
   @ApiBody({ schema: jsonSchema(MilestoneWrite) as never })
   @ApiZodResponse(201, Milestone, "The milestone as stored")
-  @ApiZodError(400, "The body is not a valid milestone")
+  @ApiZodError(400, "The body is not a valid milestone, or its actual date is after today")
   @ApiZodError(403, "A read-only account, or a role that does not run projects")
   @ApiZodError(404, "No such project, or none the caller may see")
   addMilestone(@Param("id") id: string, @Body() body: unknown): Promise<Milestone> {
@@ -138,7 +138,7 @@ export class ProjectsController {
   @ApiParam({ name: "mid", schema: { type: "string", format: "uuid" } })
   @ApiBody({ schema: jsonSchema(MilestoneWrite) as never })
   @ApiZodResponse(200, Milestone, "The milestone after the change")
-  @ApiZodError(400, "The body is not a valid milestone")
+  @ApiZodError(400, "The body is not a valid milestone, or its actual date is after today")
   @ApiZodError(403, "A read-only account, or a role that does not run projects")
   @ApiZodError(404, "No such project or milestone")
   @ApiZodError(409, "An open shutdown permit on this project blocks the completion (R24, §6.6)")

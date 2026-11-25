@@ -5,7 +5,7 @@
 // requires yet (areas, dates — see `PermitWizardScreen`'s own header comment
 // for the create-on-leaving-step-1 assumption), so this is a superset the
 // screen narrows down before each PATCH.
-import type { IcraInput, IlsmTrigger, PermitSystem } from "@ecapital/shared";
+import { PERMIT_DATE_RULES, dateIssues, type IcraInput, type IlsmTrigger, type PermitSystem } from "@ecapital/shared";
 
 export interface PermitWizardDraft {
   orgUnitId: string;
@@ -51,6 +51,20 @@ export function step2Complete(draft: PermitWizardDraft): boolean {
 export function step3Complete(draft: PermitWizardDraft): boolean {
   if (!draft.plannedStart || !draft.plannedEnd) return false;
   return new Date(draft.plannedEnd).getTime() > new Date(draft.plannedStart).getTime();
+}
+
+/**
+ * RULE (date sanity, PERMIT_DATE_RULES): the window's end is not before its
+ * start — said under «Λήξη» rather than only by a «Συνέχεια» that will not
+ * go. An end equal to the start is an empty window, which step 3 already
+ * holds back and the API refuses as well (errors.permitWindowBackwards).
+ */
+export function windowBackwards(draft: PermitWizardDraft): boolean {
+  if (!draft.plannedStart || !draft.plannedEnd) return false;
+  return (
+    dateIssues({ plannedStart: draft.plannedStart, plannedEnd: draft.plannedEnd }, PERMIT_DATE_RULES).length > 0 ||
+    draft.plannedEnd === draft.plannedStart
+  );
 }
 
 /** Minutes between the two datetimes, or `null` until both are set — S11 step 3 shows the computed duration. */

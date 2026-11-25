@@ -9,7 +9,7 @@
 // adds: `POST /projects/:id/milestones` and `PATCH /projects/:id/milestones/:mid`.
 import { useEffect, useState, type ReactNode } from "react";
 import type { AppRole, Milestone } from "@ecapital/shared";
-import { Milestone as MilestoneSchema, type MilestoneWrite } from "@ecapital/shared";
+import { MILESTONE_DATE_RULES, Milestone as MilestoneSchema, dateIssues, type MilestoneWrite } from "@ecapital/shared";
 import { useTranslations } from "next-intl";
 import { ApiError, apiMutate } from "@/data/client";
 import { useProjectDetail } from "@/data/queries";
@@ -131,6 +131,13 @@ export function ScheduleScreen({ projectId, roles, noPermission }: ScheduleScree
     const trimmed = value.trim();
     if (trimmed !== "" && !isIsoDate(trimmed)) {
       setCellApiError(t("forms.invalidDate"));
+      return;
+    }
+    // RULE (date sanity, MILESTONE_DATE_RULES): the actual date is the day
+    // the milestone was met, so not after today; the forecast is a plan.
+    const issue = dateIssues({ actualDate: columnId === "actual" ? trimmed : null }, MILESTONE_DATE_RULES)[0];
+    if (issue) {
+      setCellApiError(t(`forms.${issue.rule}`));
       return;
     }
     setCellApiError(undefined);

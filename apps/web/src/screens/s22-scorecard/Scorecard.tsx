@@ -23,7 +23,7 @@
  * says why, so nobody withholds a figure that is short.
  * RULE: a ratio with nothing due is «—», never «0 %» or «100 %».
  */
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import type { MaintenanceContract, Scorecard as ScorecardType } from "@ecapital/shared";
@@ -32,7 +32,7 @@ import { KpiTile } from "@/components/kpi-tile";
 import { Table, type TableColumn, type TableState } from "@/components/table";
 import { formatDate, formatEUR, formatInt, formatPct } from "@/lib/format";
 import { BandChip } from "@/screens/s18-work-orders/BandChip";
-import { quarter, shiftDay, type Period } from "./period";
+import { periodBackwards, quarter, shiftDay, type Period } from "./period";
 
 export type ScorecardState = "idle" | "default" | "loading" | "error" | "noPermission" | "offline";
 
@@ -60,8 +60,16 @@ export function Scorecard(props: ScorecardProps) {
   const { agreements, agreementsLoading, agreementId, onAgreement, period, onPeriod, today, scorecard, state, onRetry, onExport, noPermission } = props;
   const t = useTranslations();
   const hours = (h: number) => t("screens.s22.hours", { count: formatInt(h) });
+  // A backwards period typed into the two fields is held back, not sent.
+  const [backwards, setBackwards] = useState(false);
 
   if (state === "noPermission") return <>{noPermission}</>;
+
+  function applyPeriod(from: string, lastDay: string) {
+    const wrong = periodBackwards(from, lastDay);
+    setBackwards(wrong);
+    if (!wrong) onPeriod({ from, to: shiftDay(lastDay, 1) });
+  }
 
   const current = quarter(today, 0);
   const previous = quarter(today, -1);
@@ -130,16 +138,28 @@ export function Scorecard(props: ScorecardProps) {
           ))}
           <label className="flex flex-col gap-s-1 text-fs-14 text-k-text">
             {t("screens.s22.from")}
-            <input type="date" value={period.from} onChange={(e) => e.target.value && onPeriod({ ...period, from: e.target.value })} className={`num ${inputClass}`} />
+            <input
+              type="date"
+              value={period.from}
+              onChange={(e) => e.target.value && applyPeriod(e.target.value, shiftDay(period.to, -1))}
+              className={`num ${inputClass}`}
+            />
           </label>
           <label className="flex flex-col gap-s-1 text-fs-14 text-k-text">
             {t("screens.s22.to")}
             <input
               type="date"
               value={shiftDay(period.to, -1)}
-              onChange={(e) => e.target.value && onPeriod({ ...period, to: shiftDay(e.target.value, 1) })}
+              min={period.from}
+              onChange={(e) => e.target.value && applyPeriod(period.from, e.target.value)}
+              aria-invalid={backwards ? "true" : undefined}
               className={`num ${inputClass}`}
             />
+            {backwards && (
+              <span role="alert" className="text-fs-14 text-k-red">
+                {t("forms.dateEndBeforeStart")}
+              </span>
+            )}
           </label>
         </fieldset>
       </div>

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { AssetClass } from "./asset";
+import type { DateRules } from "./calendar-date";
 import { PermitSystem } from "./permit";
 import { RiskBand, SlaState } from "./site";
 
@@ -102,6 +103,13 @@ export const MaintenanceContractWrite = MaintenanceContract.omit({
   status: true,
 });
 export type MaintenanceContractWrite = z.infer<typeof MaintenanceContractWrite>;
+
+// Date sanity (`calendar-date.ts`): an agreement cannot end before it starts. The
+// database has refused it since 0022 (maintenance_contract_dates); the form
+// and the API now say so before it gets that far.
+export const MAINTENANCE_CONTRACT_DATE_RULES = {
+  ordered: [["startDate", "endDate"]],
+} as const satisfies DateRules<keyof MaintenanceContractWrite & string>;
 
 /**
  * One line of the contract's response-time table: a system, its band and
@@ -491,6 +499,13 @@ export const WorkOrderCreate = z.object({
 });
 export type WorkOrderCreate = z.infer<typeof WorkOrderCreate>;
 
+// Date sanity (`calendar-date.ts`): a call has been made by the time it is typed in.
+// The API has refused one in the future, to the minute, since M5
+// (errors.workOrderTimeNotValid); the call form says it under the field.
+export const WORK_ORDER_CREATE_DATE_RULES = {
+  happened: ["calledAt"],
+} as const satisfies DateRules<keyof WorkOrderCreate & string>;
+
 export const WorkOrderPatch = z
   .object({
     titleEl: z.string().min(3).max(200),
@@ -537,6 +552,13 @@ export const WorkOrderTransition = z.object({
   reportReceivedAt: z.string().datetime().optional(),
 });
 export type WorkOrderTransition = z.infer<typeof WorkOrderTransition>;
+
+// Date sanity (`calendar-date.ts`): a step and the contractor's report are recorded
+// after they happened. The API checks both against the call and the clock
+// (errors.workOrderTimeNotValid); the dialog says it under the field.
+export const WORK_ORDER_TRANSITION_DATE_RULES = {
+  happened: ["at", "reportReceivedAt"],
+} as const satisfies DateRules<keyof WorkOrderTransition & string>;
 
 export const WorkOrderEventKind = z.enum([
   "CREATED",
@@ -822,6 +844,11 @@ export const ScorecardQuery = z.object({
   to: z.string(), // ISO date, exclusive
 });
 export type ScorecardQuery = z.infer<typeof ScorecardQuery>;
+
+/** Date sanity (`calendar-date.ts`): a period that ends before it starts is no period. */
+export const PERIOD_DATE_RULES = {
+  ordered: [["from", "to"]],
+} as const satisfies DateRules<"from" | "to">;
 
 // ----------------------------------------------------------------- rules --
 

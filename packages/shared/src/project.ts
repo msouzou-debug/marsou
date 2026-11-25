@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { DateRules } from "./calendar-date";
 
 // CAPEX-01 §4: project category. The migration mapping (CAPEX-03 col A)
 // only ever produces CAPITAL_WORKS for the imported rows, but the target
@@ -301,6 +302,24 @@ export const IssueWrite = Issue.omit({ id: true, projectId: true, raisedById: tr
   status: true,
 });
 export type IssueWrite = z.infer<typeof IssueWrite>;
+
+// ------------------------------------------------------------ date sanity --
+// `calendar-date.ts`. A project's dates are all planned, so the only rule is the
+// order; an issue's due date is planned too and has none.
+
+/** The planned finish cannot be before the planned start. */
+export const PROJECT_DATE_RULES = {
+  ordered: [["plannedStart", "plannedFinish"]],
+} as const satisfies DateRules<keyof ProjectCreate & string>;
+
+/**
+ * A milestone is one moment, not a span, so it has no start to finish
+ * before. Its baseline and forecast are plans; its actual date is the day it
+ * was met, which cannot be after today.
+ */
+export const MILESTONE_DATE_RULES = {
+  happened: ["actualDate"],
+} as const satisfies DateRules<keyof MilestoneWrite & string>;
 
 /** ADR-0035: a project nobody has touched for this many days is «stale» in the exceptions report and the list. */
 export const STALE_AFTER_DAYS = 30;

@@ -76,6 +76,7 @@ import { useQuery } from "@tanstack/react-query";
 import { z } from "zod";
 import { proxyFetch } from "./client";
 import { projectsApiPath } from "@/screens/s02-projects/query";
+import { type ContractsFilter, NO_FILTER, contractsApiPath } from "@/screens/s07e-contracts/query";
 import { agreementsQueryToSearchParams } from "@/screens/s18b-pm-plan/agreements-query";
 
 // M1: S01–S03 talk to the real API (apps/api) through `proxyFetch`
@@ -149,12 +150,37 @@ export function useProjectContracts(projectId: string) {
 
 // S07e — the contract register (ADR-0019). `q` searches the two references
 // and the contractor; an empty one lists everything the caller may see.
-export function useContracts(q?: string) {
+// `filter` is S07e's «Μονάδα» and «Έργο» (`screens/s07e-contracts/query.ts`).
+export function useContracts(q?: string, filter: ContractsFilter = NO_FILTER) {
   const search = q?.trim() ?? "";
   return useQuery({
-    queryKey: ["contracts", search],
+    queryKey: ["contracts", search, filter.unit, filter.project],
+    queryFn: () => proxyFetch(contractsApiPath(filter, search), ContractList),
+    retry: false,
+  });
+}
+
+// S07e's «Έργο» filter: the projects of the units chosen, or of every unit
+// the caller may see when none is. Id, code, title and unit, nothing more.
+export function useProjectsForUnits(orgUnitIds: string[]) {
+  return useQuery({
+    queryKey: ["projects-for-units", orgUnitIds],
     queryFn: () =>
-      proxyFetch(search ? `/contracts?q=${encodeURIComponent(search)}` : "/contracts", ContractList),
+      proxyFetch(
+        projectsApiPath({
+          unit: orgUnitIds,
+          phase: [],
+          category: [],
+          rag: [],
+          q: "",
+          sort: "code",
+          dir: "asc",
+          page: 1,
+          pageSize: 200,
+        }),
+        ProjectList,
+      ),
+    select: (page) => page.items.map(({ id, code, titleEl, orgUnitId }) => ({ id, code, titleEl, orgUnitId })),
     retry: false,
   });
 }

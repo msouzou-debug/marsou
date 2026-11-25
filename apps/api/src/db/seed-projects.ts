@@ -84,26 +84,31 @@ export function milestonesFor(project: SeedProject, index: number): PlannedMiles
 
   const last = Math.min(phase, seedGateTitles.length - 1);
   const first = Math.max(0, last - 2);
+  // How many ticked gates follow each point, for `metBy` below.
+  const passedFrom = (boundary: number) =>
+    Array.from({ length: last - boundary + 1 }, (_, i) => boundary + i).filter((b) => b < phase).length;
 
+  const opening = metBy(addDays(base, -28), passedFrom(first));
   const milestones: PlannedMilestone[] = [
     {
       titleEl: seedOpeningMilestone,
-      baselineDate: addDays(base, -30),
-      forecastDate: addDays(base, -30),
-      actualDate: addDays(base, -28),
+      baselineDate: addDays(opening, -2),
+      forecastDate: addDays(opening, -2),
+      actualDate: opening,
       isGate: false,
       sortOrder: 0,
     },
   ];
 
   for (let boundary = first; boundary <= last; boundary += 1) {
-    const baseline = addDays(base, 60 * (boundary - first + 1));
+    const planned = addDays(base, 60 * (boundary - first + 1));
     const passed = boundary < phase;
+    // A ticked gate was met on its baseline date, and that date is behind us.
+    const baseline = passed ? metBy(planned, passedFrom(boundary + 1)) : planned;
     milestones.push({
       titleEl: seedGateTitles[boundary],
       baselineDate: baseline,
-      // The open gate of a slipped project is the one carrying the slip; a
-      // gate already ticked was met on its baseline date.
+      // The open gate of a slipped project is the one carrying the slip.
       forecastDate: passed ? baseline : addDays(baseline, slip),
       actualDate: passed ? baseline : null,
       isGate: true,
@@ -111,6 +116,22 @@ export function milestonesFor(project: SeedProject, index: number): PlannedMiles
     });
   }
   return milestones;
+}
+
+/**
+ * Date sanity (MILESTONE_DATE_RULES): a milestone that has been met was met
+ * on a day behind us. Many seeded projects are planned for 2027 and still
+ * have gates behind them, which the old arithmetic dated in 2027 too. Such a
+ * date is pulled back to `SEED_WRITTEN`, a month earlier for each ticked
+ * milestone that follows it, so the order of the gates still reads true. A
+ * fixed day rather than today, so the seed is the same on every machine; it
+ * is in the past and stays there.
+ */
+const SEED_WRITTEN = "2026-11-01";
+
+function metBy(planned: string, laterTicked: number): string {
+  const latest = addDays(SEED_WRITTEN, -30 * laterTicked);
+  return planned <= latest ? planned : latest;
 }
 
 export async function seedProjectRegister(db: Db): Promise<ProjectSeedSummary> {

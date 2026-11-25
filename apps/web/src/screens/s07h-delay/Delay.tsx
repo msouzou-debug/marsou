@@ -347,6 +347,7 @@ export function Delay({
       {panel?.kind === "extension" && (
         <ExtensionForm
           sections={sections}
+          awardDate={data?.awardDate}
           saving={saving}
           apiError={apiError}
           onCancel={() => open(null)}

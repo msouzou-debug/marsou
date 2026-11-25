@@ -45,7 +45,7 @@ import { ApiError, apiMutate } from "@/data/client";
 import { useAreaImpact, usePermit, useProjectsForUnit, useContracts, useAreaTree } from "@/data/queries";
 import { isoInstantToLocalInput, localInputToIsoInstant } from "@/lib/datetime";
 import { formatDateTimeRange } from "@/lib/format";
-import { durationMinutes, EMPTY_WIZARD_DRAFT, step1Complete, step2Complete, step3Complete, type PermitWizardDraft } from "./schema";
+import { durationMinutes, EMPTY_WIZARD_DRAFT, step1Complete, step2Complete, step3Complete, windowBackwards, type PermitWizardDraft } from "./schema";
 
 export interface PermitWizardScreenProps {
   mode: "create" | "edit";
@@ -342,9 +342,14 @@ export function PermitWizardScreen({ mode, permitId, roles, orgUnits, defaultOrg
                   id="pw-end"
                   type="datetime-local"
                   value={draft.plannedEnd}
+                  min={draft.plannedStart || undefined}
                   onChange={(e) => setDraft({ ...draft, plannedEnd: e.target.value })}
+                  aria-invalid={windowBackwards(draft) ? "true" : undefined}
                   className="num h-11 rounded-k border border-k-grey px-s-3 text-fs-16"
                 />
+                {windowBackwards(draft) && (
+                  <p role="alert" className="text-fs-14 text-k-red">{t("forms.dateEndBeforeStart")}</p>
+                )}
               </div>
             </div>
             {minutes !== null && (

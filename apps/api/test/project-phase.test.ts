@@ -177,7 +177,7 @@ describe("POST /projects/:id/phase", () => {
         titleEl: "Έγκριση ιδέας",
         baselineDate: "2027-01-15",
         forecastDate: "2027-01-20",
-        actualDate: "2027-01-20",
+        actualDate: "2026-11-20",
         isGate: true,
         sortOrder: 1,
       });

@@ -56,7 +56,8 @@ describe("migrations", () => {
     expect(result.applied).toContain("0025_delay_extensions_claims");
     expect(result.applied).toContain("0027_unit_people");
     expect(result.applied).toContain("0028_project_cashflow_plan");
-    expect(result.lastMigrationId).toBe("0028_project_cashflow_plan");
+    expect(result.applied).toContain("0029_claim_documents");
+    expect(result.lastMigrationId).toBe("0029_claim_documents");
 
     const client = new Client({ connectionString: targetUrl });
     await client.connect();
@@ -167,6 +168,7 @@ describe("migrations", () => {
     expect(result.skipped).toContain("0025_delay_extensions_claims");
     expect(result.skipped).toContain("0027_unit_people");
     expect(result.skipped).toContain("0028_project_cashflow_plan");
+    expect(result.skipped).toContain("0029_claim_documents");
     expect(await snapshot(targetUrl)).toEqual(before);
   });
 
@@ -820,6 +822,53 @@ describe("migrations", () => {
           "project_cashflow_plan_period_month",
         ]),
       );
+      await client.query(file!.sql);
+      expect(await state()).toEqual(before);
+    } finally {
+      await client.end();
+    }
+  });
+
+  /**
+   * 0029: a claim's papers are `document` rows of three new kinds, queued
+   * under their own module. No policy moves: the document policies are the
+   * same three before and after.
+   */
+  it("0029 adds the claim paper kinds and module, touches no policy, and is idempotent", async () => {
+    const client = new Client({ connectionString: targetUrl });
+    await client.connect();
+    try {
+      const file = readMigrations().find((m) => m.id === "0029_claim_documents");
+      expect(file).toBeDefined();
+
+      const state = async () => {
+        const { rows: labels } = await client.query<{ enumlabel: string }>(
+          `select e.enumlabel from pg_enum e join pg_type t on t.oid = e.enumtypid
+             join pg_namespace n on n.oid = t.typnamespace
+            where n.nspname = 'ecapital' and t.typname = 'document_kind'
+            order by e.enumsortorder`,
+        );
+        const { rows: check } = await client.query<{ def: string }>(
+          `select pg_get_constraintdef(c.oid) as def from pg_constraint c
+            where c.conname = 'dms_outbox_module_known'`,
+        );
+        const { rows: policies } = await client.query<{ policyname: string }>(
+          `select policyname from pg_policies
+            where schemaname = 'ecapital' and tablename = 'document' order by policyname`,
+        );
+        return { labels: labels.map((l) => l.enumlabel), check: check[0]?.def ?? "", policies };
+      };
+
+      const before = await state();
+      expect(before.labels.slice(-3)).toEqual(["CLAIM_LETTER", "CLAIM_REPLY", "CLAIM_LEGAL_LETTER"]);
+      expect(before.check).toContain("claim_document");
+      expect(before.check).toContain("work_order_document");
+      expect(before.policies.map((p) => p.policyname)).toEqual([
+        "document_insert_work_order",
+        "document_read",
+        "document_write",
+      ]);
+
       await client.query(file!.sql);
       expect(await state()).toEqual(before);
     } finally {

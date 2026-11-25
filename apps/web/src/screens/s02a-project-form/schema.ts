@@ -13,7 +13,7 @@
 // translates that key with `t(error.message)` (see `lib/zod-resolver.ts` for
 // why the message is a key, not a sentence).
 import { z } from "zod";
-import { FundingSource, ProjectCategory } from "@ecapital/shared";
+import { FundingSource, PROJECT_DATE_RULES, ProjectCategory, refineDates } from "@ecapital/shared";
 
 // The eleven fields the form edits. Deliberately not `sponsorId` /
 // `projectManagerId` (`ProjectCreate` carries them, but nothing in this
@@ -58,17 +58,10 @@ const nullableString = z.string().nullable();
 
 // RULE (CAPEX-03 §2 / ADR-0014): a planned date can be missing, so both
 // dates are optional on their own — but a finish before its own start is
-// never right, whichever of the two is missing.
+// never right. Both are plans, so either may be in the future. The shared
+// PROJECT_DATE_RULES, which the API checks too.
 function refineDateOrder<T extends z.ZodTypeAny>(schema: T) {
-  return schema.superRefine((data: unknown, ctx) => {
-    const { plannedStart, plannedFinish } = data as {
-      plannedStart?: string | null;
-      plannedFinish?: string | null;
-    };
-    if (plannedStart && plannedFinish && plannedFinish < plannedStart) {
-      ctx.addIssue({ code: "custom", message: "forms.dateOrder", path: ["plannedFinish"] });
-    }
-  });
+  return schema.superRefine(refineDates(PROJECT_DATE_RULES));
 }
 
 const sharedFields = {

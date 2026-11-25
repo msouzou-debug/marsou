@@ -64,7 +64,9 @@
     "codeLength": "The code can have up to 8 characters.",
     "positiveDays": "Days must be a whole number greater than zero.",
     "dateInFuture": "The date cannot be later than today.",
-    "dueBeforeRaised": "The due date cannot be before the date it was raised."
+    "dueBeforeRaised": "The due date cannot be before the date it was raised.",
+    "dateBeforeAward": "The date cannot be before the contract was awarded.",
+    "dateEndBeforeStart": "The end date cannot be before the start date."
   },
   "components": {
     "passwordField": {
@@ -885,7 +887,14 @@
       "allContracts": "All contracts",
       "allProjects": "Project list",
       "showBudgetCode": "Show budget code",
-      "budgetCodeLabel": "Budget code"
+      "budgetCodeLabel": "Budget code",
+      "filters": {
+        "unit": "Unit",
+        "project": "Project",
+        "allProjects": "All projects"
+      },
+      "emptyFiltered": "No contract matches the filters you chose.",
+      "clearFilters": "Clear filters"
     },
     "s24users": {
       "title": "Users",
@@ -2522,7 +2531,8 @@
         "legalAdvisor": "Legal advisor",
         "contingent": "Contingent liability",
         "notes": "Notes",
-        "actions": "Actions"
+        "actions": "Actions",
+        "documents": "Documents"
       },
       "fields": {
         "direction": "Claim type",
@@ -2536,7 +2546,17 @@
         "notes": "Notes"
       },
       "addTitle": "New claim",
-      "editTitle": "Edit claim"
+      "editTitle": "Edit claim",
+      "documents": {
+        "title": "Claim documents",
+        "none": "No documents attached.",
+        "protocol": "Protocol no. {number}",
+        "queued": "Waiting for a protocol number from eArchive",
+        "attachHint": "Attach the e-mail or letter you received, your reply or the lawyer's letter. It is filed with eArchive when you save the claim.",
+        "kind": "Document type",
+        "paperTitle": "Title (optional)",
+        "file": "File"
+      }
     }
   },
   "states": {
@@ -3031,5 +3051,10 @@
     "NONE": "Not matched",
     "CONTRACT_REF": "Contract reference",
     "EFINANCE_INVOICE": "eFinance invoice"
+  },
+  "claimDocumentKind": {
+    "CLAIM_LETTER": "Claim letter",
+    "CLAIM_REPLY": "Reply",
+    "CLAIM_LEGAL_LETTER": "Lawyer's letter"
   }
 }

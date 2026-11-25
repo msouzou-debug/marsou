@@ -1,5 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import {
+  MILESTONE_DATE_RULES,
+  PROJECT_DATE_RULES,
   type Issue,
   type IssueWrite,
   type Milestone,
@@ -16,6 +18,7 @@ import {
   type RiskWrite,
 } from "@ecapital/shared";
 import { and, asc, desc, eq, inArray, isNull, sql, type SQL } from "drizzle-orm";
+import { assertDates, merged } from "../common/dates";
 import { AppError } from "../common/errors";
 import { INSUFFICIENT_PRIVILEGE, sqlState } from "../common/sql-error";
 import { currentTx } from "../db/client";
@@ -192,6 +195,8 @@ export class ProjectsService {
   async create(input: ProjectCreate): Promise<ProjectDetail> {
     const tx = currentTx();
     if (!tx) throw AppError.internal();
+    // Date sanity (PROJECT_DATE_RULES): a planned finish before the planned start.
+    assertDates(input, PROJECT_DATE_RULES);
 
     const year = new Date().getUTCFullYear();
     try {
@@ -250,6 +255,14 @@ export class ProjectsService {
     const tx = currentTx();
     if (!tx) throw AppError.internal();
     const project = await this.load(id);
+    // The project as it will be: a new finish against the start already on it.
+    assertDates(
+      {
+        plannedStart: merged(input.plannedStart, project.plannedStart),
+        plannedFinish: merged(input.plannedFinish, project.plannedFinish),
+      },
+      PROJECT_DATE_RULES,
+    );
 
     const budget = input.approvedBudget;
     const changingBudget = budget !== undefined && budget !== money(project.approvedBudget);
@@ -395,6 +408,8 @@ export class ProjectsService {
     const tx = currentTx();
     if (!tx) throw AppError.internal();
     await this.load(projectId);
+    // MILESTONE_DATE_RULES: the day it was met is not tomorrow.
+    assertDates(input, MILESTONE_DATE_RULES);
 
     try {
       const [row] = await tx.db
@@ -435,6 +450,7 @@ export class ProjectsService {
     const tx = currentTx();
     if (!tx) throw AppError.internal();
     await this.load(projectId);
+    assertDates(input, MILESTONE_DATE_RULES);
 
     const existing = await tx.db
       .select()

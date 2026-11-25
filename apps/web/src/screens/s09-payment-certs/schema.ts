@@ -3,7 +3,12 @@
 // Client-side validation for the new-certificate form (`CertificateForm.tsx`),
 // on top of `packages/shared`'s `PaymentCertCreate` the same way every other
 // form in this app sits on top of its shared write type.
+//
+// RULE (date sanity, PAYMENT_CERT_DATE_RULES — the API checks the same list
+// and answers errors.certPeriodNotValid): the period cannot end before it
+// starts.
 import { z } from "zod";
+import { PAYMENT_CERT_DATE_RULES, refineDates } from "@ecapital/shared";
 
 export interface CertificateFormValues {
   periodFrom: string;
@@ -19,7 +24,4 @@ export const CertificateFormSchema = z
     workDoneValue: z.number().refine((value) => !Number.isNaN(value) && value >= 0, "forms.nonNegative"),
     materialsOnSite: z.number().refine((value) => !Number.isNaN(value) && value >= 0, "forms.nonNegative"),
   })
-  .refine((values) => values.periodTo >= values.periodFrom, {
-    message: "forms.dateOrder",
-    path: ["periodTo"],
-  });
+  .superRefine(refineDates(PAYMENT_CERT_DATE_RULES, { dateOrder: "forms.dateEndBeforeStart" }));
