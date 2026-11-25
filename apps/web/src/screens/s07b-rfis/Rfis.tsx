@@ -151,7 +151,6 @@ export function Rfis({
         getRowId={(row) => row.id}
         captionKey="screens.s07b.caption"
         state={tableState}
-        onExport={() => undefined}
         onRowOpen={(row) => onSelect(row.id)}
         onRetry={onRetry}
         emptyState={{ messageKey: "screens.s07b.empty", actionLabelKey: "buttons.add", onAction: canWrite ? () => onSelect("new") : undefined }}

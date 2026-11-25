@@ -209,7 +209,6 @@ export function RisksIssues({
             getRowId={(row) => row.id}
             captionKey="screens.s06.risksCaption"
             state={risksTableState}
-            onExport={() => undefined}
             onRetry={onRetry}
             onRowOpen={(row) => onSelectRisk(row.id)}
             emptyState={{ messageKey: "screens.s06.risksEmpty", actionLabelKey: "buttons.add", onAction: canEdit ? () => onSelectRisk("new") : undefined }}
@@ -238,7 +237,6 @@ export function RisksIssues({
             getRowId={(row) => row.id}
             captionKey="screens.s06.issuesCaption"
             state={issuesTableState}
-            onExport={() => undefined}
             onRetry={onRetry}
             onRowOpen={(row) => onSelectIssue(row.id)}
             emptyState={{ messageKey: "screens.s06.issuesEmpty", actionLabelKey: "buttons.add", onAction: canEdit ? () => onSelectIssue("new") : undefined }}

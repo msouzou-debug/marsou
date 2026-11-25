@@ -18,7 +18,7 @@
  * | orgUnits         | OrgUnit[]                  | The unit filter.                                            |
  * | canRaise         | boolean                    | `canRaiseWorkOrder` — «Νέα κλήση».                          |
  * | canViewScorecard | boolean                    | `canViewScorecard` — «Αξιολόγηση».                          |
- * | onExport         | () => void?                | Table export (the list has no xlsx route of its own yet).   |
+ * | onExport         | () => void?                | Table export; unset, `Table` exports what it shows itself.  |
  *
  * RULE (task S18): default sort is the call time, newest first — the
  * Screen asks the API for `sort=calledAt&dir=desc` and the table keeps the
@@ -328,7 +328,7 @@ export function WorkOrders(props: WorkOrdersProps) {
           state={tableState}
           density="dense"
           onRowOpen={(row) => router.push(`/maintenance/${encodeURIComponent(row.id)}`)}
-          onExport={onExport ?? (() => undefined)}
+          onExport={onExport}
           onRetry={onRetry}
           emptyState={{
             messageKey: "screens.s18.empty",

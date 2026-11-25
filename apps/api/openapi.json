@@ -66681,6 +66681,169 @@
         ]
       }
     },
+    "/exports/table": {
+      "post": {
+        "operationId": "ExportsController_table",
+        "parameters": [
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "el"
+            },
+            "description": "el or en. Greek when the header is absent."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "title": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 120
+                  },
+                  "sheetName": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 120
+                  },
+                  "source": {
+                    "type": "string",
+                    "maxLength": 300
+                  },
+                  "columns": {
+                    "minItems": 1,
+                    "maxItems": 60,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "header": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 200
+                        },
+                        "numeric": {
+                          "default": false,
+                          "type": "boolean"
+                        },
+                        "kind": {
+                          "default": "text",
+                          "type": "string",
+                          "enum": [
+                            "text",
+                            "money",
+                            "number",
+                            "date"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "header",
+                        "numeric",
+                        "kind"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "rows": {
+                    "maxItems": 20000,
+                    "type": "array",
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "maxLength": 2000
+                          },
+                          {
+                            "type": "number"
+                          },
+                          {
+                            "type": "boolean"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    }
+                  }
+                },
+                "required": [
+                  "title",
+                  "sheetName",
+                  "columns",
+                  "rows"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The workbook: the rows with live totals, and a sheet that says which screen and when",
+            "content": {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Not a table, or more than 20.000 rows (errors.tableExportNotValid)",
+            "content": {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "A screen's table as Excel: frozen header, autofilter, formats and live SUBTOTAL totals",
+        "tags": [
+          "exports"
+        ]
+      }
+    },
     "/health": {
       "get": {
         "operationId": "HealthController_check",

@@ -288,9 +288,6 @@ export function Projects({ data, state, query, orgUnits, eyebrow, onRetry, noPer
     navigate({ ...query, sort: sortKey, dir: nextDir, page: 1 });
   }
 
-  // TODO(R39): live-formula Excel export.
-  const handleExport = () => undefined;
-
   const tableState: TableState = state === "default" ? "default" : state;
   const showCards = (state === "default" || state === "offline") && !!data;
 
@@ -379,7 +376,6 @@ export function Projects({ data, state, query, orgUnits, eyebrow, onRetry, noPer
           density="dense"
           skeletonRows={query.pageSize > 12 ? 12 : query.pageSize}
           emptyState={{ messageKey: "screens.s02.empty", actionLabelKey: "screens.s02.clearFilters", onAction: clearFilters }}
-          onExport={handleExport}
           onRowOpen={(row) => router.push(`/projects/${encodeURIComponent(row.id)}`)}
           onRetry={onRetry}
         />

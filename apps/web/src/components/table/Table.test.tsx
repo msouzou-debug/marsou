@@ -1,6 +1,6 @@
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { afterEach, describe, expect, it, onTestFinished, vi, beforeEach } from "vitest";
 import type { ComponentProps } from "react";
-import { act, screen } from "@testing-library/react";
+import { act, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { renderWithIntl } from "@/test/render";
 import { Table, type TableColumn } from "./Table";
@@ -45,6 +45,11 @@ beforeEach(() => {
   window.localStorage.clear();
 });
 
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.restoreAllMocks();
+});
+
 describe("Table", () => {
   it("always renders the export button and disables it while loading", async () => {
     const onExport = vi.fn();
@@ -59,6 +64,76 @@ describe("Table", () => {
     expect(button).toBeEnabled();
     await userEvent.click(button);
     expect(onExport).toHaveBeenCalledOnce();
+  });
+
+  // UAT 25/11/2026: with no `onExport`, the button exports what the table
+  // shows through `POST /exports/table` instead of doing nothing.
+  it("exports what it shows through the generic route when no onExport is given", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(new Blob(["xlsx"]), {
+        status: 200,
+        headers: {
+          "content-type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          "content-disposition": "attachment; filename=\"x.xlsx\"; filename*=UTF-8''%CE%9A%CF%8C%CF%83%CF%84%CE%BF%CF%82-2026-11-25.xlsx",
+        },
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    // jsdom has no object URLs; give it two for this test only.
+    const saved = { create: URL.createObjectURL, revoke: URL.revokeObjectURL };
+    URL.createObjectURL = vi.fn().mockReturnValue("blob:export");
+    URL.revokeObjectURL = vi.fn();
+    onTestFinished(() => {
+      URL.createObjectURL = saved.create;
+      URL.revokeObjectURL = saved.revoke;
+    });
+    const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => undefined);
+
+    renderTable();
+    // Sorted on screen by forecast, descending: the export follows the screen.
+    const forecastHeader = screen.getByRole("button", { name: /Πρόβλεψη/ });
+    await userEvent.click(forecastHeader);
+    expect(forecastHeader.closest("th")).toHaveAttribute("aria-sort", "descending");
+    await userEvent.click(screen.getByRole("button", { name: /Εξαγωγή σε Excel/ }));
+
+    await waitFor(() => expect(click).toHaveBeenCalledOnce());
+    expect(fetchMock).toHaveBeenCalledOnce();
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe("/api/proxy/exports/table");
+    expect(init.method).toBe("POST");
+    const body = JSON.parse(String(init.body));
+    expect(body.title).toBe("Κόστος ανά κατηγορία — Ανακαίνιση χειρουργείων Γ.Ν. Λάρνακας");
+    expect(body.columns).toEqual([
+      { header: "Κατηγορία κόστους", numeric: false, kind: "text" },
+      { header: "Πρόβλεψη τελικού κόστους", numeric: true, kind: "money" },
+    ]);
+    expect(body.rows).toEqual([
+      ["Οικοδομικές εργασίες", 1_260_000],
+      ["Ηλεκτρομηχανολογικές εγκαταστάσεις", 790_000],
+      ["Μελέτες και επίβλεψη", 178_000],
+    ]);
+    const link = click.mock.contexts[0] as HTMLAnchorElement;
+    expect(link.download).toBe("Κόστος-2026-11-25.xlsx");
+    expect(screen.getByRole("button", { name: /Εξαγωγή σε Excel/ })).toBeEnabled();
+  });
+
+  it("leaves a hidden column out of the generic export and says so when the export fails", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ key: "errors.tableExportNotValid", message: "Η εξαγωγή δεν έγινε." }), {
+        status: 400,
+        headers: { "content-type": "application/json" },
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderTable();
+    await userEvent.click(screen.getByText("Στήλες"));
+    await userEvent.click(screen.getByRole("checkbox", { name: "Κατηγορία κόστους" }));
+    await userEvent.click(screen.getByRole("button", { name: /Εξαγωγή σε Excel/ }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Η εξαγωγή δεν έγινε.");
+    const body = JSON.parse(String((fetchMock.mock.calls[0] as [string, RequestInit])[1].body));
+    expect(body.columns.map((c: { header: string }) => c.header)).toEqual(["Πρόβλεψη τελικού κόστους"]);
   });
 
   it("keeps the export button rendered but disabled when offline, with the reason in the title", () => {

@@ -162,10 +162,14 @@
         "caption": "Cost by category — Operating theatre refurbishment, Larnaca General Hospital",
         "category": "Cost category",
         "emptyMessage": "No cost categories have been recorded for this project."
-      }
+      },
+      "exporting": "Exporting…",
+      "exportFailed": "The Excel export did not finish. Check the connection and try again."
     },
     "timeline": {
-      "empty": "There are no entries yet."
+      "empty": "There are no entries yet.",
+      "show": "Show history ({count})",
+      "hide": "Hide history"
     },
     "wizard-shell": {
       "stepOf": "Step {current} of {total}"

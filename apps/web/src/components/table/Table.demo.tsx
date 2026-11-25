@@ -78,7 +78,6 @@ export function TableDemo({ state }: { state: TableState }) {
         actionLabelKey: "buttons.add",
         onAction: () => undefined,
       }}
-      onExport={() => undefined}
       onRowOpen={() => undefined}
       onSelectionChange={() => undefined}
       onRetry={() => undefined}

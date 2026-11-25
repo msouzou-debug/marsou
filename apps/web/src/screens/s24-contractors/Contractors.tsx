@@ -114,7 +114,6 @@ export function Contractors({
         getRowId={(row) => row.id}
         captionKey="screens.s24.caption"
         state={tableState}
-        onExport={() => undefined}
         onRowOpen={(row) => onSelect(row.id)}
         onRetry={onRetry}
         emptyState={{
