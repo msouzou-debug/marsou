@@ -27,6 +27,8 @@ export const DocumentRecord = z.object({
     "CLAIM_LETTER",
     "CLAIM_REPLY",
     "CLAIM_LEGAL_LETTER",
+    // 0030 (owner decision 25/11/2026): an RFI's sent e-mail or the reply.
+    "RFI_EVIDENCE",
   ]),
   titleEl: z.string(),
   filename: z.string(),

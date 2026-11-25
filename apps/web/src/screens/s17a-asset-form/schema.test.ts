@@ -24,6 +24,7 @@ const VALID: AssetFormValues = {
   criticality: 3,
   system: null,
   servesAreaIds: [],
+  sapAssetClass: "111042",
 };
 
 function messages(values: Partial<AssetFormValues>): Record<string, string> {

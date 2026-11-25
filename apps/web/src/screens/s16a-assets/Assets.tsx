@@ -40,7 +40,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { Tags } from "lucide-react";
-import type { AssetClass, AssetListRow, AssetStatus, Condition, OrgUnit } from "@ecapital/shared";
+import type { AssetClass, AssetListRow, AssetStatus, Condition, OrgUnit, SapAssetClass } from "@ecapital/shared";
+import { sapClassLabel } from "@/data/queries";
 import { PageTitle } from "@/components/app-shell";
 import { ConditionChip } from "@/components/condition-chip";
 import { CriticalityChip } from "@/components/criticality-chip";
@@ -60,6 +61,8 @@ export interface AssetsFilters {
   criticality: number | 0;
   condition: Condition | "";
   status: AssetStatus | "";
+  /** A SAP class code, `NONE` for the unclassed, or "" for every class. */
+  sapAssetClass: string;
   q: string;
 }
 
@@ -73,6 +76,8 @@ export interface AssetsProps {
   canWrite: boolean;
   canViewForecast: boolean;
   noPermission: ReactNode;
+  /** SAP's fixed-asset classes, for the filter (owner decision 25/11/2026). */
+  sapClasses?: SapAssetClass[];
 }
 
 const CLASS_OPTIONS: AssetClass[] = [
@@ -91,7 +96,18 @@ const CRITICALITY_OPTIONS = [1, 2, 3, 4, 5] as const;
 const CONDITION_OPTIONS: Condition[] = ["A", "B", "C", "D", "E"];
 const STATUS_OPTIONS: AssetStatus[] = ["IN_SERVICE", "OUT_OF_SERVICE", "DISPOSED", "PLANNED"];
 
-export function Assets({ data, state, filters, orgUnits, onFilters, onRetry, canWrite, canViewForecast, noPermission }: AssetsProps) {
+export function Assets({
+  data,
+  state,
+  filters,
+  orgUnits,
+  onFilters,
+  onRetry,
+  canWrite,
+  canViewForecast,
+  noPermission,
+  sapClasses = [],
+}: AssetsProps) {
   const t = useTranslations();
   const locale = useLocale() as Locale;
   const router = useRouter();
@@ -100,6 +116,15 @@ export function Assets({ data, state, filters, orgUnits, onFilters, onRetry, can
   if (state === "noPermission") return <>{noPermission}</>;
 
   const unitNameById = new Map(orgUnits.map((u) => [u.id, locale === "en" ? u.nameEn : u.nameEl] as const));
+  const sapLabel = (code: string, nameEl: string | null, nameEn: string | null) =>
+    sapClassLabel(code, locale === "en" ? (nameEn ?? nameEl) : nameEl);
+  const sapFilterLabel =
+    filters.sapAssetClass === "NONE"
+      ? t("screens.s16a.filters.sapNone")
+      : (() => {
+          const found = sapClasses.find((c) => c.code === filters.sapAssetClass);
+          return found ? sapLabel(found.code, found.nameEl, found.nameEn) : filters.sapAssetClass;
+        })();
 
   const filterItems: FilterItem[] = [
     ...(filters.unit ? [{ key: "unit", label: t("common.unit"), value: unitNameById.get(filters.unit) ?? filters.unit }] : []),
@@ -117,6 +142,9 @@ export function Assets({ data, state, filters, orgUnits, onFilters, onRetry, can
       ? [{ key: "condition", label: t("screens.s16a.filters.condition"), value: filters.condition }]
       : []),
     ...(filters.status ? [{ key: "status", label: t("common.status"), value: t(`assetStatus.${filters.status}`) }] : []),
+    ...(filters.sapAssetClass
+      ? [{ key: "sapClass", label: t("screens.s16a.filters.sapClass"), value: sapFilterLabel }]
+      : []),
     ...(filters.q.trim() ? [{ key: "q", label: t("common.search"), value: filters.q.trim() }] : []),
   ];
 
@@ -129,6 +157,7 @@ export function Assets({ data, state, filters, orgUnits, onFilters, onRetry, can
       criticality: keys.has("criticality") ? filters.criticality : 0,
       condition: keys.has("condition") ? filters.condition : "",
       status: keys.has("status") ? filters.status : "",
+      sapAssetClass: keys.has("sapClass") ? filters.sapAssetClass : "",
       q: keys.has("q") ? filters.q : "",
     });
   }
@@ -150,6 +179,17 @@ export function Assets({ data, state, filters, orgUnits, onFilters, onRetry, can
       headerKey: "screens.s16a.columns.class",
       accessor: (row) => row.assetClass,
       cell: (row) => t(`assetClass.${row.assetClass}`),
+    },
+    {
+      // Owner decision 25/11/2026: SAP's class beside eCapital's, «111042 —
+      // Κλιματισμός», so the Excel export carries it too.
+      id: "sapClass",
+      headerKey: "screens.s16a.columns.sapClass",
+      accessor: (row) => row.sapAssetClass ?? "",
+      cell: (row) =>
+        row.sapAssetClass
+          ? sapLabel(row.sapAssetClass, row.sapAssetClassNameEl, row.sapAssetClassNameEn)
+          : t("common.notAvailable"),
     },
     {
       id: "area",
@@ -279,6 +319,22 @@ export function Assets({ data, state, filters, orgUnits, onFilters, onRetry, can
                   {t(`assetClass.${c}`)}
                 </option>
               ))}
+            </select>
+          </label>
+          <label className="flex items-center gap-s-2 text-fs-14 text-k-text">
+            {t("screens.s16a.filters.sapClass")}
+            <select
+              value={filters.sapAssetClass}
+              onChange={(e) => onFilters({ ...filters, sapAssetClass: e.target.value })}
+              className="rounded-k border border-k-grey p-s-2 text-fs-14"
+            >
+              <option value="">{t("screens.s16a.filters.all")}</option>
+              {sapClasses.map((c) => (
+                <option key={c.code} value={c.code}>
+                  {sapLabel(c.code, c.nameEl, c.nameEn)}
+                </option>
+              ))}
+              <option value="NONE">{t("screens.s16a.filters.sapNone")}</option>
             </select>
           </label>
           <label className="flex items-center gap-s-2 text-fs-14 text-k-text">

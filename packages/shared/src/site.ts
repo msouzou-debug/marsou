@@ -44,28 +44,68 @@ export const Rfi = z.object({
   // SLA keeps the band it was answered in instead of drifting to BREACHED
   // while it waits to be closed.
   slaState: SlaState,
+  // Owner decision 25/11/2026: eCapital sends no e-mail. The engineer sends
+  // the RFI from Outlook and records here who it went to, the address used
+  // and the day it left (yyyy-mm-dd). Null on an RFI raised before the
+  // fields existed; the name is required on every new one.
+  recipientName: z.string().nullable(),
+  recipientEmail: z.string().nullable(),
+  sentOn: z.string().nullable(),
 });
 export type Rfi = z.infer<typeof Rfi>;
+
+export const RFI_RECIPIENT_NAME_MAX = 200;
+export const RFI_RECIPIENT_EMAIL_MAX = 254;
+
+const RecipientName = z.string().trim().min(1).max(RFI_RECIPIENT_NAME_MAX);
+const RecipientEmail = z.string().trim().max(RFI_RECIPIENT_EMAIL_MAX).email();
 
 export const RfiCreate = z.object({
   questionEl: z.string().min(1),
   // Default 7 days; a contract may carry its own in the SLA table later (M5).
   slaDays: z.number().int().min(1).max(60).default(7),
+  recipientName: RecipientName,
+  recipientEmail: RecipientEmail.nullable().optional(),
+  // RULE (owner, UAT 25/11/2026): not after today, here; not before the day
+  // the RFI was raised, in the service — on a new RFI that day is today.
+  sentOn: PastOrTodayDate.nullable().optional(),
 });
 export type RfiCreate = z.infer<typeof RfiCreate>;
 
-// UAT 25/11/2026: an RFI can be corrected until it is closed — the question
-// and the due date. Who raised it and when, the answer and who gave it are
-// not here: the first two are facts of record, the answer has its own route.
-// RULE (owner): the due date is not before the day the RFI was raised; the
-// service checks that against the row, because only the row knows the day.
+// UAT 25/11/2026: an RFI can be corrected until it is closed — the question,
+// the due date, and (owner decision 25/11/2026) who it went to and when it
+// was sent. Who raised it and when, the answer and who gave it are not here:
+// the first two are facts of record, the answer has its own route.
+// RULE (owner): the due date and the day it was sent are not before the day
+// the RFI was raised; the service checks that against the row, because only
+// the row knows the day. The address and the sent day can be cleared (null);
+// a recipient, once named, is corrected rather than removed.
 export const RfiUpdate = z
   .object({
     questionEl: z.string().min(1),
     dueDate: CalendarDate,
+    recipientName: RecipientName,
+    recipientEmail: RecipientEmail.nullable(),
+    sentOn: PastOrTodayDate.nullable(),
   })
   .partial();
 export type RfiUpdate = z.infer<typeof RfiUpdate>;
+
+// The evidence filed against an RFI (owner decision 25/11/2026): the sent
+// e-mail as .msg, .eml or .pdf, or the reply received. Each is a `document`
+// row queued for eArchive (ADR-0023); `protocolNumber` arrives once eArchive
+// has answered. The bytes are read through `GET /documents/:id/content`.
+export const RfiDocument = z.object({
+  id: z.string(),
+  titleEl: z.string(),
+  filename: z.string(),
+  mime: z.string(),
+  size: z.number().int(),
+  protocolNumber: z.string().nullable(),
+  uploadedByName: z.string().nullable(),
+  createdAt: z.string(),
+});
+export type RfiDocument = z.infer<typeof RfiDocument>;
 
 export const RfiAnswer = z.object({ answerEl: z.string().min(1) });
 export type RfiAnswer = z.infer<typeof RfiAnswer>;

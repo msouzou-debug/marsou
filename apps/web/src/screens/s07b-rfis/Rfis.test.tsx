@@ -1,11 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 import { act, fireEvent, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { nicosiaDateOf } from "@ecapital/shared";
+import { nicosiaDateOf, type RfiDocument } from "@ecapital/shared";
 import { renderWithIntl } from "@/test/render";
 import { formatDate } from "@/lib/format";
 import { buildContractDetail } from "../s07-contract/fixture";
 import { buildRfis } from "./fixture";
+import { RfiSheet } from "./RfiSheet";
 import { Rfis } from "./Rfis";
 
 const noPermission = <div>no permission</div>;
@@ -131,8 +132,187 @@ describe("Rfis — detail and edit (UAT 25/11/2026)", () => {
     await user.type(question, "Ποιος τύπος πυράντοχης θύρας ισχύει;");
     fireEvent.change(due, { target: { value: "2026-09-30" } });
     await user.click(dialog.getByRole("button", { name: "Αποθήκευση" }));
-    expect(onUpdate).toHaveBeenCalledWith({ questionEl: "Ποιος τύπος πυράντοχης θύρας ισχύει;", dueDate: "2026-09-30" });
+    expect(onUpdate).toHaveBeenCalledWith({
+      questionEl: "Ποιος τύπος πυράντοχης θύρας ισχύει;",
+      dueDate: "2026-09-30",
+      recipientName: openRfi.recipientName,
+      recipientEmail: openRfi.recipientEmail,
+      sentOn: "",
+    });
     // Saved: back to the read view.
     expect(await screen.findByRole("dialog", { name: `Αίτημα διευκρίνισης ${openRfi.number}` })).toBeInTheDocument();
+  });
+});
+
+describe("Rfis — recipient, sent day and correspondence (owner decision 25/11/2026)", () => {
+  const rfis = buildRfis(now);
+  const openRfi = rfis.find((r) => r.status === "OPEN" && r.slaState === "GREEN")!;
+  const oldRfi = rfis.find((r) => r.recipientName === null)!;
+  const closedRfi = rfis.find((r) => r.status === "CLOSED")!;
+  const documents: RfiDocument[] = [
+    {
+      id: "doc-sent",
+      titleEl: "Απεσταλμένο μήνυμα ΑΔ 2",
+      filename: "RFI-2.msg",
+      mime: "application/vnd.ms-outlook",
+      size: 2048,
+      protocolNumber: null,
+      uploadedByName: "Ελένη Χριστοδούλου",
+      createdAt: "2026-09-16T08:00:00.000Z",
+    },
+    {
+      id: "doc-reply",
+      titleEl: "Απάντηση αρχιτέκτονα",
+      filename: "reply.pdf",
+      mime: "application/pdf",
+      size: 4096,
+      protocolNumber: "ΤΥ/2026/00042",
+      uploadedByName: "Ελένη Χριστοδούλου",
+      createdAt: "2026-09-18T08:00:00.000Z",
+    },
+  ];
+
+  function renderRfis(props: Partial<Parameters<typeof Rfis>[0]> = {}) {
+    return renderWithIntl(
+      <Rfis
+        contract={contract}
+        rfis={rfis}
+        state="default"
+        noPermission={noPermission}
+        roles={["project_engineer"]}
+        onSelect={vi.fn()}
+        onCreate={vi.fn()}
+        onAnswer={vi.fn()}
+        onCloseRfi={vi.fn()}
+        onUpdate={vi.fn().mockResolvedValue(true)}
+        {...props}
+      />,
+    );
+  }
+
+  it("shows the recipient and the day it was sent as columns", () => {
+    renderRfis();
+    const closedRow = screen.getByText(closedRfi.questionEl).closest("tr")!;
+    expect(closedRow.textContent).toContain("Δοκιμαστική Εργοληπτική Λτδ");
+    expect(closedRow.textContent).toContain("21/08/2026");
+    expect(screen.getByRole("columnheader", { name: /Παραλήπτης/ })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: /Αποστολή/ })).toBeInTheDocument();
+  });
+
+  it("requires the recipient on a new RFI and checks the address", async () => {
+    const user = userEvent.setup();
+    const onCreate = vi.fn();
+    renderRfis({ selectedId: "new", onCreate });
+    const dialog = within(screen.getByRole("dialog"));
+    await user.type(dialog.getByLabelText("Ερώτηση"), "Ποιο πάχος μόνωσης ισχύει;");
+    await user.click(dialog.getByRole("button", { name: "Αποθήκευση" }));
+    expect(onCreate).not.toHaveBeenCalled();
+    expect(await dialog.findByText("Συμπληρώστε αυτό το πεδίο.")).toBeInTheDocument();
+
+    await user.type(dialog.getByLabelText("Παραλήπτης"), "Νίκος Γεωργίου, Μηχανολογικό γραφείο");
+    await user.type(dialog.getByLabelText("Ηλεκτρονικό ταχυδρομείο παραλήπτη"), "όχι διεύθυνση");
+    await user.click(dialog.getByRole("button", { name: "Αποθήκευση" }));
+    expect(onCreate).not.toHaveBeenCalled();
+    expect(await dialog.findByText("Η διεύθυνση ηλεκτρονικού ταχυδρομείου δεν είναι έγκυρη.")).toBeInTheDocument();
+
+    await user.clear(dialog.getByLabelText("Ηλεκτρονικό ταχυδρομείο παραλήπτη"));
+    await user.type(dialog.getByLabelText("Ηλεκτρονικό ταχυδρομείο παραλήπτη"), "n.georgiou@mep.example");
+    await user.click(dialog.getByRole("button", { name: "Αποθήκευση" }));
+    expect(onCreate).toHaveBeenCalledWith({
+      questionEl: "Ποιο πάχος μόνωσης ισχύει;",
+      slaDays: 7,
+      recipientName: "Νίκος Γεωργίου, Μηχανολογικό γραφείο",
+      recipientEmail: "n.georgiou@mep.example",
+      sentOn: "",
+    });
+    // eCapital sends nothing: the form says so.
+    expect(dialog.getByText(/Το eCapital δεν στέλνει μηνύματα/)).toBeInTheDocument();
+  });
+
+  it("refuses a sent day after today or before the day the RFI was raised", async () => {
+    const user = userEvent.setup();
+    const onUpdate = vi.fn().mockResolvedValue(true);
+    renderWithIntl(
+      <RfiSheet
+        open
+        rfi={openRfi}
+        canWrite
+        today="2026-09-19"
+        onClose={vi.fn()}
+        onCreate={vi.fn()}
+        onAnswer={vi.fn()}
+        onCloseRfi={vi.fn()}
+        onUpdate={onUpdate}
+        documents={[]}
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: "Επεξεργασία" }));
+    const dialog = within(screen.getByRole("dialog"));
+    const sentOn = dialog.getByLabelText("Ημερομηνία αποστολής");
+
+    fireEvent.change(sentOn, { target: { value: "2026-09-20" } });
+    await user.click(dialog.getByRole("button", { name: "Αποθήκευση" }));
+    expect(onUpdate).not.toHaveBeenCalled();
+    expect(await dialog.findByText("Η ημερομηνία δεν μπορεί να είναι μεταγενέστερη της σημερινής.")).toBeInTheDocument();
+
+    const dayBefore = new Date(`${nicosiaDateOf(openRfi.raisedAt)}T00:00:00Z`);
+    dayBefore.setUTCDate(dayBefore.getUTCDate() - 1);
+    fireEvent.change(sentOn, { target: { value: dayBefore.toISOString().slice(0, 10) } });
+    await user.click(dialog.getByRole("button", { name: "Αποθήκευση" }));
+    expect(onUpdate).not.toHaveBeenCalled();
+    expect(
+      await dialog.findByText("Η ημερομηνία αποστολής δεν μπορεί να είναι πριν από την ημερομηνία υποβολής."),
+    ).toBeInTheDocument();
+
+    fireEvent.change(sentOn, { target: { value: nicosiaDateOf(openRfi.raisedAt) } });
+    await user.click(dialog.getByRole("button", { name: "Αποθήκευση" }));
+    expect(onUpdate).toHaveBeenCalledWith(expect.objectContaining({ sentOn: nicosiaDateOf(openRfi.raisedAt) }));
+  });
+
+  it("lets an RFI from before the recipient existed be corrected without one", async () => {
+    const user = userEvent.setup();
+    const onUpdate = vi.fn().mockResolvedValue(true);
+    renderRfis({ selectedId: oldRfi.id, onUpdate, documents: [] });
+    const readView = within(screen.getByRole("dialog"));
+    expect(readView.getAllByText("Δεν έχει καταχωριστεί").length).toBeGreaterThanOrEqual(1);
+    await user.click(readView.getByRole("button", { name: "Επεξεργασία" }));
+    const dialog = within(screen.getByRole("dialog"));
+    await user.click(dialog.getByRole("button", { name: "Αποθήκευση" }));
+    expect(onUpdate).toHaveBeenCalledWith(expect.objectContaining({ recipientName: "" }));
+  });
+
+  it("lists the correspondence with «Προβολή» and «Λήψη», and files a new one", async () => {
+    const user = userEvent.setup();
+    const onUpload = vi.fn().mockResolvedValue(true);
+    renderRfis({ selectedId: openRfi.id, documents, onUpload });
+    const dialog = within(screen.getByRole("dialog"));
+    expect(dialog.getByText("Αλληλογραφία")).toBeInTheDocument();
+    expect(dialog.getByText(/Σε αναμονή πρωτοκόλλου/)).toBeInTheDocument();
+    expect(dialog.getByText(/ΤΥ\/2026\/00042/)).toBeInTheDocument();
+
+    // A .msg cannot be shown in a tab, so «Προβολή» saves it; a PDF opens inline.
+    const views = dialog.getAllByRole("link", { name: /Προβολή/ });
+    expect(views[0]).toHaveAttribute("href", "/api/proxy/documents/doc-sent/content?download=1");
+    expect(views[1]).toHaveAttribute("href", "/api/proxy/documents/doc-reply/content");
+    const downloads = dialog.getAllByRole("link", { name: /Λήψη/ });
+    expect(downloads[1]).toHaveAttribute("href", "/api/proxy/documents/doc-reply/content?download=1");
+
+    await user.click(dialog.getByRole("button", { name: "Επισύναψη αρχείου" }));
+    const file = new File(["From: a@b.example"], "reply.eml", { type: "" });
+    await user.upload(dialog.getByLabelText("Αρχείο"), file);
+    await user.type(dialog.getByLabelText("Τίτλος (προαιρετικά)"), "Απάντηση μελετητή");
+    await user.click(within(dialog.getByText("Αρχείο").closest("form")!).getByRole("button", { name: "Αποθήκευση" }));
+    expect(onUpload).toHaveBeenCalledWith(file, "Απάντηση μελετητή");
+  });
+
+  it("offers no upload to a role that only reads the log, and none while offline", () => {
+    const { unmount } = renderRfis({ selectedId: openRfi.id, documents, onUpload: vi.fn(), roles: ["finance"] });
+    expect(within(screen.getByRole("dialog")).queryByRole("button", { name: "Επισύναψη αρχείου" })).not.toBeInTheDocument();
+    // Reading stays: the links are there.
+    expect(within(screen.getByRole("dialog")).getAllByRole("link", { name: /Λήψη/ })).toHaveLength(2);
+    unmount();
+
+    renderRfis({ selectedId: openRfi.id, documents, onUpload: vi.fn(), state: "offline" });
+    expect(within(screen.getByRole("dialog")).queryByRole("button", { name: "Επισύναψη αρχείου" })).not.toBeInTheDocument();
   });
 });

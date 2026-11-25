@@ -24,7 +24,14 @@
  * RULE (UAT 25/11/2026): «Έργο προέλευσης» and «Σύμβαση προέλευσης» list
  * the projects and contracts of the asset's own unit — all of them, every
  * phase, never one page — as a plain select by code/reference, with a line
- * under each saying so. Every field the rules can refuse shows its message
+ * under each saying so.
+ *
+ * RULE (owner decision 25/11/2026): «Κατηγορία παγίου SAP» is prefilled
+ * from the asset class by `defaultSapAssetClass` and follows it until the
+ * user picks a SAP class by hand; from then on their choice stands. OTHER
+ * has no default. The list is SAP's sixteen classes (`useSapAssetClasses`).
+ *
+ * Every field the rules can refuse shows its message
  * under itself (`schema.ts`), and the installed/commissioned date pickers
  * stop at today.
  *
@@ -49,10 +56,17 @@ import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useLocale, useTranslations } from "next-intl";
 import { LoaderCircle } from "lucide-react";
-import { AssetClass, PermitSystem, nicosiaToday, type OrgUnit } from "@ecapital/shared";
+import { AssetClass, PermitSystem, defaultSapAssetClass, nicosiaToday, type OrgUnit } from "@ecapital/shared";
 import { AreaPicker } from "@/components/area-picker";
 import { PageTitle } from "@/components/app-shell";
-import { useAreaTree, useAssets, useContractsForUnit, useProjectsForUnit } from "@/data/queries";
+import {
+  sapClassLabel,
+  useAreaTree,
+  useAssets,
+  useContractsForUnit,
+  useProjectsForUnit,
+  useSapAssetClasses,
+} from "@/data/queries";
 import type { Locale } from "@/i18n/config";
 import { formatEUR } from "@/lib/format";
 import { zodResolver } from "@/lib/zod-resolver";
@@ -82,6 +96,7 @@ const EMPTY_VALUES: AssetFormValues = {
   criticality: 3,
   system: null,
   servesAreaIds: [],
+  sapAssetClass: defaultSapAssetClass("OTHER"),
 };
 
 const CRITICALITY_OPTIONS = [1, 2, 3, 4, 5] as const;
@@ -165,6 +180,15 @@ export function AssetForm({
   const sourceContractId = watch("sourceContractId");
   const system = watch("system");
   const servesAreaIds = watch("servesAreaIds") ?? [];
+  const sapAssetClass = watch("sapAssetClass") ?? null;
+
+  // Owner decision 25/11/2026: SAP's class follows the asset class until
+  // somebody picks one by hand; after that, their choice stands. An asset
+  // being edited already has its class (and the asset class is fixed).
+  const [sapChosen, setSapChosen] = useState(mode === "edit");
+  const { data: sapClasses } = useSapAssetClasses();
+  const sapOptionLabel = (code: string, nameEl: string, nameEn: string) =>
+    sapClassLabel(code, locale === "en" ? nameEn : nameEl);
 
   const { data: areaTree } = useAreaTree(liveOrgUnitId || "");
   const { data: projects } = useProjectsForUnit(liveOrgUnitId || "");
@@ -233,11 +257,45 @@ export function AssetForm({
           <div className="grid grid-cols-1 gap-s-4 tablet:grid-cols-2">
             <div className={fieldset}>
               <label htmlFor="af-class" className="text-fs-14 text-k-text">{tf("assetClass")}</label>
-              <select id="af-class" {...register("assetClass")} className={input}>
+              <select
+                id="af-class"
+                {...register("assetClass", {
+                  onChange: (e) => {
+                    if (!sapChosen) setValue("sapAssetClass", defaultSapAssetClass(e.target.value as AssetClass));
+                  },
+                })}
+                className={input}
+              >
                 {AssetClass.options.map((c) => (
                   <option key={c} value={c}>{t(`assetClass.${c}`)}</option>
                 ))}
               </select>
+            </div>
+            <div className={fieldset}>
+              <label htmlFor="af-sap-class" className="text-fs-14 text-k-text">{tf("sapAssetClass")}</label>
+              <select
+                id="af-sap-class"
+                value={sapAssetClass ?? ""}
+                onChange={(e) => {
+                  setSapChosen(true);
+                  setValue("sapAssetClass", e.target.value || null);
+                }}
+                disabled={readOnly}
+                className={input}
+              >
+                <option value="">{tf("noSapClass")}</option>
+                {/* A class retired since it was chosen still shows as chosen. */}
+                {sapAssetClass && !sapClasses?.some((c) => c.code === sapAssetClass) && (
+                  <option value={sapAssetClass}>{sapAssetClass}</option>
+                )}
+                {sapClasses
+                  ?.filter((c) => c.active || c.code === sapAssetClass)
+                  .map((c) => (
+                    <option key={c.code} value={c.code}>{sapOptionLabel(c.code, c.nameEl, c.nameEn)}</option>
+                  ))}
+              </select>
+              <p className="text-fs-12 text-k-text">{tf("sapAssetClassHint")}</p>
+              <FieldError message={fieldError("sapAssetClass")} />
             </div>
             <div className={fieldset}>
               <label htmlFor="af-system" className="text-fs-14 text-k-text">{tf("system")}</label>

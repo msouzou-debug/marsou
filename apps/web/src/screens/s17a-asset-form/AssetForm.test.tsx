@@ -115,6 +115,7 @@ describe("AssetForm", () => {
             criticality: 3,
             system: null,
             servesAreaIds: [],
+            sapAssetClass: "111042",
           }}
           readOnly={false}
           submitting={false}
@@ -133,5 +134,64 @@ describe("AssetForm", () => {
       await screen.findByText("Η θέση σε λειτουργία δεν μπορεί να είναι πριν από την ημερομηνία εγκατάστασης."),
     ).toBeInTheDocument();
     expect(onSubmit).not.toHaveBeenCalled();
+  });
+});
+
+describe("AssetForm — SAP asset class (owner decision 25/11/2026)", () => {
+  const SAP_CLASSES = [
+    { code: "111030", nameEl: "Ιατρικός εξοπλισμός", nameEn: "Medical Equipment", active: true },
+    { code: "111042", nameEl: "Κλιματισμός", nameEn: "Air-conditioning", active: true },
+    { code: "111050", nameEl: "Ηλεκτρονικοί υπολογιστές και λοιπά", nameEn: "Computer and Other", active: true },
+    { code: "111054", nameEl: "Εξοπλισμός γραφείου", nameEn: "Office Equipment", active: true },
+  ];
+
+  function withSapClasses(ui: ReactNode) {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    client.setQueryData(["sap-asset-classes"], SAP_CLASSES);
+    return <QueryClientProvider client={client}>{ui}</QueryClientProvider>;
+  }
+
+  it("prefills the SAP class from the asset class, and keeps the user's own choice", async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn();
+    renderWithIntl(
+      withSapClasses(
+        <AssetForm mode="create" orgUnits={ORG_UNITS} readOnly={false} submitting={false} onSubmit={onSubmit} onCancel={vi.fn()} />,
+      ),
+    );
+    const assetClass = screen.getByLabelText("Κατηγορία παγίου");
+    const sapClass = screen.getByLabelText("Κατηγορία παγίου SAP") as HTMLSelectElement;
+    // OTHER, the form's starting class, has no default.
+    expect(sapClass.value).toBe("");
+    expect(screen.getByText("111042 — Κλιματισμός")).toBeInTheDocument();
+
+    await user.selectOptions(assetClass, "BIOMEDICAL");
+    expect(sapClass.value).toBe("111030");
+    await user.selectOptions(assetClass, "HVAC");
+    expect(sapClass.value).toBe("111042");
+
+    // Chosen by hand: the asset class no longer moves it.
+    await user.selectOptions(sapClass, "111054");
+    await user.selectOptions(assetClass, "IT");
+    expect(sapClass.value).toBe("111054");
+
+    await user.type(screen.getByLabelText("Όνομα"), "Φωτοτυπικό μηχάνημα");
+    await user.click(screen.getByRole("button", { name: "Αποθήκευση" }));
+    expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ assetClass: "IT", sapAssetClass: "111054" }));
+  });
+
+  it("lets the user clear the SAP class", async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn();
+    renderWithIntl(
+      withSapClasses(
+        <AssetForm mode="create" orgUnits={ORG_UNITS} readOnly={false} submitting={false} onSubmit={onSubmit} onCancel={vi.fn()} />,
+      ),
+    );
+    await user.selectOptions(screen.getByLabelText("Κατηγορία παγίου"), "HVAC");
+    await user.selectOptions(screen.getByLabelText("Κατηγορία παγίου SAP"), "");
+    await user.type(screen.getByLabelText("Όνομα"), "Κλιματιστικό");
+    await user.click(screen.getByRole("button", { name: "Αποθήκευση" }));
+    expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ assetClass: "HVAC", sapAssetClass: null }));
   });
 });

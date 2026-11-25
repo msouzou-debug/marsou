@@ -36,6 +36,9 @@ const LIFT: AssetListRow = {
   areaId: "area-1",
   areaNameEl: "Κεντρικός διάδρομος",
   orgUnitNameEl: "Γ.Ν. Λευκωσίας",
+  sapAssetClass: "111040",
+  sapAssetClassNameEl: "Μηχανήματα και εξοπλισμός",
+  sapAssetClassNameEn: "Machinery & Equipment",
   priorityRank: 4,
 };
 

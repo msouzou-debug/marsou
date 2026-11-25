@@ -448,4 +448,103 @@ describe("the asset register", () => {
       .set(bearer(token));
     expect(response.status).toBe(404);
   });
+
+  // ------------------------------ SAP asset class (owner decision 25/11/2026) --
+
+  it("lists SAP's sixteen classes to every signed-in role", async () => {
+    for (const email of [USERS.technicianNicosia, USERS.auditor, USERS.clinicalNicosia]) {
+      const token = await tokenFor(app, email);
+      const response = await request(app.getHttpServer())
+        .get("/assets/sap-classes")
+        .set(bearer(token));
+      expect(response.status).toBe(200);
+      const codes = (response.body as { code: string }[]).map((c) => c.code);
+      expect(codes).toHaveLength(16);
+      expect(codes[0]).toBe("111020");
+      expect(codes).toContain("111120");
+      expect(response.body.find((c: { code: string }) => c.code === "111042").nameEl).toBe("Κλιματισμός");
+    }
+  });
+
+  it("fills the default SAP class for the asset class, and takes the user's choice or none", async () => {
+    const byDefault = await makeAsset({ assetClass: "FIRE" });
+    expect(byDefault.status).toBe(201);
+    expect(byDefault.body.sapAssetClass).toBe("111058");
+
+    const other = await makeAsset({ assetClass: "OTHER" });
+    expect(other.body.sapAssetClass).toBeNull();
+
+    const chosen = await makeAsset({ assetClass: "OTHER", sapAssetClass: "111054" });
+    expect(chosen.status).toBe(201);
+    expect(chosen.body.sapAssetClass).toBe("111054");
+
+    const declined = await makeAsset({ assetClass: "HVAC", sapAssetClass: null });
+    expect(declined.status).toBe(201);
+    expect(declined.body.sapAssetClass).toBeNull();
+
+    const token = await tokenFor(app, USERS.estatesNicosia);
+    const detail = await request(app.getHttpServer())
+      .get(`/assets/${chosen.body.id}`)
+      .set(bearer(token));
+    expect(detail.body.sapAssetClass).toBe("111054");
+    expect(detail.body.sapAssetClassNameEl).toBe("Εξοπλισμός γραφείου");
+    expect(detail.body.sapAssetClassNameEn).toBe("Office Equipment");
+  });
+
+  it("refuses a SAP class that is not on the list, by shape or by code", async () => {
+    const shape = await makeAsset({ sapAssetClass: "AC" });
+    expect(shape.status).toBe(400);
+    expect(shape.body.key).toBe("errors.assetFieldNotValid");
+    const unknown = await makeAsset({ sapAssetClass: "999999" });
+    expect(unknown.status).toBe(400);
+    expect(unknown.body.key).toBe("errors.assetSapClassNotFound");
+  });
+
+  it("changes the SAP class on an edit, and filters the register by it", async () => {
+    const created = await makeAsset({ assetClass: "ELECTRICAL" });
+    expect(created.body.sapAssetClass).toBe("111062");
+    const token = await tokenFor(app, USERS.estatesNicosia);
+    const edited = await request(app.getHttpServer())
+      .patch(`/assets/${created.body.id}`)
+      .set(bearer(token))
+      .send({ sapAssetClass: "111056" });
+    expect(edited.status).toBe(200);
+    expect(edited.body.sapAssetClass).toBe("111056");
+
+    type Row = { id: string; sapAssetClass: string | null; sapAssetClassNameEl: string | null };
+    const { items: filtered } = await listAll<Row>(
+      app,
+      token,
+      "/assets?orgUnitId=nicosia-general&sapAssetClass=111056",
+    );
+    expect(filtered.some((row) => row.id === created.body.id)).toBe(true);
+    expect(filtered.every((row) => row.sapAssetClass === "111056")).toBe(true);
+    const row = filtered.find((r) => r.id === created.body.id);
+    expect(row?.sapAssetClassNameEl).toBe("Τηλεπικοινωνιακός εξοπλισμός");
+
+    const unclassed = await makeAsset({ assetClass: "OTHER" });
+    const { items: none } = await listAll<Row>(
+      app,
+      token,
+      "/assets?orgUnitId=nicosia-general&sapAssetClass=NONE",
+    );
+    expect(none.some((r) => r.id === unclassed.body.id)).toBe(true);
+    expect(none.every((r) => r.sapAssetClass === null)).toBe(true);
+
+    const bad = await request(app.getHttpServer())
+      .get("/assets?sapAssetClass=climate")
+      .set(bearer(token));
+    expect(bad.status).toBe(400);
+    expect(bad.body.key).toBe("errors.assetQueryNotValid");
+  });
+
+  it("lets the auditor read the SAP class and not change it", async () => {
+    const created = await makeAsset({ assetClass: "LIFT" });
+    const auditor = await tokenFor(app, USERS.auditor);
+    const refused = await request(app.getHttpServer())
+      .patch(`/assets/${created.body.id}`)
+      .set(bearer(auditor))
+      .send({ sapAssetClass: "111040" });
+    expect(refused.status).toBe(403);
+  });
 });

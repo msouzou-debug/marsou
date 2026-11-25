@@ -7,8 +7,9 @@
  * split as S07's own pair). Reads the contract (`useContract`, for the
  * eyebrow, tab strip and its counts) and the contract's own RFI list
  * (`useRfis`) side by side, and owns every mutation: create, answer, edit
- * (UAT 25/11/2026), close.
- * Every one refetches both queries and closes the sheet on success.
+ * (UAT 25/11/2026), close, and the correspondence upload (owner decision
+ * 25/11/2026; `useRfiDocuments` reads the open RFI's files).
+ * Every one refetches what it changed; create and close also close the sheet.
  *
  * | Prop         | Type       | Notes                                             |
  * |--------------|------------|----------------------------------------------------|
@@ -18,9 +19,9 @@
  */
 import { useEffect, useState, type ReactNode } from "react";
 import type { AppRole, Rfi } from "@ecapital/shared";
-import { Rfi as RfiSchema } from "@ecapital/shared";
-import { ApiError, apiMutate } from "@/data/client";
-import { useContract, useRfis } from "@/data/queries";
+import { RfiDocument, Rfi as RfiSchema } from "@ecapital/shared";
+import { ApiError, apiMutate, apiMutateMultipart } from "@/data/client";
+import { useContract, useRfiDocuments, useRfis } from "@/data/queries";
 import { Rfis, type RfisScreenState } from "./Rfis";
 import type { RfiEditFormValues, RfiFormValues } from "./schema";
 
@@ -52,6 +53,9 @@ export function RfisScreen({ contractId, roles, noPermission }: RfisScreenProps)
   const [selectedId, setSelectedId] = useState<string | "new" | null>(null);
   const [sheetSaving, setSheetSaving] = useState(false);
   const [sheetApiError, setSheetApiError] = useState<string | undefined>(undefined);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | undefined>(undefined);
+  const documentsQuery = useRfiDocuments(contractId, selectedId && selectedId !== "new" ? selectedId : null);
 
   let state: RfisScreenState;
   if (!online && (contractQuery.data || rfisQuery.data)) {
@@ -70,7 +74,14 @@ export function RfisScreen({ contractId, roles, noPermission }: RfisScreenProps)
 
   function selectRow(id: string | "new" | null) {
     setSheetApiError(undefined);
+    setUploadError(undefined);
     setSelectedId(id);
+  }
+
+  /** Blank optional fields: left out of a new RFI, cleared (null) on an edit. */
+  function blankToNull(value: string): string | null {
+    const trimmed = value.trim();
+    return trimmed === "" ? null : trimmed;
   }
 
   async function refetchAll(): Promise<void> {
@@ -81,7 +92,14 @@ export function RfisScreen({ contractId, roles, noPermission }: RfisScreenProps)
     setSheetSaving(true);
     setSheetApiError(undefined);
     try {
-      await apiMutate<Rfi>(`/contracts/${encodeURIComponent(contractId)}/rfis`, "POST", values, RfiSchema);
+      const body = {
+        questionEl: values.questionEl,
+        slaDays: values.slaDays,
+        recipientName: values.recipientName.trim(),
+        ...(blankToNull(values.recipientEmail) ? { recipientEmail: blankToNull(values.recipientEmail) } : {}),
+        ...(blankToNull(values.sentOn) ? { sentOn: values.sentOn } : {}),
+      };
+      await apiMutate<Rfi>(`/contracts/${encodeURIComponent(contractId)}/rfis`, "POST", body, RfiSchema);
       setSelectedId(null);
       await refetchAll();
     } catch (submitError) {
@@ -120,7 +138,14 @@ export function RfisScreen({ contractId, roles, noPermission }: RfisScreenProps)
       await apiMutate<Rfi>(
         `/contracts/${encodeURIComponent(contractId)}/rfis/${encodeURIComponent(selectedId)}`,
         "PATCH",
-        { questionEl: values.questionEl.trim(), dueDate: values.dueDate },
+        {
+          questionEl: values.questionEl.trim(),
+          dueDate: values.dueDate,
+          // An RFI from before the recipient existed may stay without one.
+          ...(values.recipientName.trim() ? { recipientName: values.recipientName.trim() } : {}),
+          recipientEmail: blankToNull(values.recipientEmail),
+          sentOn: blankToNull(values.sentOn),
+        },
         RfiSchema,
       );
       await refetchAll();
@@ -130,6 +155,34 @@ export function RfisScreen({ contractId, roles, noPermission }: RfisScreenProps)
       return false;
     } finally {
       setSheetSaving(false);
+    }
+  }
+
+  /**
+   * Owner decision 25/11/2026: the sent e-mail or the reply, filed against
+   * the RFI. Multipart, the browser's own content-type (`apiMutateMultipart`);
+   * a .msg the browser calls octet-stream is filed as Outlook by the API.
+   */
+  async function handleUpload(file: File, titleEl: string): Promise<boolean> {
+    if (!selectedId || selectedId === "new") return false;
+    setUploading(true);
+    setUploadError(undefined);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      if (titleEl) form.append("titleEl", titleEl);
+      await apiMutateMultipart(
+        `/contracts/${encodeURIComponent(contractId)}/rfis/${encodeURIComponent(selectedId)}/documents`,
+        form,
+        RfiDocument,
+      );
+      await documentsQuery.refetch();
+      return true;
+    } catch (submitError) {
+      setUploadError(submitError instanceof ApiError ? submitError.message : String(submitError));
+      return false;
+    } finally {
+      setUploading(false);
     }
   }
 
@@ -164,6 +217,10 @@ export function RfisScreen({ contractId, roles, noPermission }: RfisScreenProps)
       onAnswer={(answerEl) => void handleAnswer(answerEl)}
       onCloseRfi={() => void handleClose()}
       onUpdate={handleUpdate}
+      documents={documentsQuery.data}
+      onUpload={handleUpload}
+      uploading={uploading}
+      uploadError={uploadError}
     />
   );
 }

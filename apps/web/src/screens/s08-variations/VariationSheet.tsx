@@ -47,7 +47,7 @@
  * | onDecide           | (decision, comment) => void | `POST .../decide`.                                    |
  */
 import { useState } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { useTranslations } from "next-intl";
 import { LoaderCircle, X } from "lucide-react";
 import type { Variation, VariationDecision as VariationDecisionType, VatRate } from "@ecapital/shared";
@@ -134,7 +134,7 @@ export function VariationSheet({
   const {
     register,
     handleSubmit,
-    watch,
+    control,
     formState: { errors },
   } = useForm<VariationFormValues>({
     resolver: zodResolver<VariationFormValues>(VariationFormSchema),
@@ -146,8 +146,8 @@ export function VariationSheet({
       timeImpactDays: variation?.timeImpactDays ?? 0,
     },
   });
-  const typedValue = watch("value");
-  const typedRate = watch("vatRate");
+  const typedValue = useWatch({ control, name: "value" });
+  const typedRate = useWatch({ control, name: "vatRate" });
 
   if (!open) return null;
 

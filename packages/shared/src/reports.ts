@@ -226,6 +226,10 @@ export const AssetLifecycleRow = z.object({
   orgUnitId: z.string(),
   orgUnitName: z.string(),
   assetClass: z.string(),
+  // SAP's fixed-asset class and its Greek name (owner decision 25/11/2026);
+  // null on an asset nobody has classed.
+  sapAssetClass: z.string().nullable(),
+  sapAssetClassNameEl: z.string().nullable(),
   criticality: z.number().int(),
   condition: z.string().nullable(),
   installedYear: z.number().int().nullable(),

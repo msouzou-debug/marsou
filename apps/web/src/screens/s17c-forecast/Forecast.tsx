@@ -26,13 +26,22 @@
  * | onUnitChange | (unit) => void       |                                                             |
  * | onRetry   | () => void?             |                                                             |
  * | noPermission | ReactNode            |                                                             |
+ *
+ * RULE (owner decision 25/11/2026): the rows are by unit, year **and SAP
+ * fixed-asset class**, so the figure reaches finance in SAP's own classes;
+ * the assets with no SAP class are a row of their own, last in the year.
+ * «Εξαγωγή σε Excel» sends the table as shown, SAP class included, through
+ * the generic `POST /exports/table` (`exportTable`).
  */
 import { useLocale, useTranslations } from "next-intl";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { FileSpreadsheet } from "lucide-react";
 import type { OrgUnit, ReplacementForecastRow } from "@ecapital/shared";
 import { PageTitle } from "@/components/app-shell";
 import { ForecastChart } from "@/components/forecast-chart";
+import { exportTable, type TableColumn } from "@/components/table";
+import { ApiError } from "@/data/client";
+import { sapClassLabel } from "@/data/queries";
 import type { Locale } from "@/i18n/config";
 import { formatEUR, formatInt } from "@/lib/format";
 import { AssetTabs } from "../s16a-assets/AssetTabs";
@@ -55,11 +64,48 @@ export interface ForecastProps {
 export function Forecast({ rows, state, from, to, onRangeChange, unit, orgUnits, onUnitChange, onRetry, noPermission }: ForecastProps) {
   const t = useTranslations();
   const locale = useLocale() as Locale;
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
 
   if (state === "noPermission") return <>{noPermission}</>;
 
   const unitNameById = new Map(orgUnits.map((u) => [u.id, locale === "en" ? u.nameEn : u.nameEl] as const));
-  const sorted = [...(rows ?? [])].sort((a, b) => (a.orgUnitNameEl === b.orgUnitNameEl ? a.year - b.year : a.orgUnitNameEl.localeCompare(b.orgUnitNameEl)));
+  const unitName = (row: ReplacementForecastRow) => unitNameById.get(row.orgUnitId) ?? row.orgUnitNameEl;
+  const sapLabel = (row: ReplacementForecastRow) =>
+    row.sapAssetClass
+      ? sapClassLabel(row.sapAssetClass, locale === "en" ? (row.sapAssetClassNameEn ?? row.sapAssetClassNameEl) : row.sapAssetClassNameEl)
+      : t("screens.s17c.noSapClass");
+  // Unit, then year, then SAP class with the unclassed last.
+  const sorted = [...(rows ?? [])].sort((a, b) => {
+    if (a.orgUnitNameEl !== b.orgUnitNameEl) return a.orgUnitNameEl.localeCompare(b.orgUnitNameEl);
+    if (a.year !== b.year) return a.year - b.year;
+    if (a.sapAssetClass === b.sapAssetClass) return 0;
+    if (a.sapAssetClass === null) return 1;
+    if (b.sapAssetClass === null) return -1;
+    return a.sapAssetClass.localeCompare(b.sapAssetClass);
+  });
+
+  // What the export sends: the table as shown, by the accessors' raw values.
+  const exportColumns: TableColumn<ReplacementForecastRow>[] = [
+    { id: "unit", headerKey: "screens.s17c.columns.unit", accessor: unitName },
+    { id: "year", headerKey: "screens.s17c.columns.year", accessor: (row) => row.year, numeric: true },
+    { id: "sapClass", headerKey: "screens.s17c.columns.sapClass", accessor: sapLabel },
+    { id: "assets", headerKey: "screens.s17c.columns.assets", accessor: (row) => row.assets, numeric: true, exportKind: "number" },
+    { id: "estimatedCost", headerKey: "screens.s17c.columns.estimatedCost", accessor: (row) => row.estimatedCost, numeric: true, exportKind: "money" },
+    { id: "criticalAssets", headerKey: "screens.s17c.columns.criticalAssets", accessor: (row) => row.criticalAssets, numeric: true, exportKind: "number" },
+  ];
+
+  async function handleExport() {
+    setExporting(true);
+    setExportError(null);
+    try {
+      await exportTable({ title: t("screens.s17c.caption"), columns: exportColumns, rows: sorted, t: (key) => t(key) });
+    } catch (error) {
+      setExportError(error instanceof ApiError ? error.message : t("components.table.exportFailed"));
+    } finally {
+      setExporting(false);
+    }
+  }
 
   const totals = sorted.reduce(
     (acc, row) => ({
@@ -122,14 +168,19 @@ export function Forecast({ rows, state, from, to, onRangeChange, unit, orgUnits,
           <p className="text-fs-14 text-k-text">{t("screens.s17c.caption")}</p>
           <button
             type="button"
-            onClick={() => undefined}
-            disabled={state === "loading"}
+            onClick={() => void handleExport()}
+            disabled={state === "loading" || exporting || sorted.length === 0}
             className="flex items-center gap-s-2 rounded-k border border-k-grey px-s-3 py-s-2 text-fs-14 text-k-blue-deep disabled:opacity-50"
           >
             <FileSpreadsheet size={24} strokeWidth={1.5} aria-hidden="true" />
             {t("buttons.exportExcel")}
           </button>
         </div>
+        {exportError && (
+          <p role="alert" className="border-b border-k-grey p-s-3 text-fs-14 text-k-red">
+            {exportError}
+          </p>
+        )}
 
         {state === "error" ? (
           <div className="p-s-8 text-center">
@@ -156,6 +207,7 @@ export function Forecast({ rows, state, from, to, onRangeChange, unit, orgUnits,
                 <tr>
                   <th scope="col" className="border-b border-k-grey px-s-2 py-s-2 text-left font-bold text-k-blue-deep">{t("screens.s17c.columns.unit")}</th>
                   <th scope="col" className="num border-b border-k-grey px-s-2 py-s-2 font-bold text-k-blue-deep">{t("screens.s17c.columns.year")}</th>
+                  <th scope="col" className="border-b border-k-grey px-s-2 py-s-2 text-left font-bold text-k-blue-deep">{t("screens.s17c.columns.sapClass")}</th>
                   <th scope="col" className="num border-b border-k-grey px-s-2 py-s-2 font-bold text-k-blue-deep">{t("screens.s17c.columns.assets")}</th>
                   <th scope="col" className="num border-b border-k-grey px-s-2 py-s-2 font-bold text-k-blue-deep">{t("screens.s17c.columns.estimatedCost")}</th>
                   <th scope="col" className="num border-b border-k-grey px-s-2 py-s-2 font-bold text-k-blue-deep">{t("screens.s17c.columns.criticalAssets")}</th>
@@ -163,9 +215,10 @@ export function Forecast({ rows, state, from, to, onRangeChange, unit, orgUnits,
               </thead>
               <tbody>
                 {sorted.map((row, index) => (
-                  <tr key={`${row.orgUnitId}-${row.year}`} style={{ backgroundColor: index % 2 === 1 ? "color-mix(in srgb, var(--k-grey) 40%, transparent)" : undefined }}>
-                    <td className="px-s-2 py-s-2">{unitNameById.get(row.orgUnitId) ?? row.orgUnitNameEl}</td>
+                  <tr key={`${row.orgUnitId}-${row.year}-${row.sapAssetClass ?? "none"}`} style={{ backgroundColor: index % 2 === 1 ? "color-mix(in srgb, var(--k-grey) 40%, transparent)" : undefined }}>
+                    <td className="px-s-2 py-s-2">{unitName(row)}</td>
                     <td className="num px-s-2 py-s-2">{row.year}</td>
+                    <td className={`px-s-2 py-s-2 ${row.sapAssetClass ? "text-k-ink" : "text-k-text"}`}>{sapLabel(row)}</td>
                     <td className="num px-s-2 py-s-2">{formatInt(row.assets)}</td>
                     <td className="num px-s-2 py-s-2">{formatEUR(row.estimatedCost)}</td>
                     <td className="num px-s-2 py-s-2">{formatInt(row.criticalAssets)}</td>
@@ -176,6 +229,7 @@ export function Forecast({ rows, state, from, to, onRangeChange, unit, orgUnits,
                 <tr className="border-t-2 border-k-grey font-bold">
                   <td className="px-s-2 py-s-2">{t("screens.s17c.totals")}</td>
                   <td className="num px-s-2 py-s-2" />
+                  <td className="px-s-2 py-s-2" />
                   <td className="num px-s-2 py-s-2">{formatInt(totals.assets)}</td>
                   <td className="num px-s-2 py-s-2">{formatEUR(totals.estimatedCost)}</td>
                   <td className="num px-s-2 py-s-2">{formatInt(totals.criticalAssets)}</td>

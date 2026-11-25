@@ -25,7 +25,7 @@
  * offline, for the same reasons S02a's own `ProjectForm` gives.
  */
 import { useState } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { useTranslations } from "next-intl";
 import { LoaderCircle } from "lucide-react";
 import { ContractType, DEFAULT_VAT_RATE, nicosiaDateOf, type BudgetCode, type Contractor } from "@ecapital/shared";
@@ -98,7 +98,7 @@ export function ContractForm({
   const {
     register,
     handleSubmit,
-    watch,
+    control,
     formState: { errors },
   } = useForm<ContractCreateFormValues>({
     resolver:
@@ -115,8 +115,8 @@ export function ContractForm({
 
   // ADR-0038: the net typed (or, in "edit", the one on record) and the rate,
   // for the live «Ποσό ΦΠΑ» and «Σύνολο με ΦΠΑ».
-  const typedNet = watch("originalValue");
-  const vatRate = watch("vatRate");
+  const typedNet = useWatch({ control, name: "originalValue" });
+  const vatRate = useWatch({ control, name: "vatRate" });
   const netForSummary =
     mode === "create" ? (Number.isFinite(typedNet) ? typedNet : null) : (initialOriginalValue ?? null);
 

@@ -14,15 +14,18 @@
  * | roles        | AppRole[]           | `canWriteRfis(roles)` — the «Προσθήκη», answer and «Ολοκλήρωση» gate. |
  * | now          | Date?               | Injectable "now" for `SlaChip`'s tests and preview.                 |
  * | selectedId / onSelect / sheetSaving / sheetApiError / onCreate / onAnswer / onCloseRfi / onUpdate / onRetry | — | Wired by `RfisScreen`. |
+ * | documents / onUpload / uploading / uploadError | — | The selected RFI's correspondence and its upload, wired by `RfisScreen`. |
  *
  * A row opens the sheet's read view on a click or on Enter (UAT 25/11/2026).
+ * «Παραλήπτης» and «Αποστολή» are columns (owner decision 25/11/2026: the
+ * RFI is sent from Outlook, and the table says to whom and when).
  *
  * RULE (ADR-0017): a breach is a state, never a block — nothing here checks
  * `slaState` before allowing an answer or a close.
  */
 import type { ReactNode } from "react";
 import { useTranslations } from "next-intl";
-import type { AppRole, ContractDetail, Rfi } from "@ecapital/shared";
+import type { AppRole, ContractDetail, Rfi, RfiDocument } from "@ecapital/shared";
 import { canWriteRfis } from "@/auth/roles";
 import { PageTitle } from "@/components/app-shell";
 import { SlaChip } from "@/components/sla-chip";
@@ -50,6 +53,12 @@ export interface RfisProps {
   onCloseRfi: () => void;
   /** UAT 25/11/2026: `PATCH .../rfis/:rid`; resolves true once saved. Omitted (or offline), no «Επεξεργασία». */
   onUpdate?: (values: RfiEditFormValues) => Promise<boolean>;
+  /** The open RFI's correspondence; undefined while it loads. */
+  documents?: RfiDocument[];
+  /** `POST .../rfis/:rid/documents`; resolves true once filed. Omitted (or offline), no upload form. */
+  onUpload?: (file: File, titleEl: string) => Promise<boolean>;
+  uploading?: boolean;
+  uploadError?: string;
 }
 
 export function Rfis({
@@ -67,6 +76,10 @@ export function Rfis({
   onAnswer,
   onCloseRfi,
   onUpdate,
+  documents,
+  onUpload,
+  uploading = false,
+  uploadError,
 }: RfisProps) {
   const t = useTranslations();
 
@@ -88,6 +101,19 @@ export function Rfis({
           {row.questionEl}
         </span>
       ),
+    },
+    {
+      id: "recipient",
+      headerKey: "screens.s07b.columns.recipient",
+      accessor: (row) => row.recipientName ?? "",
+      cell: (row) => row.recipientName ?? t("common.notAvailable"),
+    },
+    {
+      id: "sentOn",
+      headerKey: "screens.s07b.columns.sentOn",
+      accessor: (row) => row.sentOn ?? "",
+      numeric: true,
+      cell: (row) => (row.sentOn ? formatDate(row.sentOn) : t("common.notAvailable")),
     },
     { id: "raisedBy", headerKey: "screens.s07b.columns.raisedBy", accessor: (row) => row.raisedByName },
     { id: "raisedAt", headerKey: "screens.s07b.columns.raisedAt", accessor: (row) => row.raisedAt, numeric: true, cell: (row) => formatDate(row.raisedAt) },
@@ -174,6 +200,10 @@ export function Rfis({
           onAnswer={onAnswer}
           onCloseRfi={onCloseRfi}
           onUpdate={state === "offline" ? undefined : onUpdate}
+          documents={documents}
+          onUpload={state === "offline" ? undefined : onUpload}
+          uploading={uploading}
+          uploadError={uploadError}
         />
       )}
     </>

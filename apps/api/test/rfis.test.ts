@@ -1,10 +1,11 @@
 import type { INestApplication } from "@nestjs/common";
-import { ContractDetail, Rfi, nicosiaDateOf } from "@ecapital/shared";
+import { ContractDetail, Rfi, RfiDocument, nicosiaDateOf } from "@ecapital/shared";
 import { Client } from "pg";
 import request from "supertest";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { USERS, bearer, createTestApp, tokenFor } from "./app";
 import { makeContract } from "./contract-support";
+import { binary } from "./maintenance-support";
 
 /**
  * R09 — the RFI log and its SLA clock. Αίτημα διευκρίνισης.
@@ -14,7 +15,10 @@ import { makeContract } from "./contract-support";
  * its window ends. What they assert is the same function
  * `src/rfis/rfi-rows.test.ts` pins, coming back through the HTTP layer.
  */
-const question = { questionEl: "Ποιο πρότυπο ισχύει για τα πυράντοχα κουφώματα;" };
+const question = {
+  questionEl: "Ποιο πρότυπο ισχύει για τα πυράντοχα κουφώματα;",
+  recipientName: "Ελένη Χαραλάμπους, Γραφείο μελετών",
+};
 
 describe("RFIs on a contract", () => {
   let app: INestApplication;
@@ -113,11 +117,11 @@ describe("RFIs on a contract", () => {
       request(app.getHttpServer())
         .post(`/contracts/${contract.id}/rfis`)
         .set(bearer(token))
-        .send({ questionEl: "Ταυτόχρονη ερώτηση Α" }),
+        .send({ ...question, questionEl: "Ταυτόχρονη ερώτηση Α" }),
       request(app.getHttpServer())
         .post(`/contracts/${contract.id}/rfis`)
         .set(bearer(token))
-        .send({ questionEl: "Ταυτόχρονη ερώτηση Β" }),
+        .send({ ...question, questionEl: "Ταυτόχρονη ερώτηση Β" }),
     ]);
     expect(first.status).toBe(201);
     expect(second.status).toBe(201);
@@ -130,7 +134,7 @@ describe("RFIs on a contract", () => {
     const refused = await request(app.getHttpServer())
       .post(`/contracts/${contract.id}/rfis`)
       .set(bearer(token))
-      .send({ questionEl: "" });
+      .send({ ...question, questionEl: "" });
     expect(refused.status).toBe(400);
     expect(refused.body.key).toBe("errors.rfiNotValid");
   });
@@ -444,5 +448,266 @@ describe("RFIs on a contract", () => {
       .set(bearer(larnaca))
       .send({ questionEl: "Δεν θα έπρεπε να περάσει." });
     expect(hidden.status).toBe(404);
+  });
+
+  // ------------------- recipient and sent day (owner decision 25/11/2026) --
+
+  it("records who the RFI went to, the address and the day it was sent", async () => {
+    const today = nicosiaDateOf(new Date());
+    const { rfi } = await raised(`rfi-recipient-${Date.now()}`, {
+      ...question,
+      recipientEmail: "eleni.charalambous@designers.example",
+      sentOn: today,
+    });
+    expect(rfi.recipientName).toBe("Ελένη Χαραλάμπους, Γραφείο μελετών");
+    expect(rfi.recipientEmail).toBe("eleni.charalambous@designers.example");
+    expect(rfi.sentOn).toBe(today);
+  });
+
+  it("refuses a new RFI with no recipient, a bad address, or a sent day out of range", async () => {
+    const { contract } = await makeContract(app, `rfi-recipient-bad-${Date.now()}`);
+    const token = await tokenFor(app, USERS.estatesNicosia);
+    const post = (body: Record<string, unknown>) =>
+      request(app.getHttpServer()).post(`/contracts/${contract.id}/rfis`).set(bearer(token)).send(body);
+
+    const noRecipient = await post({ questionEl: question.questionEl });
+    expect(noRecipient.status).toBe(400);
+    expect(noRecipient.body.key).toBe("errors.rfiRecipientNeeded");
+
+    const blankRecipient = await post({ ...question, recipientName: "   " });
+    expect(blankRecipient.status).toBe(400);
+    expect(blankRecipient.body.key).toBe("errors.rfiRecipientNeeded");
+
+    const badEmail = await post({ ...question, recipientEmail: "not an address" });
+    expect(badEmail.status).toBe(400);
+    expect(badEmail.body.key).toBe("errors.rfiRecipientEmailNotValid");
+
+    const tomorrow = dayFrom(new Date().toISOString(), 1);
+    const future = await post({ ...question, sentOn: tomorrow });
+    expect(future.status).toBe(400);
+    expect(future.body.key).toBe("errors.dateInFuture");
+
+    // Raised today, so sent yesterday is before it was raised.
+    const yesterday = dayFrom(new Date().toISOString(), -1);
+    const early = await post({ ...question, sentOn: yesterday });
+    expect(early.status).toBe(422);
+    expect(early.body.key).toBe("errors.rfiSentBeforeRaised");
+  });
+
+  it("edits the recipient and the sent day while open, and the old row with none can gain them", async () => {
+    const { contractId, rfi } = await raised(`rfi-recipient-edit-${Date.now()}`);
+    const token = await tokenFor(app, USERS.estatesNicosia);
+    // An RFI from before the fields existed: no recipient at all.
+    await client.query(
+      `update ecapital.rfi set recipient_name = null, raised_at = raised_at - interval '3 days',
+              sla_due_at = sla_due_at - interval '3 days' where id = $1`,
+      [rfi.id],
+    );
+    const before = await request(app.getHttpServer())
+      .get(`/contracts/${contractId}/rfis`)
+      .set(bearer(token));
+    expect(Rfi.parse(before.body.find((r: Rfi) => r.id === rfi.id)).recipientName).toBeNull();
+
+    const raisedOn = dayFrom(rfi.raisedAt, -3);
+    const sentOn = dayFrom(rfi.raisedAt, -2);
+    const edited = await request(app.getHttpServer())
+      .patch(`/contracts/${contractId}/rfis/${rfi.id}`)
+      .set(bearer(token))
+      .send({ recipientName: "Κώστας Ιωάννου", recipientEmail: "k.ioannou@contractor.example", sentOn });
+    expect(edited.status).toBe(200);
+    const after = Rfi.parse(edited.body);
+    expect(after.recipientName).toBe("Κώστας Ιωάννου");
+    expect(after.recipientEmail).toBe("k.ioannou@contractor.example");
+    expect(after.sentOn).toBe(sentOn);
+
+    // The day it was raised is allowed; the day before is not.
+    const sameDay = await request(app.getHttpServer())
+      .patch(`/contracts/${contractId}/rfis/${rfi.id}`)
+      .set(bearer(token))
+      .send({ sentOn: raisedOn });
+    expect(sameDay.status).toBe(200);
+    const tooEarly = await request(app.getHttpServer())
+      .patch(`/contracts/${contractId}/rfis/${rfi.id}`)
+      .set(bearer(token))
+      .send({ sentOn: dayFrom(rfi.raisedAt, -4) });
+    expect(tooEarly.status).toBe(422);
+    expect(tooEarly.body.key).toBe("errors.rfiSentBeforeRaised");
+    const future = await request(app.getHttpServer())
+      .patch(`/contracts/${contractId}/rfis/${rfi.id}`)
+      .set(bearer(token))
+      .send({ sentOn: dayFrom(new Date().toISOString(), 2) });
+    expect(future.status).toBe(400);
+    expect(future.body.key).toBe("errors.dateInFuture");
+
+    // The address and the day can be cleared; the name cannot be blanked.
+    const cleared = await request(app.getHttpServer())
+      .patch(`/contracts/${contractId}/rfis/${rfi.id}`)
+      .set(bearer(token))
+      .send({ recipientEmail: null, sentOn: null });
+    expect(cleared.status).toBe(200);
+    expect(Rfi.parse(cleared.body).recipientEmail).toBeNull();
+    expect(Rfi.parse(cleared.body).sentOn).toBeNull();
+    const blank = await request(app.getHttpServer())
+      .patch(`/contracts/${contractId}/rfis/${rfi.id}`)
+      .set(bearer(token))
+      .send({ recipientName: "" });
+    expect(blank.status).toBe(400);
+    expect(blank.body.key).toBe("errors.rfiRecipientNeeded");
+  });
+
+  it("does not change the recipient of a closed RFI", async () => {
+    const { contractId, rfi } = await raised(`rfi-recipient-closed-${Date.now()}`);
+    const token = await tokenFor(app, USERS.estatesNicosia);
+    await request(app.getHttpServer())
+      .post(`/contracts/${contractId}/rfis/${rfi.id}/answer`)
+      .set(bearer(token))
+      .send({ answerEl: "Απαντήθηκε." });
+    await request(app.getHttpServer())
+      .post(`/contracts/${contractId}/rfis/${rfi.id}/close`)
+      .set(bearer(token));
+    const refused = await request(app.getHttpServer())
+      .patch(`/contracts/${contractId}/rfis/${rfi.id}`)
+      .set(bearer(token))
+      .send({ recipientName: "Άλλος παραλήπτης" });
+    expect(refused.status).toBe(422);
+    expect(refused.body.key).toBe("errors.rfiClosedNoEdit");
+  });
+
+  // ------------------------------------- evidence (owner decision 25/11/2026) --
+
+  const MSG = Buffer.from("Outlook message bytes, not a real compound file", "utf8");
+  const EML = Buffer.from("From: a@b.example\r\nSubject: RFI 1\r\n\r\nΕρώτηση.\r\n", "utf8");
+
+  it("files the sent .msg and the .eml reply, queued for eArchive, listed and readable", async () => {
+    const { contractId, rfi } = await raised(`rfi-evidence-${Date.now()}`);
+    const token = await tokenFor(app, USERS.estatesNicosia);
+
+    // A browser that does not know .msg says octet-stream; the extension decides.
+    const sent = await request(app.getHttpServer())
+      .post(`/contracts/${contractId}/rfis/${rfi.id}/documents`)
+      .set(bearer(token))
+      .field("titleEl", "Απεσταλμένο μήνυμα ΑΔ 1")
+      .attach("file", MSG, { filename: "RFI-1.msg", contentType: "application/octet-stream" });
+    expect(sent.status).toBe(201);
+    const sentDoc = RfiDocument.parse(sent.body);
+    expect(sentDoc.mime).toBe("application/vnd.ms-outlook");
+    expect(sentDoc.titleEl).toBe("Απεσταλμένο μήνυμα ΑΔ 1");
+    expect(sentDoc.protocolNumber).toBeNull();
+    expect(sentDoc.uploadedByName).toBe("Ανδρέας Παπαδόπουλος");
+
+    const reply = await request(app.getHttpServer())
+      .post(`/contracts/${contractId}/rfis/${rfi.id}/documents`)
+      .set(bearer(token))
+      .attach("file", EML, { filename: "reply.eml", contentType: "application/octet-stream" });
+    expect(reply.status).toBe(201);
+    expect(RfiDocument.parse(reply.body).mime).toBe("message/rfc822");
+
+    // ADR-0023: the document row and the queue item, one per paper.
+    const { rows } = await client.query<{ source_module: string; source_ref: string; kind: string }>(
+      `select o.source_module, o.source_ref, d.kind::text as kind
+         from ecapital.document d join ecapital.dms_outbox o on o.document_id = d.id
+        where d.entity_type = 'rfi' and d.entity_id = $1 order by d.version`,
+      [rfi.id],
+    );
+    expect(rows.map((r) => r.source_ref)).toEqual([`rfi_doc:${rfi.id}:1`, `rfi_doc:${rfi.id}:2`]);
+    expect(rows.every((r) => r.source_module === "rfi_document" && r.kind === "RFI_EVIDENCE")).toBe(true);
+
+    const list = await request(app.getHttpServer())
+      .get(`/contracts/${contractId}/rfis/${rfi.id}/documents`)
+      .set(bearer(token));
+    expect(list.status).toBe(200);
+    const docs = list.body.map((d: unknown) => RfiDocument.parse(d));
+    expect(docs).toHaveLength(2);
+    expect(new Set(docs.map((d: RfiDocument) => d.id))).toEqual(new Set([sentDoc.id, reply.body.id]));
+
+    // The bytes come back through the one content route, as an attachment on ?download=1.
+    const content = await request(app.getHttpServer())
+      .get(`/documents/${sentDoc.id}/content?download=1`)
+      .set(bearer(token))
+      .buffer()
+      .parse(binary);
+    expect(content.status).toBe(200);
+    expect(content.headers["content-disposition"]).toMatch(/^attachment;/);
+    expect(Buffer.from(content.body as Buffer).equals(MSG)).toBe(true);
+  });
+
+  it("files a PDF, and refuses no file and a type eArchive does not take", async () => {
+    const { contractId, rfi } = await raised(`rfi-evidence-pdf-${Date.now()}`);
+    const token = await tokenFor(app, USERS.estatesNicosia);
+    const pdf = await request(app.getHttpServer())
+      .post(`/contracts/${contractId}/rfis/${rfi.id}/documents`)
+      .set(bearer(token))
+      .attach("file", Buffer.from("%PDF-1.7\n%%EOF\n"), {
+        filename: "rfi.pdf",
+        contentType: "application/pdf",
+      });
+    expect(pdf.status).toBe(201);
+    expect(pdf.body.mime).toBe("application/pdf");
+
+    const none = await request(app.getHttpServer())
+      .post(`/contracts/${contractId}/rfis/${rfi.id}/documents`)
+      .set(bearer(token))
+      .field("titleEl", "Χωρίς αρχείο");
+    expect(none.status).toBe(400);
+    expect(none.body.key).toBe("errors.documentNeeded");
+
+    const dwg = await request(app.getHttpServer())
+      .post(`/contracts/${contractId}/rfis/${rfi.id}/documents`)
+      .set(bearer(token))
+      .attach("file", Buffer.from("AC1032"), { filename: "plan.dwg", contentType: "image/vnd.dwg" });
+    expect(dwg.status).toBe(422);
+    expect(dwg.body.key).toBe("errors.documentMimeRejected");
+  });
+
+  it("hides another unit's RFI evidence behind a 404 and refuses a read-only upload", async () => {
+    const { contractId, rfi } = await raised(`rfi-evidence-rls-${Date.now()}`);
+    const estates = await tokenFor(app, USERS.estatesNicosia);
+    const filed = await request(app.getHttpServer())
+      .post(`/contracts/${contractId}/rfis/${rfi.id}/documents`)
+      .set(bearer(estates))
+      .attach("file", EML, { filename: "sent.eml", contentType: "message/rfc822" });
+    expect(filed.status).toBe(201);
+
+    const larnaca = await tokenFor(app, USERS.engineerLarnaca);
+    const list = await request(app.getHttpServer())
+      .get(`/contracts/${contractId}/rfis/${rfi.id}/documents`)
+      .set(bearer(larnaca));
+    expect(list.status).toBe(404);
+    const upload = await request(app.getHttpServer())
+      .post(`/contracts/${contractId}/rfis/${rfi.id}/documents`)
+      .set(bearer(larnaca))
+      .attach("file", EML, { filename: "sent.eml", contentType: "message/rfc822" });
+    expect(upload.status).toBe(404);
+    const content = await request(app.getHttpServer())
+      .get(`/documents/${filed.body.id}/content`)
+      .set(bearer(larnaca));
+    expect(content.status).toBe(404);
+
+    const auditor = await tokenFor(app, USERS.auditor);
+    const read = await request(app.getHttpServer())
+      .get(`/contracts/${contractId}/rfis/${rfi.id}/documents`)
+      .set(bearer(auditor));
+    expect(read.status).toBe(200);
+    expect(read.body).toHaveLength(1);
+    const refused = await request(app.getHttpServer())
+      .post(`/contracts/${contractId}/rfis/${rfi.id}/documents`)
+      .set(bearer(auditor))
+      .attach("file", EML, { filename: "sent.eml", contentType: "message/rfc822" });
+    expect(refused.status).toBe(403);
+    expect(refused.body.key).toBe("errors.readOnlyAccount");
+  });
+
+  it("refuses evidence from a role that only reads RFIs", async () => {
+    // Finance reads the RFI log (rfisInstructions READ) and files documents
+    // elsewhere; an RFI's evidence belongs to whoever writes the RFI. The
+    // route asks the matrix first, and 0030 `document_insert_rfi` says the
+    // same to any other code path.
+    const { contractId, rfi } = await raised(`rfi-evidence-finance-${Date.now()}`);
+    const finance = await tokenFor(app, USERS.finance);
+    const refused = await request(app.getHttpServer())
+      .post(`/contracts/${contractId}/rfis/${rfi.id}/documents`)
+      .set(bearer(finance))
+      .attach("file", EML, { filename: "sent.eml", contentType: "message/rfc822" });
+    expect(refused.status).toBe(403);
   });
 });

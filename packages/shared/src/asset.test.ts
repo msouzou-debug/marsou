@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { AssetWrite, assetDateIssues, nicosiaToday } from "./asset";
+import {
+  AssetClass,
+  AssetListQuery,
+  AssetWrite,
+  SAP_ASSET_CLASS_BY_ASSET_CLASS,
+  assetDateIssues,
+  defaultSapAssetClass,
+  nicosiaToday,
+} from "./asset";
 
 const TODAY = "2026-11-25";
 
@@ -82,5 +90,27 @@ describe("AssetWrite", () => {
 
   it("trims the name it stores", () => {
     expect(AssetWrite.parse({ ...base, nameEl: "  Αντλία  " }).nameEl).toBe("Αντλία");
+  });
+});
+
+describe("the default SAP asset class (owner decision 25/11/2026)", () => {
+  it("maps every eCapital class, and OTHER to none", () => {
+    expect(Object.keys(SAP_ASSET_CLASS_BY_ASSET_CLASS).sort()).toEqual([...AssetClass.options].sort());
+    expect(defaultSapAssetClass("BUILDING_FABRIC")).toBe("111020");
+    expect(defaultSapAssetClass("HVAC")).toBe("111042");
+    expect(defaultSapAssetClass("ELECTRICAL")).toBe("111062");
+    expect(defaultSapAssetClass("MEDICAL_GAS")).toBe("111062");
+    expect(defaultSapAssetClass("WATER")).toBe("111062");
+    expect(defaultSapAssetClass("FIRE")).toBe("111058");
+    expect(defaultSapAssetClass("LIFT")).toBe("111040");
+    expect(defaultSapAssetClass("BIOMEDICAL")).toBe("111030");
+    expect(defaultSapAssetClass("IT")).toBe("111050");
+    expect(defaultSapAssetClass("OTHER")).toBeNull();
+  });
+
+  it("filters the register by a six-digit code or NONE, and nothing else", () => {
+    expect(AssetListQuery.parse({ sapAssetClass: "111042" }).sapAssetClass).toBe("111042");
+    expect(AssetListQuery.parse({ sapAssetClass: "NONE" }).sapAssetClass).toBe("NONE");
+    expect(AssetListQuery.safeParse({ sapAssetClass: "11104" }).success).toBe(false);
   });
 });

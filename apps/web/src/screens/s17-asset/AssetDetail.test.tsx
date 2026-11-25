@@ -30,6 +30,7 @@ const BASE_ASSET = {
   system: null,
   costCentre: null,
   sapAssetNo: null,
+  sapAssetClass: "111042",
   status: "IN_SERVICE" as const,
   createdAt: "2020-01-01T00:00:00.000Z",
   updatedAt: "2026-01-10T00:00:00.000Z",
@@ -37,6 +38,8 @@ const BASE_ASSET = {
   buildingCode: "NGH-A",
   floorCode: "2",
   orgUnitNameEl: "Νοσοκομείο Λευκωσίας",
+  sapAssetClassNameEl: "Κλιματισμός",
+  sapAssetClassNameEn: "Air-conditioning",
   sourceProjectCode: null,
   sourceContractRef: null,
   parentTag: null,
@@ -167,5 +170,19 @@ describe("AssetDetail", () => {
   it("shows the noPermission node instead of the record", () => {
     renderWithIntl(<AssetDetail {...BASE_PROPS} state="noPermission" noPermission={<p>no-permission-marker</p>} />);
     expect(screen.getByText("no-permission-marker")).toBeInTheDocument();
+  });
+
+  // Owner decision 25/11/2026: one register, every SAP class.
+  it("shows the SAP asset class as «code — name», and a dash when there is none", () => {
+    const { unmount } = renderWithIntl(<AssetDetail {...BASE_PROPS} />);
+    expect(screen.getByText("Κατηγορία παγίου SAP").nextElementSibling?.textContent).toBe("111042 — Κλιματισμός");
+    unmount();
+    renderWithIntl(
+      <AssetDetail
+        {...BASE_PROPS}
+        asset={{ ...BASE_ASSET, sapAssetClass: null, sapAssetClassNameEl: null, sapAssetClassNameEn: null }}
+      />,
+    );
+    expect(screen.getByText("Κατηγορία παγίου SAP").nextElementSibling?.textContent).toBe("—");
   });
 });

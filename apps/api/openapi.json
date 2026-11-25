@@ -2327,6 +2327,13 @@
             "schema": {}
           },
           {
+            "name": "sapAssetClass",
+            "required": false,
+            "in": "query",
+            "description": "A SAP fixed-asset class code, e.g. 111042, or NONE for the assets with none.",
+            "schema": {}
+          },
+          {
             "name": "status",
             "required": false,
             "in": "query",
@@ -2470,6 +2477,17 @@
                               "null"
                             ]
                           },
+                          "sapAssetClass": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "pattern": "^\\d{6}$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
                           "areaNameEl": {
                             "type": [
                               "string",
@@ -2478,6 +2496,18 @@
                           },
                           "orgUnitNameEl": {
                             "type": "string"
+                          },
+                          "sapAssetClassNameEl": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "sapAssetClassNameEn": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
                           },
                           "priorityRank": {
                             "anyOf": [
@@ -2504,8 +2534,11 @@
                           "warrantyEnd",
                           "orgUnitId",
                           "areaId",
+                          "sapAssetClass",
                           "areaNameEl",
                           "orgUnitNameEl",
+                          "sapAssetClassNameEl",
+                          "sapAssetClassNameEn",
                           "priorityRank"
                         ],
                         "additionalProperties": false
@@ -2835,6 +2868,17 @@
                       "null"
                     ]
                   },
+                  "sapAssetClass": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "pattern": "^\\d{6}$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
                   "status": {
                     "type": "string",
                     "enum": [
@@ -3053,6 +3097,17 @@
                         "null"
                       ]
                     },
+                    "sapAssetClass": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "pattern": "^\\d{6}$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
                     "status": {
                       "type": "string",
                       "enum": [
@@ -3096,6 +3151,7 @@
                     "system",
                     "costCentre",
                     "sapAssetNo",
+                    "sapAssetClass",
                     "status",
                     "createdAt",
                     "updatedAt"
@@ -3208,6 +3264,101 @@
           }
         ],
         "summary": "Record an asset; the database allocates its tag",
+        "tags": [
+          "assets"
+        ]
+      }
+    },
+    "/assets/sap-classes": {
+      "get": {
+        "operationId": "AssetsController_sapClasses",
+        "parameters": [
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "el"
+            },
+            "description": "el or en. Greek when the header is absent."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Every class, active or retired, by code",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "code": {
+                        "type": "string",
+                        "pattern": "^\\d{6}$"
+                      },
+                      "nameEl": {
+                        "type": "string"
+                      },
+                      "nameEn": {
+                        "type": "string"
+                      },
+                      "active": {
+                        "type": "boolean"
+                      }
+                    },
+                    "required": [
+                      "code",
+                      "nameEl",
+                      "nameEn",
+                      "active"
+                    ],
+                    "additionalProperties": false
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No token, or a token that does not verify",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "SAP's fixed-asset classes, by code",
         "tags": [
           "assets"
         ]
@@ -3390,7 +3541,7 @@
         ],
         "responses": {
           "200": {
-            "description": "One row per unit per year with assets due",
+            "description": "One row per unit, year and SAP class with assets due",
             "content": {
               "application/json": {
                 "schema": {
@@ -3403,6 +3554,29 @@
                       },
                       "orgUnitNameEl": {
                         "type": "string"
+                      },
+                      "sapAssetClass": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "pattern": "^\\d{6}$"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "sapAssetClassNameEl": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "sapAssetClassNameEn": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
                       },
                       "year": {
                         "type": "integer",
@@ -3426,6 +3600,9 @@
                     "required": [
                       "orgUnitId",
                       "orgUnitNameEl",
+                      "sapAssetClass",
+                      "sapAssetClassNameEl",
+                      "sapAssetClassNameEn",
                       "year",
                       "assets",
                       "estimatedCost",
@@ -3734,6 +3911,17 @@
                         "null"
                       ]
                     },
+                    "sapAssetClass": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "pattern": "^\\d{6}$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
                     "status": {
                       "type": "string",
                       "enum": [
@@ -3769,6 +3957,18 @@
                     },
                     "orgUnitNameEl": {
                       "type": "string"
+                    },
+                    "sapAssetClassNameEl": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "sapAssetClassNameEn": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     },
                     "sourceProjectCode": {
                       "type": [
@@ -4096,6 +4296,7 @@
                     "system",
                     "costCentre",
                     "sapAssetNo",
+                    "sapAssetClass",
                     "status",
                     "createdAt",
                     "updatedAt",
@@ -4103,6 +4304,8 @@
                     "buildingCode",
                     "floorCode",
                     "orgUnitNameEl",
+                    "sapAssetClassNameEl",
+                    "sapAssetClassNameEn",
                     "sourceProjectCode",
                     "sourceContractRef",
                     "parentTag",
@@ -4416,6 +4619,17 @@
                         "null"
                       ]
                     },
+                    "sapAssetClass": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "pattern": "^\\d{6}$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
                     "status": {
                       "type": "string",
                       "enum": [
@@ -4451,6 +4665,18 @@
                     },
                     "orgUnitNameEl": {
                       "type": "string"
+                    },
+                    "sapAssetClassNameEl": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "sapAssetClassNameEn": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     },
                     "sourceProjectCode": {
                       "type": [
@@ -4778,6 +5004,7 @@
                     "system",
                     "costCentre",
                     "sapAssetNo",
+                    "sapAssetClass",
                     "status",
                     "createdAt",
                     "updatedAt",
@@ -4785,6 +5012,8 @@
                     "buildingCode",
                     "floorCode",
                     "orgUnitNameEl",
+                    "sapAssetClassNameEl",
+                    "sapAssetClassNameEn",
                     "sourceProjectCode",
                     "sourceContractRef",
                     "parentTag",
@@ -5119,6 +5348,17 @@
                       "null"
                     ]
                   },
+                  "sapAssetClass": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "pattern": "^\\d{6}$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
                   "status": {
                     "type": "string",
                     "enum": [
@@ -5331,6 +5571,17 @@
                         "null"
                       ]
                     },
+                    "sapAssetClass": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "pattern": "^\\d{6}$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
                     "status": {
                       "type": "string",
                       "enum": [
@@ -5374,6 +5625,7 @@
                     "system",
                     "costCentre",
                     "sapAssetNo",
+                    "sapAssetClass",
                     "status",
                     "createdAt",
                     "updatedAt"
@@ -5788,6 +6040,17 @@
                         "null"
                       ]
                     },
+                    "sapAssetClass": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "pattern": "^\\d{6}$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
                     "status": {
                       "type": "string",
                       "enum": [
@@ -5831,6 +6094,7 @@
                     "system",
                     "costCentre",
                     "sapAssetNo",
+                    "sapAssetClass",
                     "status",
                     "createdAt",
                     "updatedAt"
@@ -6589,7 +6853,8 @@
                         "WORK_ORDER_DOCUMENT",
                         "CLAIM_LETTER",
                         "CLAIM_REPLY",
-                        "CLAIM_LEGAL_LETTER"
+                        "CLAIM_LEGAL_LETTER",
+                        "RFI_EVIDENCE"
                       ]
                     },
                     "titleEl": {
@@ -6916,7 +7181,8 @@
                           "WORK_ORDER_DOCUMENT",
                           "CLAIM_LETTER",
                           "CLAIM_REPLY",
-                          "CLAIM_LEGAL_LETTER"
+                          "CLAIM_LEGAL_LETTER",
+                          "RFI_EVIDENCE"
                         ]
                       },
                       "titleEl": {
@@ -7163,7 +7429,8 @@
                         "WORK_ORDER_DOCUMENT",
                         "CLAIM_LETTER",
                         "CLAIM_REPLY",
-                        "CLAIM_LEGAL_LETTER"
+                        "CLAIM_LEGAL_LETTER",
+                        "RFI_EVIDENCE"
                       ]
                     },
                     "titleEl": {
@@ -7490,7 +7757,8 @@
                           "WORK_ORDER_DOCUMENT",
                           "CLAIM_LETTER",
                           "CLAIM_REPLY",
-                          "CLAIM_LEGAL_LETTER"
+                          "CLAIM_LEGAL_LETTER",
+                          "RFI_EVIDENCE"
                         ]
                       },
                       "titleEl": {
@@ -7737,7 +8005,8 @@
                         "WORK_ORDER_DOCUMENT",
                         "CLAIM_LETTER",
                         "CLAIM_REPLY",
-                        "CLAIM_LEGAL_LETTER"
+                        "CLAIM_LEGAL_LETTER",
+                        "RFI_EVIDENCE"
                       ]
                     },
                     "titleEl": {
@@ -8064,7 +8333,8 @@
                           "WORK_ORDER_DOCUMENT",
                           "CLAIM_LETTER",
                           "CLAIM_REPLY",
-                          "CLAIM_LEGAL_LETTER"
+                          "CLAIM_LEGAL_LETTER",
+                          "RFI_EVIDENCE"
                         ]
                       },
                       "titleEl": {
@@ -8330,7 +8600,8 @@
                         "WORK_ORDER_DOCUMENT",
                         "CLAIM_LETTER",
                         "CLAIM_REPLY",
-                        "CLAIM_LEGAL_LETTER"
+                        "CLAIM_LEGAL_LETTER",
+                        "RFI_EVIDENCE"
                       ]
                     },
                     "titleEl": {
@@ -8855,7 +9126,8 @@
                               "payment_cert",
                               "asset_document",
                               "work_order_document",
-                              "claim_document"
+                              "claim_document",
+                              "rfi_document"
                             ]
                           },
                           "status": {
@@ -9081,7 +9353,8 @@
                         "payment_cert",
                         "asset_document",
                         "work_order_document",
-                        "claim_document"
+                        "claim_document",
+                        "rfi_document"
                       ]
                     },
                     "status": {
@@ -53439,6 +53712,24 @@
                           "RED",
                           "BREACHED"
                         ]
+                      },
+                      "recipientName": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "recipientEmail": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "sentOn": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
                       }
                     },
                     "required": [
@@ -53457,7 +53748,10 @@
                       "slaDueAt",
                       "slaHours",
                       "status",
-                      "slaState"
+                      "slaState",
+                      "recipientName",
+                      "recipientEmail",
+                      "sentOn"
                     ],
                     "additionalProperties": false
                   }
@@ -53579,11 +53873,36 @@
                     "type": "integer",
                     "minimum": 1,
                     "maximum": 60
+                  },
+                  "recipientName": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "recipientEmail": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 254,
+                        "format": "email",
+                        "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "sentOn": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   }
                 },
                 "required": [
                   "questionEl",
-                  "slaDays"
+                  "slaDays",
+                  "recipientName"
                 ],
                 "additionalProperties": false
               }
@@ -53672,6 +53991,24 @@
                         "RED",
                         "BREACHED"
                       ]
+                    },
+                    "recipientName": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "recipientEmail": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "sentOn": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     }
                   },
                   "required": [
@@ -53690,7 +54027,10 @@
                     "slaDueAt",
                     "slaHours",
                     "status",
-                    "slaState"
+                    "slaState",
+                    "recipientName",
+                    "recipientEmail",
+                    "sentOn"
                   ],
                   "additionalProperties": false
                 }
@@ -53698,7 +54038,7 @@
             }
           },
           "400": {
-            "description": "The body is not a valid RFI",
+            "description": "The body is not a valid RFI: no question, no recipient, a bad address or a sent day after today",
             "content": {
               "application/json": {
                 "schema": {
@@ -53792,6 +54132,38 @@
                 }
               }
             }
+          },
+          "422": {
+            "description": "The sent day is before the day the RFI is raised",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
           }
         },
         "security": [
@@ -53851,6 +54223,30 @@
                   },
                   "dueDate": {
                     "type": "string"
+                  },
+                  "recipientName": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "recipientEmail": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 254,
+                        "format": "email",
+                        "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "sentOn": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   }
                 },
                 "additionalProperties": false
@@ -53940,6 +54336,24 @@
                         "RED",
                         "BREACHED"
                       ]
+                    },
+                    "recipientName": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "recipientEmail": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "sentOn": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     }
                   },
                   "required": [
@@ -53958,7 +54372,10 @@
                     "slaDueAt",
                     "slaHours",
                     "status",
-                    "slaState"
+                    "slaState",
+                    "recipientName",
+                    "recipientEmail",
+                    "sentOn"
                   ],
                   "additionalProperties": false
                 }
@@ -54062,7 +54479,7 @@
             }
           },
           "422": {
-            "description": "The RFI is closed, or the due date is before the day it was raised",
+            "description": "The RFI is closed, or the due date or sent day is before the day it was raised",
             "content": {
               "application/json": {
                 "schema": {
@@ -54099,7 +54516,7 @@
             "bearer": []
           }
         ],
-        "summary": "Correct an RFI's question or due date while it is not closed",
+        "summary": "Correct an RFI's question, due date, recipient or sent day while it is not closed",
         "tags": [
           "site log"
         ]
@@ -54240,6 +54657,24 @@
                         "RED",
                         "BREACHED"
                       ]
+                    },
+                    "recipientName": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "recipientEmail": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "sentOn": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     }
                   },
                   "required": [
@@ -54258,7 +54693,10 @@
                     "slaDueAt",
                     "slaHours",
                     "status",
-                    "slaState"
+                    "slaState",
+                    "recipientName",
+                    "recipientEmail",
+                    "sentOn"
                   ],
                   "additionalProperties": false
                 }
@@ -54520,6 +54958,24 @@
                         "RED",
                         "BREACHED"
                       ]
+                    },
+                    "recipientName": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "recipientEmail": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "sentOn": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     }
                   },
                   "required": [
@@ -54538,7 +54994,10 @@
                     "slaDueAt",
                     "slaHours",
                     "status",
-                    "slaState"
+                    "slaState",
+                    "recipientName",
+                    "recipientEmail",
+                    "sentOn"
                   ],
                   "additionalProperties": false
                 }
@@ -54648,6 +55107,449 @@
           }
         ],
         "summary": "Close an answered RFI",
+        "tags": [
+          "site log"
+        ]
+      }
+    },
+    "/contracts/{id}/rfis/{rid}/documents": {
+      "get": {
+        "operationId": "RfisController_documents",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "rid",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "el"
+            },
+            "description": "el or en. Greek when the header is absent."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The RFI's papers, newest first",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string"
+                      },
+                      "titleEl": {
+                        "type": "string"
+                      },
+                      "filename": {
+                        "type": "string"
+                      },
+                      "mime": {
+                        "type": "string"
+                      },
+                      "size": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      "protocolNumber": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "uploadedByName": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "createdAt": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "titleEl",
+                      "filename",
+                      "mime",
+                      "size",
+                      "protocolNumber",
+                      "uploadedByName",
+                      "createdAt"
+                    ],
+                    "additionalProperties": false
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No token, or a token that does not verify",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such contract or RFI, or none the caller may see",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "The sent e-mails and replies filed against an RFI, newest first",
+        "tags": [
+          "site log"
+        ]
+      },
+      "post": {
+        "operationId": "RfisController_addDocument",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "rid",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "el"
+            },
+            "description": "el or en. Greek when the header is absent."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "file"
+                ],
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "The sent e-mail (.msg, .eml or .pdf) or the reply received."
+                  },
+                  "titleEl": {
+                    "type": "string",
+                    "description": "The title on the folder. Left out, the subject line is used."
+                  },
+                  "mime": {
+                    "type": "string",
+                    "enum": [
+                      "application/pdf",
+                      "application/zip",
+                      "text/html",
+                      "text/plain",
+                      "text/csv",
+                      "image/png",
+                      "image/jpeg",
+                      "image/tiff",
+                      "image/gif",
+                      "image/webp",
+                      "application/msword",
+                      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                      "application/vnd.ms-excel",
+                      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                      "application/vnd.ms-powerpoint",
+                      "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+                      "message/rfc822",
+                      "application/vnd.ms-outlook"
+                    ],
+                    "description": "Overrides the browser's guess. eArchive's whitelist, nothing else. A .msg or .eml file is filed by its extension whatever this says."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The paper, filed against the RFI and queued for eArchive",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "titleEl": {
+                      "type": "string"
+                    },
+                    "filename": {
+                      "type": "string"
+                    },
+                    "mime": {
+                      "type": "string"
+                    },
+                    "size": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "protocolNumber": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "uploadedByName": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "createdAt": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "titleEl",
+                    "filename",
+                    "mime",
+                    "size",
+                    "protocolNumber",
+                    "uploadedByName",
+                    "createdAt"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "No file, a title under 3 characters, or a file name that is not usable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "A role that does not write RFIs, or a unit the caller may not write",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such contract or RFI, or none the caller may see",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "A file type eArchive does not accept, or one over 50 MB",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "File the sent e-mail, or the reply, against an RFI",
         "tags": [
           "site log"
         ]
@@ -68772,6 +69674,18 @@
                           "assetClass": {
                             "type": "string"
                           },
+                          "sapAssetClass": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "sapAssetClassNameEl": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
                           "criticality": {
                             "type": "integer",
                             "minimum": -9007199254740991,
@@ -68875,6 +69789,8 @@
                           "orgUnitId",
                           "orgUnitName",
                           "assetClass",
+                          "sapAssetClass",
+                          "sapAssetClassNameEl",
                           "criticality",
                           "condition",
                           "installedYear",

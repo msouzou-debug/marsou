@@ -21,7 +21,7 @@
  * | onCancel  | () => void                     |                                               |
  */
 import { useEffect } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { useTranslations } from "next-intl";
 import { LoaderCircle } from "lucide-react";
 import { DEFAULT_VAT_RATE, type ContractDelay, type VatRate } from "@ecapital/shared";
@@ -62,7 +62,7 @@ export function CertificateForm({
   const {
     register,
     handleSubmit,
-    watch,
+    control,
     setValue,
     getFieldState,
     formState: { errors },
@@ -82,12 +82,12 @@ export function CertificateForm({
     if (contractVatRate && !getFieldState("vatRate").isDirty) setValue("vatRate", contractVatRate);
   }, [contractVatRate, getFieldState, setValue]);
   const netPayable = estimatedNetPayable({
-    workDoneValue: watch("workDoneValue"),
-    materialsOnSite: watch("materialsOnSite"),
+    workDoneValue: useWatch({ control, name: "workDoneValue" }),
+    materialsOnSite: useWatch({ control, name: "materialsOnSite" }),
     retentionPct,
     previousCertified,
   });
-  const vatRate = watch("vatRate");
+  const vatRate = useWatch({ control, name: "vatRate" });
 
   function fieldError(key: keyof CertificateFormValues): string | undefined {
     const message = errors[key]?.message;

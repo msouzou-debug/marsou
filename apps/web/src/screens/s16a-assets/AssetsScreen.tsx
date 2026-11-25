@@ -10,7 +10,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import type { AppRole, OrgUnit } from "@ecapital/shared";
 import { canViewReplacementForecast, canWriteAssets } from "@/auth/roles";
 import { ApiError } from "@/data/client";
-import { useAssets } from "@/data/queries";
+import { useAssets, useSapAssetClasses } from "@/data/queries";
 import { Assets, type AssetsFilters, type AssetsScreenState } from "./Assets";
 
 export interface AssetsScreenProps {
@@ -36,11 +36,21 @@ function useOnlineStatus(): boolean {
   return online;
 }
 
-const NO_FILTERS: AssetsFilters = { unit: "", areaId: "", assetClass: "", criticality: 0, condition: "", status: "", q: "" };
+const NO_FILTERS: AssetsFilters = {
+  unit: "",
+  areaId: "",
+  assetClass: "",
+  criticality: 0,
+  condition: "",
+  status: "",
+  sapAssetClass: "",
+  q: "",
+};
 
 export function AssetsScreen({ orgUnits, roles, noPermission, initialFilters }: AssetsScreenProps) {
   const [filters, setFilters] = useState<AssetsFilters>({ ...NO_FILTERS, ...initialFilters });
   const online = useOnlineStatus();
+  const sapClasses = useSapAssetClasses();
   const { data, error, isLoading, refetch } = useAssets({
     orgUnitId: filters.unit || undefined,
     areaId: filters.areaId || undefined,
@@ -48,6 +58,7 @@ export function AssetsScreen({ orgUnits, roles, noPermission, initialFilters }: 
     criticality: filters.criticality || undefined,
     condition: filters.condition || undefined,
     status: filters.status || undefined,
+    sapAssetClass: filters.sapAssetClass || undefined,
     q: filters.q || undefined,
     sort: "tag",
     dir: "asc",
@@ -82,6 +93,7 @@ export function AssetsScreen({ orgUnits, roles, noPermission, initialFilters }: 
       canWrite={canWriteAssets(roles)}
       canViewForecast={canViewReplacementForecast(roles)}
       noPermission={noPermission}
+      sapClasses={sapClasses.data}
     />
   );
 }

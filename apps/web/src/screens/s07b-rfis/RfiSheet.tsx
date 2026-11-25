@@ -7,19 +7,25 @@
  * (`rfi` omitted). Which of four things it shows is computed from the RFI's
  * own status and whether «Επεξεργασία» was pressed:
  *
- * - no `rfi` → the **new** form (question + SLA days).
- * - an existing RFI → the **read view**: number, question, who raised it and
- *   when, the due date, status, and the answer with who gave it and when
- *   (UAT 25/11/2026 — the row used to open on Enter only and the sheet showed
- *   the question alone). RFIs carry no subject line and no linked documents
- *   in the data model; the question is the subject.
+ * - no `rfi` → the **new** form: question, SLA days, and (owner decision
+ *   25/11/2026) the recipient, their e-mail and the day it was sent. RULE:
+ *   eCapital sends no e-mail — the engineer sends the RFI from Outlook and
+ *   records it here. The recipient is required; the sent day, when given, is
+ *   today (not after today, not before the day it is raised).
+ * - an existing RFI → the **read view**: number, question, recipient and
+ *   e-mail, the day it was sent, who raised it and when, the due date,
+ *   status, the answer with who gave it and when, and the correspondence
+ *   filed against it (sent e-mail, reply) with «Προβολή» / «Λήψη» links
+ *   (`documentViewHref` / `documentContentHref`, the S17 pattern). Writers
+ *   attach more files while online (`onUpload`).
  * - `OPEN` → also an **answer form** when the caller may write (`canWrite`) —
  *   RULE (ADR-0017): the answerer may be the raiser; there is no segregation
  *   rule here the way there is for a variation's decision.
  * - «Επεξεργασία» (writers, while not `CLOSED`, and only when `onUpdate` is
- *   wired) → the **edit form**: question and due date. RULE (owner, UAT
- *   25/11/2026): the due date is not before the day it was raised, said under
- *   the field before the API says it again (errors.rfiDueBeforeRaised).
+ *   wired) → the **edit form**: question, due date, recipient, e-mail and
+ *   sent day. RULE (owner, UAT 25/11/2026): the due date and the sent day are
+ *   not before the day it was raised, and the sent day is not after today,
+ *   said under the field before the API says it again.
  * - «Ολοκλήρωση» only appears on `ANSWERED`, behind a `ConfirmDialog` — RULE
  *   (ADR-0017): an RFI closes after it is answered and not before, and a
  *   breach never blocks this either way.
@@ -36,19 +42,26 @@
  * | onAnswer  | (answerEl: string) => void    |                                                    |
  * | onCloseRfi| () => void                    | `POST .../close`, after the `ConfirmDialog`.       |
  * | onUpdate  | (values) => Promise<boolean>? | `PATCH .../rfis/:rid`; true on success, which returns the sheet to the read view. |
+ * | documents | RfiDocument[]?                | `GET .../rfis/:rid/documents`; absent while loading. |
+ * | onUpload  | (file, titleEl) => Promise<boolean>? | `POST .../rfis/:rid/documents` (multipart). Omitted (or offline), no upload form. |
+ * | uploading | boolean?                      |                                                    |
+ * | uploadError | string?                     | The API's refusal of the last upload.              |
+ * | today     | string?                       | yyyy-mm-dd in Nicosia; injectable for tests.       |
  */
 import { useState } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, type UseFormRegisterReturn } from "react-hook-form";
 import { useTranslations } from "next-intl";
 import { LoaderCircle, X } from "lucide-react";
-import { nicosiaDateOf, type Rfi } from "@ecapital/shared";
+import { nicosiaDateOf, type Rfi, type RfiDocument } from "@ecapital/shared";
 import { ConfirmDialog } from "@/components/confirm-dialog";
+import { documentContentHref, documentViewHref } from "@/data/queries";
 import { zodResolver } from "@/lib/zod-resolver";
 import { formatDate } from "@/lib/format";
 import {
   RfiAnswerFormSchema,
-  RfiFormSchema,
+  evidenceTitleError,
   rfiEditFormSchema,
+  rfiFormSchema,
   type RfiAnswerFormValues,
   type RfiEditFormValues,
   type RfiFormValues,
@@ -65,6 +78,11 @@ export interface RfiSheetProps {
   onAnswer: (answerEl: string) => void;
   onCloseRfi: () => void;
   onUpdate?: (values: RfiEditFormValues) => Promise<boolean>;
+  documents?: RfiDocument[];
+  onUpload?: (file: File, titleEl: string) => Promise<boolean>;
+  uploading?: boolean;
+  uploadError?: string;
+  today?: string;
 }
 
 function SheetShell({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
@@ -87,25 +105,64 @@ function SheetShell({ title, onClose, children }: { title: string; onClose: () =
 }
 
 function editValuesOf(rfi: Rfi | undefined): RfiEditFormValues {
-  return { questionEl: rfi?.questionEl ?? "", dueDate: rfi ? nicosiaDateOf(rfi.slaDueAt) : "" };
+  return {
+    questionEl: rfi?.questionEl ?? "",
+    dueDate: rfi ? nicosiaDateOf(rfi.slaDueAt) : "",
+    recipientName: rfi?.recipientName ?? "",
+    recipientEmail: rfi?.recipientEmail ?? "",
+    sentOn: rfi?.sentOn ?? "",
+  };
 }
 
-export function RfiSheet({ open, rfi, canWrite, saving = false, apiError, onClose, onCreate, onAnswer, onCloseRfi, onUpdate }: RfiSheetProps) {
+/** A message key from the form schema, said in the caller's language. */
+function FieldError({ message }: { message?: string }) {
+  const t = useTranslations();
+  return message ? (
+    <p role="alert" className="text-fs-14 text-k-red">
+      {t(message)}
+    </p>
+  ) : null;
+}
+
+const INPUT = "h-11 rounded-k border border-k-grey bg-k-white px-s-3 text-fs-16 text-k-ink";
+
+export function RfiSheet({
+  open,
+  rfi,
+  canWrite,
+  saving = false,
+  apiError,
+  onClose,
+  onCreate,
+  onAnswer,
+  onCloseRfi,
+  onUpdate,
+  documents,
+  onUpload,
+  uploading = false,
+  uploadError,
+  today = nicosiaDateOf(new Date()),
+}: RfiSheetProps) {
   const t = useTranslations();
   const [confirmCloseOpen, setConfirmCloseOpen] = useState(false);
   const [editing, setEditing] = useState(false);
+  const [uploadOpen, setUploadOpen] = useState(false);
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [uploadTitle, setUploadTitle] = useState("");
+  const [uploadTitleError, setUploadTitleError] = useState<string | undefined>(undefined);
   const raisedOn = rfi ? nicosiaDateOf(rfi.raisedAt) : "";
 
   const createForm = useForm<RfiFormValues>({
-    resolver: zodResolver<RfiFormValues>(RfiFormSchema),
-    defaultValues: { questionEl: "", slaDays: 7 },
+    resolver: zodResolver<RfiFormValues>(rfiFormSchema(today)),
+    defaultValues: { questionEl: "", slaDays: 7, recipientName: "", recipientEmail: "", sentOn: "" },
   });
   const answerForm = useForm<RfiAnswerFormValues>({
     resolver: zodResolver<RfiAnswerFormValues>(RfiAnswerFormSchema),
     defaultValues: { answerEl: "" },
   });
   const editForm = useForm<RfiEditFormValues>({
-    resolver: zodResolver<RfiEditFormValues>(rfiEditFormSchema(raisedOn)),
+    // An RFI from before the recipient existed can be corrected without one.
+    resolver: zodResolver<RfiEditFormValues>(rfiEditFormSchema(raisedOn, today, !!rfi?.recipientName)),
     defaultValues: editValuesOf(rfi),
   });
 
@@ -116,7 +173,7 @@ export function RfiSheet({ open, rfi, canWrite, saving = false, apiError, onClos
     const errors = createForm.formState.errors;
     return (
       <SheetShell title={t("buttons.add")} onClose={onClose}>
-        <form onSubmit={createForm.handleSubmit((values) => onCreate(values))} className="flex flex-col gap-s-4">
+        <form noValidate onSubmit={createForm.handleSubmit((values) => onCreate(values))} className="flex flex-col gap-s-4">
           <div className="flex flex-col gap-s-1">
             <label htmlFor="rfi-question" className="text-fs-14 text-k-text">
               {t("screens.s07b.fields.question")}
@@ -128,11 +185,7 @@ export function RfiSheet({ open, rfi, canWrite, saving = false, apiError, onClos
               aria-invalid={errors.questionEl ? "true" : undefined}
               className="rounded-k border border-k-grey p-s-3 text-fs-14 text-k-ink"
             />
-            {errors.questionEl && (
-              <p role="alert" className="text-fs-14 text-k-red">
-                {t(errors.questionEl.message as string)}
-              </p>
-            )}
+            <FieldError message={errors.questionEl?.message} />
           </div>
           <div className="flex flex-col gap-s-1">
             <label htmlFor="rfi-sla-days" className="text-fs-14 text-k-text">
@@ -145,9 +198,20 @@ export function RfiSheet({ open, rfi, canWrite, saving = false, apiError, onClos
               inputMode="numeric"
               {...createForm.register("slaDays", { setValueAs: (value: string) => (value === "" ? NaN : Number(value)) })}
               aria-invalid={errors.slaDays ? "true" : undefined}
-              className="num h-11 w-[160px] rounded-k border border-k-grey bg-k-white px-s-3 text-fs-16 text-k-ink"
+              className={`num w-[160px] ${INPUT}`}
             />
           </div>
+          <RecipientFields
+            idPrefix="rfi"
+            register={createForm.register}
+            errors={{
+              recipientName: errors.recipientName?.message,
+              recipientEmail: errors.recipientEmail?.message,
+              sentOn: errors.sentOn?.message,
+            }}
+            minSentOn={today}
+            maxSentOn={today}
+          />
           {apiError && (
             <p role="alert" className="rounded-k border border-k-red bg-k-white p-s-3 text-fs-14 text-k-red">
               {apiError}
@@ -191,11 +255,7 @@ export function RfiSheet({ open, rfi, canWrite, saving = false, apiError, onClos
               aria-invalid={errors.questionEl ? "true" : undefined}
               className="rounded-k border border-k-grey p-s-3 text-fs-14 text-k-ink"
             />
-            {errors.questionEl && (
-              <p role="alert" className="text-fs-14 text-k-red">
-                {t(errors.questionEl.message as string)}
-              </p>
-            )}
+            <FieldError message={errors.questionEl?.message} />
           </div>
           <div className="flex flex-col gap-s-1">
             <label htmlFor="rfi-edit-due" className="text-fs-14 text-k-text">
@@ -207,14 +267,21 @@ export function RfiSheet({ open, rfi, canWrite, saving = false, apiError, onClos
               min={raisedOn}
               {...editForm.register("dueDate")}
               aria-invalid={errors.dueDate ? "true" : undefined}
-              className="num h-11 w-[200px] rounded-k border border-k-grey bg-k-white px-s-3 text-fs-16 text-k-ink"
+              className={`num w-[200px] ${INPUT}`}
             />
-            {errors.dueDate && (
-              <p role="alert" className="text-fs-14 text-k-red">
-                {t(errors.dueDate.message as string)}
-              </p>
-            )}
+            <FieldError message={errors.dueDate?.message} />
           </div>
+          <RecipientFields
+            idPrefix="rfi-edit"
+            register={editForm.register}
+            errors={{
+              recipientName: errors.recipientName?.message,
+              recipientEmail: errors.recipientEmail?.message,
+              sentOn: errors.sentOn?.message,
+            }}
+            minSentOn={raisedOn}
+            maxSentOn={today}
+          />
           {apiError && (
             <p role="alert" className="rounded-k border border-k-red bg-k-white p-s-3 text-fs-14 text-k-red">
               {apiError}
@@ -241,6 +308,19 @@ export function RfiSheet({ open, rfi, canWrite, saving = false, apiError, onClos
   // ------------------------------------------------------------ read view --
   const title = t("screens.s07b.sheetTitle", { number: rfi.number });
   const answerErrors = answerForm.formState.errors;
+  const notRecorded = <span className="text-k-text">{t("screens.s07b.notRecorded")}</span>;
+
+  async function submitUpload() {
+    if (!uploadFile || !onUpload) return;
+    const titleError = evidenceTitleError(uploadTitle);
+    setUploadTitleError(titleError);
+    if (titleError) return;
+    if (await onUpload(uploadFile, uploadTitle.trim())) {
+      setUploadFile(null);
+      setUploadTitle("");
+      setUploadOpen(false);
+    }
+  }
 
   return (
     <SheetShell title={title} onClose={onClose}>
@@ -252,6 +332,17 @@ export function RfiSheet({ open, rfi, canWrite, saving = false, apiError, onClos
         <div>
           <dt className="text-k-text">{t("screens.s07b.fields.question")}</dt>
           <dd className="whitespace-pre-line text-k-ink">{rfi.questionEl}</dd>
+        </div>
+        <div>
+          <dt className="text-k-text">{t("screens.s07b.fields.recipientName")}</dt>
+          <dd className="text-k-ink">
+            {rfi.recipientName ?? notRecorded}
+            {rfi.recipientEmail && <span className="block text-k-text">{rfi.recipientEmail}</span>}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-k-text">{t("screens.s07b.fields.sentOn")}</dt>
+          <dd className="num text-k-ink">{rfi.sentOn ? formatDate(rfi.sentOn) : notRecorded}</dd>
         </div>
         <div>
           <dt className="text-k-text">{t("screens.s07b.fields.raised")}</dt>
@@ -281,11 +372,7 @@ export function RfiSheet({ open, rfi, canWrite, saving = false, apiError, onClos
                 aria-invalid={answerErrors.answerEl ? "true" : undefined}
                 className="rounded-k border border-k-grey p-s-3 text-fs-14 text-k-ink"
               />
-              {answerErrors.answerEl && (
-                <p role="alert" className="text-fs-14 text-k-red">
-                  {t(answerErrors.answerEl.message as string)}
-                </p>
-              )}
+              <FieldError message={answerErrors.answerEl?.message} />
               {apiError && (
                 <p role="alert" className="rounded-k border border-k-red bg-k-white p-s-3 text-fs-14 text-k-red">
                   {apiError}
@@ -357,6 +444,114 @@ export function RfiSheet({ open, rfi, canWrite, saving = false, apiError, onClos
         </p>
       )}
 
+      {/* Owner decision 25/11/2026: the correspondence — the e-mail sent from
+          Outlook and the reply — filed against the RFI and queued for
+          eArchive. «Προβολή» opens a PDF in a new tab and saves any other
+          type (a .msg or .eml is saved, then opened by Outlook); «Λήψη»
+          always saves (`?download=1`, UAT 25/11/2026). Attaching stays open
+          after the RFI closes: a late reply still belongs on it. */}
+      <section aria-labelledby="rfi-evidence-title" className="mt-s-6 border-t border-k-grey pt-s-4">
+        <h3 id="rfi-evidence-title" className="mb-s-3 text-fs-16 font-bold text-k-blue-deep">
+          {t("screens.s07b.evidence.title")}
+        </h3>
+        {documents === undefined ? (
+          <p className="text-fs-14 text-k-text-muted">{t("common.loading")}</p>
+        ) : documents.length === 0 ? (
+          <p className="text-fs-14 text-k-text">{t("screens.s07b.evidence.empty")}</p>
+        ) : (
+          <ul className="grid gap-s-2">
+            {documents.map((doc) => (
+              <li key={doc.id} className="flex flex-wrap items-center justify-between gap-s-2 border-b border-k-grey pb-s-2">
+                <span className="text-fs-14 text-k-ink">
+                  {doc.titleEl}
+                  <span className="num block text-fs-14 text-k-text">
+                    {formatDate(doc.createdAt)} · {doc.protocolNumber ?? t("screens.s07b.evidence.pendingFiling")}
+                  </span>
+                </span>
+                <span className="flex items-baseline gap-s-3">
+                  <a href={documentViewHref(doc.id, doc.mime)} target="_blank" rel="noopener" className="text-fs-14 text-k-blue underline">
+                    {t("buttons.view")}
+                    <span className="sr-only"> {doc.titleEl}</span>
+                  </a>
+                  <a href={documentContentHref(doc.id, { download: true })} className="text-fs-14 text-k-blue underline">
+                    {t("buttons.download")}
+                    <span className="sr-only"> {doc.titleEl}</span>
+                  </a>
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        {canWrite && onUpload && (
+          <div className="mt-s-4">
+            {!uploadOpen ? (
+              <button type="button" onClick={() => setUploadOpen(true)} className="text-fs-14 text-k-blue">
+                {t("screens.s07b.evidence.upload")}
+              </button>
+            ) : (
+              <form
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  void submitUpload();
+                }}
+                className="grid gap-s-3"
+              >
+                <p className="text-fs-14 text-k-text">{t("screens.s07b.evidence.hint")}</p>
+                <label className="flex flex-col gap-s-1 text-fs-14 text-k-text">
+                  {t("screens.s07b.evidence.file")}
+                  <input
+                    type="file"
+                    accept=".msg,.eml,.pdf,application/pdf,message/rfc822,application/vnd.ms-outlook"
+                    onChange={(event) => setUploadFile(event.target.files?.[0] ?? null)}
+                    className="text-fs-14 text-k-ink"
+                  />
+                </label>
+                <label className="flex flex-col gap-s-1 text-fs-14 text-k-text">
+                  {t("screens.s07b.evidence.titleLabel")}
+                  <input
+                    type="text"
+                    value={uploadTitle}
+                    onChange={(event) => setUploadTitle(event.target.value)}
+                    aria-invalid={uploadTitleError ? "true" : undefined}
+                    className={INPUT}
+                  />
+                </label>
+                <FieldError message={uploadTitleError} />
+                {uploadError && (
+                  <p role="alert" className="rounded-k border border-k-red bg-k-white p-s-3 text-fs-14 text-k-red">
+                    {uploadError}
+                  </p>
+                )}
+                <div className="flex items-center gap-s-3">
+                  <button
+                    type="submit"
+                    disabled={uploading || !uploadFile}
+                    className="flex h-11 items-center justify-center gap-s-2 rounded-k border border-k-grey px-s-5 text-fs-14 font-bold text-k-blue-deep disabled:opacity-60"
+                  >
+                    {uploading && <LoaderCircle size={20} strokeWidth={1.5} aria-hidden="true" className="animate-spin" />}
+                    {uploading ? t("screens.s07b.evidence.saving") : t("buttons.save")}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setUploadOpen(false);
+                      setUploadFile(null);
+                      setUploadTitle("");
+                      setUploadTitleError(undefined);
+                    }}
+                    disabled={uploading}
+                    className="h-11 rounded-k px-s-5 text-fs-14 text-k-text disabled:opacity-60"
+                  >
+                    {t("buttons.cancel")}
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        )}
+      </section>
+
       <ConfirmDialog
         open={confirmCloseOpen}
         title={t("screens.s07b.closeConfirmTitle")}
@@ -369,5 +564,80 @@ export function RfiSheet({ open, rfi, canWrite, saving = false, apiError, onClos
         }}
       />
     </SheetShell>
+  );
+}
+
+// ------------------------------------------------- the recipient fields --
+
+type RecipientKey = "recipientName" | "recipientEmail" | "sentOn";
+type RegisterRecipient = (name: RecipientKey) => UseFormRegisterReturn<RecipientKey>;
+
+/**
+ * Owner decision 25/11/2026: who the RFI went to, their address and the day
+ * it left — the same three fields on the new form and the edit form. The
+ * hint under the sent day says why there is no «Αποστολή» button.
+ */
+function RecipientFields({
+  idPrefix,
+  register,
+  errors,
+  minSentOn,
+  maxSentOn,
+}: {
+  idPrefix: string;
+  register: RegisterRecipient;
+  errors: Partial<Record<RecipientKey, string>>;
+  minSentOn: string;
+  maxSentOn: string;
+}) {
+  const t = useTranslations();
+  return (
+    <>
+      <div className="flex flex-col gap-s-1">
+        <label htmlFor={`${idPrefix}-recipient`} className="text-fs-14 text-k-text">
+          {t("screens.s07b.fields.recipientName")}
+        </label>
+        <input
+          id={`${idPrefix}-recipient`}
+          type="text"
+          autoComplete="off"
+          {...register("recipientName")}
+          aria-invalid={errors.recipientName ? "true" : undefined}
+          className={INPUT}
+        />
+        <p className="text-fs-14 text-k-text">{t("screens.s07b.fields.recipientNameHint")}</p>
+        <FieldError message={errors.recipientName} />
+      </div>
+      <div className="flex flex-col gap-s-1">
+        <label htmlFor={`${idPrefix}-recipient-email`} className="text-fs-14 text-k-text">
+          {t("screens.s07b.fields.recipientEmail")}
+        </label>
+        <input
+          id={`${idPrefix}-recipient-email`}
+          type="email"
+          autoComplete="off"
+          {...register("recipientEmail")}
+          aria-invalid={errors.recipientEmail ? "true" : undefined}
+          className={INPUT}
+        />
+        <FieldError message={errors.recipientEmail} />
+      </div>
+      <div className="flex flex-col gap-s-1">
+        <label htmlFor={`${idPrefix}-sent-on`} className="text-fs-14 text-k-text">
+          {t("screens.s07b.fields.sentOn")}
+        </label>
+        <input
+          id={`${idPrefix}-sent-on`}
+          type="date"
+          min={minSentOn}
+          max={maxSentOn}
+          {...register("sentOn")}
+          aria-invalid={errors.sentOn ? "true" : undefined}
+          className={`num w-[200px] ${INPUT}`}
+        />
+        <p className="text-fs-14 text-k-text">{t("screens.s07b.fields.sentOnHint")}</p>
+        <FieldError message={errors.sentOn} />
+      </div>
+    </>
   );
 }

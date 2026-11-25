@@ -66,7 +66,10 @@
     "dateInFuture": "The date cannot be later than today.",
     "dueBeforeRaised": "The due date cannot be before the date it was raised.",
     "dateBeforeAward": "The date cannot be before the contract was awarded.",
-    "dateEndBeforeStart": "The end date cannot be before the start date."
+    "dateEndBeforeStart": "The end date cannot be before the start date.",
+    "emailInvalid": "The e-mail address is not valid.",
+    "sentBeforeRaised": "The sent date cannot be before the day the RFI was raised.",
+    "titleTooShort": "The title needs at least 3 characters."
   },
   "components": {
     "passwordField": {
@@ -779,7 +782,9 @@
         "raisedBy": "Raised by",
         "raisedAt": "Date",
         "due": "Due",
-        "status": "Status"
+        "status": "Status",
+        "recipient": "Recipient",
+        "sentOn": "Sent"
       },
       "fields": {
         "question": "Question",
@@ -788,7 +793,12 @@
         "number": "No.",
         "raised": "Raised by",
         "dueDate": "Due date",
-        "status": "Status"
+        "status": "Status",
+        "recipientName": "Recipient",
+        "recipientNameHint": "Name and organisation, for example the design office or the contractor.",
+        "recipientEmail": "Recipient's e-mail",
+        "sentOn": "Sent on",
+        "sentOnHint": "eCapital sends no e-mail. Send the RFI from Outlook and record the day you sent it here."
       },
       "sheetTitle": "RFI {number}",
       "answeredOn": "Answered",
@@ -796,7 +806,18 @@
       "closeConfirmTitle": "Close this RFI?",
       "closeConfirmConsequence": "The RFI closes and no further answer can be recorded against it.",
       "editTitle": "Edit RFI {number}",
-      "closedNoEdit": "This RFI is closed and can no longer be changed."
+      "closedNoEdit": "This RFI is closed and can no longer be changed.",
+      "notRecorded": "Not recorded",
+      "evidence": {
+        "title": "Correspondence",
+        "empty": "No correspondence attached yet.",
+        "upload": "Attach a file",
+        "hint": "Attach the message you sent (.msg, .eml or .pdf) or the reply you received.",
+        "file": "File",
+        "titleLabel": "Title (optional)",
+        "pendingFiling": "Waiting for a protocol number",
+        "saving": "Saving…"
+      }
     },
     "s07c": {
       "title": "Site instructions",
@@ -1561,7 +1582,9 @@
         "class": "Asset class",
         "criticality": "Criticality",
         "condition": "Condition",
-        "all": "All"
+        "all": "All",
+        "sapClass": "SAP asset class",
+        "sapNone": "No SAP class"
       },
       "columns": {
         "tag": "Tag",
@@ -1572,7 +1595,8 @@
         "condition": "Condition",
         "warrantyEnd": "Warranty end",
         "replacementYear": "Replacement year",
-        "priority": "Priority"
+        "priority": "Priority",
+        "sapClass": "SAP class"
       }
     },
     "s17": {
@@ -1593,7 +1617,8 @@
         "system": "System",
         "parentAsset": "Part of",
         "criticality": "Criticality",
-        "replacementYear": "Replacement year"
+        "replacementYear": "Replacement year",
+        "sapAssetClass": "SAP asset class"
       },
       "wholeLifeTitle": "Whole-life cost",
       "wholeLife": {
@@ -1682,7 +1707,10 @@
         "noContract": "None",
         "noSystem": "None",
         "sourceProjectHint": "Projects of the asset's unit",
-        "sourceContractHint": "Contracts of the asset's unit"
+        "sourceContractHint": "Contracts of the asset's unit",
+        "sapAssetClass": "SAP asset class",
+        "noSapClass": "None",
+        "sapAssetClassHint": "Suggested from the asset class. Change it if SAP records the asset under another class."
       },
       "parentSearchPlaceholder": "Search an asset by tag or name",
       "errors": {
@@ -1710,16 +1738,18 @@
       "title": "Replacement forecast",
       "yearFrom": "From year",
       "yearTo": "To year",
-      "caption": "Replacement forecast by unit and year",
+      "caption": "Replacement forecast by unit, year and SAP asset class",
       "empty": "No assets have a planned replacement in this range.",
       "columns": {
         "unit": "Unit",
         "year": "Year",
         "assets": "Assets",
         "estimatedCost": "Estimated cost",
-        "criticalAssets": "Critical assets (1–2)"
+        "criticalAssets": "Critical assets (1–2)",
+        "sapClass": "SAP asset class"
       },
-      "totals": "Total"
+      "totals": "Total",
+      "noSapClass": "No SAP class"
     },
     "s07f": {
       "title": "eFinance invoices",
@@ -1991,7 +2021,8 @@
             "downtime": "Downtime hours",
             "remainingLife": "Remaining life",
             "replacementYear": "Replacement year",
-            "replacementCost": "Replacement estimate"
+            "replacementCost": "Replacement estimate",
+            "sapAssetClass": "SAP asset class"
           },
           "years": "{count, plural, one {# yr} other {# yrs}}"
         },
