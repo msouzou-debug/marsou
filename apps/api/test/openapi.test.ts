@@ -102,6 +102,7 @@ describe("openapi.json", () => {
       "/defects/{id}",
       "/documents/{id}/content",
       "/efinance/vendors",
+      "/exports/table",
       "/health",
       "/icra/evaluate",
       "/icra/matrix",

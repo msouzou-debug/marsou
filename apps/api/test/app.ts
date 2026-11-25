@@ -2,7 +2,9 @@ import type { INestApplication } from "@nestjs/common";
 import { SchedulerRegistry } from "@nestjs/schedule";
 import { Test } from "@nestjs/testing";
 import request from "supertest";
+import type { NestExpressApplication } from "@nestjs/platform-express";
 import { AppModule } from "../src/app.module";
+import { useTableExportBodyParser } from "../src/exports/exports.module";
 import { CONFIG, loadConfig, type AppConfig } from "../src/config";
 import { DIRECTORY, type Directory } from "../src/auth/directory";
 import { DEV_AUDIENCE, DEV_ISSUER, signSessionToken } from "../src/auth/tokens";
@@ -24,7 +26,9 @@ export const USERS = {
 
 export async function createTestApp(): Promise<INestApplication> {
   const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
-  const app = moduleRef.createNestApplication({ logger: false });
+  const app = moduleRef.createNestApplication<NestExpressApplication>({ logger: false });
+  // As main.ts does, so the export's body limit is the one under test.
+  useTableExportBodyParser(app);
   await app.init();
   return withoutTimers(app);
 }

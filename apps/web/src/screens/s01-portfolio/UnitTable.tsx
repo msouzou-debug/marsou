@@ -28,7 +28,8 @@ import { directorateLabels } from "@ecapital/shared";
 import type { Locale } from "@/i18n/config";
 import { formatEUR, formatEURorDash, formatInt } from "@/lib/format";
 import { RagChip } from "@/components/rag-chip";
-import { Table, type TableColumn } from "@/components/table";
+import { Table, exportTable, type TableColumn } from "@/components/table";
+import { ApiError } from "@/data/client";
 import { Sparkline } from "./Sparkline";
 
 export type UnitTableState = "default" | "loading" | "offline";
@@ -61,9 +62,6 @@ export function UnitTable({ units, state = "default", onRetry }: UnitTableProps)
   const sortedUnits = useMemo(() => [...units].sort((a, b) => b.approved - a.approved), [units]);
 
   const openUnit = (unitId: string) => router.push(unitHref(unitId));
-
-  // TODO(M6, R39): live-formula Excel export.
-  const handleExport = () => undefined;
 
   const columns = useMemo<Array<TableColumn<UnitRow>>>(
     () => [
@@ -116,6 +114,8 @@ export function UnitTable({ units, state = "default", onRetry }: UnitTableProps)
         headerKey: "screens.s01.unitTable.columns.progress",
         accessor: () => 0,
         sortable: false,
+        // A picture, not a figure: the export leaves it out.
+        exportKind: "none",
         cell: (row) => (
           <Sparkline
             plan={row.sparkline.plan}
@@ -132,6 +132,7 @@ export function UnitTable({ units, state = "default", onRetry }: UnitTableProps)
         headerKey: "screens.s01.unitTable.columns.rag",
         accessor: () => 0,
         sortable: false,
+        exportKind: "none",
         cell: (row) => (
           <div className="flex items-center gap-s-2">
             <RagChip value="green" variant="count" count={row.rag.green} />
@@ -143,6 +144,12 @@ export function UnitTable({ units, state = "default", onRetry }: UnitTableProps)
     ],
     [locale, t],
   );
+
+  // UAT 25/11/2026: the flat table exports itself (`Table`'s generic export);
+  // the grouped view is drawn by hand below, so its button sends the same
+  // columns and rows through the same route.
+  const handleGroupedExport = () =>
+    exportTable({ title: t("screens.s01.unitTable.caption"), columns, rows: sortedUnits, t: (key) => t(key) });
 
   // RULE: row click, not only Enter, opens the unit's project list (UI
   // instructions §5). `Table` only wires Enter to `onRowOpen` (its keyboard
@@ -171,7 +178,7 @@ export function UnitTable({ units, state = "default", onRetry }: UnitTableProps)
         units={sortedUnits}
         readOnly={state === "offline"}
         groupingToggle={groupingToggle}
-        onExport={handleExport}
+        onExport={handleGroupedExport}
         onOpenUnit={openUnit}
       />
     );
@@ -190,7 +197,6 @@ export function UnitTable({ units, state = "default", onRetry }: UnitTableProps)
           state={state}
           density="comfortable"
           skeletonRows={sortedUnits.length || 6}
-          onExport={handleExport}
           onRowOpen={(row) => openUnit(row.orgUnit.id)}
           onRetry={onRetry}
         />
@@ -203,7 +209,7 @@ interface GroupedUnitTableProps {
   units: UnitRow[];
   readOnly: boolean;
   groupingToggle: ReactNode;
-  onExport: () => void;
+  onExport: () => Promise<void>;
   onOpenUnit: (unitId: string) => void;
 }
 
@@ -214,6 +220,21 @@ interface GroupedUnitTableProps {
 function GroupedUnitTable({ units, readOnly, groupingToggle, onExport, onOpenUnit }: GroupedUnitTableProps) {
   const t = useTranslations();
   const locale = useLocale() as Locale;
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
+
+  // The same feedback `Table`'s own export button gives.
+  const runExport = async () => {
+    setExporting(true);
+    setExportError(null);
+    try {
+      await onExport();
+    } catch (error) {
+      setExportError(error instanceof ApiError ? error.message : t("components.table.exportFailed"));
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const groups = useMemo(() => {
     const order: string[] = [];
@@ -234,14 +255,20 @@ function GroupedUnitTable({ units, readOnly, groupingToggle, onExport, onOpenUni
       <div className="flex flex-wrap items-center justify-between gap-s-3 border-b border-k-grey p-s-3">
         {groupingToggle}
         {readOnly && <p className="text-fs-14 text-k-text">{t("states.offline.readOnly")}</p>}
+        {exportError && (
+          <p role="alert" className="text-fs-14 text-k-red">
+            {exportError}
+          </p>
+        )}
         <button
           type="button"
-          onClick={onExport}
-          disabled={readOnly}
+          onClick={() => void runExport()}
+          disabled={readOnly || exporting}
+          aria-busy={exporting || undefined}
           title={readOnly ? t("components.table.offlineExport") : undefined}
           className="flex items-center gap-s-2 rounded-k border border-k-grey px-s-3 py-s-2 text-fs-14 text-k-blue-deep disabled:opacity-50"
         >
-          {t("buttons.exportExcel")}
+          {exporting ? t("components.table.exporting") : t("buttons.exportExcel")}
         </button>
       </div>
       <div className="overflow-auto">

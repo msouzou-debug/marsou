@@ -302,7 +302,6 @@ export function SchedulesSection({ schedules, state, systems, assets, canManage,
         captionKey="screens.s18plan.schedules.title"
         state={state}
         density="dense"
-        onExport={() => undefined}
         onRetry={onRetry}
         emptyState={{ messageKey: "screens.s18plan.schedules.empty", actionLabelKey: "buttons.add", onAction: writable ? () => open("new") : undefined }}
       />

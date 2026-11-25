@@ -356,7 +356,6 @@ export function Assets({ data, state, filters, orgUnits, onFilters, onRetry, can
           density="dense"
           selectable
           onSelectionChange={setSelectedIds}
-          onExport={() => undefined}
           onRetry={onRetry}
           emptyState={{
             messageKey: "screens.s16a.empty",

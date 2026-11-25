@@ -112,7 +112,6 @@ export function EFinanceRequisitions({ contract, list, state, onRetry, noPermiss
           getRowId={(row) => row.id}
           captionKey="screens.s07g.caption"
           state={tableState}
-          onExport={() => undefined}
           onRetry={onRetry}
           emptyState={{ messageKey: emptyKey, actionLabelKey: "buttons.add" }}
         />

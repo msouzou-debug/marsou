@@ -160,6 +160,9 @@ describe("S18a WorkOrderDetail", () => {
         ],
       }),
     });
+    // The history starts collapsed (UAT 25/11/2026): one button with the count.
+    expect(screen.queryByText("πρόσθεσε σημείωση")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Εμφάνιση ιστορικού (3)" }));
     expect(screen.getByText("πρόσθεσε σημείωση")).toBeInTheDocument();
     expect(screen.getByText("Αναμονή ανταλλακτικού")).toBeInTheDocument();
     expect(screen.getAllByText("Πίνακας.jpg").length).toBeGreaterThan(0);

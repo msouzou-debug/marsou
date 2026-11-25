@@ -21,3 +21,4 @@ export * from "./permit";
 export * from "./asset";
 export * from "./maintenance";
 export * from "./reports";
+export * from "./table-export";

@@ -217,7 +217,6 @@ export function Schedule({
         getRowId={(row) => row.id}
         captionKey="screens.s05.caption"
         state={tableState}
-        onExport={() => undefined}
         onRetry={onRetry}
         onCellEdit={canEdit ? onCellEdit : undefined}
         emptyState={{

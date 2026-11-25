@@ -259,7 +259,9 @@
     "claimNotFound": "That claim is not on this contract. Refresh the page and try again.",
     "delayActivationNotValid": "The activation is not valid. Give the date and a note.",
     "contractHasSections": "This contract has sections, and the delay penalty runs on each section separately. Pick the section the penalty is applied on.",
-    "businessCaseMissing": "The project cannot leave the Idea phase without a filed business case. File it on the project and try again."
+    "businessCaseMissing": "The project cannot leave the Idea phase without a filed business case. File it on the project and try again.",
+    "tableExportNotValid": "The export is incomplete or goes over the 20,000-row limit. Narrow the table with the screen's filters and try again.",
+    "bodyTooLarge": "You sent more than the system takes in one request. Narrow it down with the screen's filters and try again."
   },
   "exceptions": {
     "milestoneSlip": "Milestone {milestone} on {project} ({unit}) is {days} days behind its baseline date.",
@@ -970,5 +972,15 @@
     "clinical_approver": "Clinical approver",
     "executive_readonly": "Executive, read-only",
     "auditor_readonly": "Auditor, read-only"
+  },
+  "tableExport": {
+    "dataSheet": "Data",
+    "infoSheet": "About",
+    "total": "Total",
+    "screen": "Screen",
+    "source": "Path",
+    "exportedAt": "Exported on",
+    "rowCount": "Number of rows",
+    "note": "The rows are those the screen's table showed at the moment of export, in its order and with the columns chosen. The totals are SUBTOTAL formulas and follow the filter."
   }
 }

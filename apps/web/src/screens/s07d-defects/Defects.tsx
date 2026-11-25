@@ -226,7 +226,6 @@ export function Defects({
         getRowId={(row) => row.id}
         captionKey="screens.s07d.caption"
         state={tableState}
-        onExport={() => undefined}
         onRowOpen={(row) => onSelect(row.id)}
         onRetry={onRetry}
         emptyState={{ messageKey: "screens.s07d.empty", actionLabelKey: "buttons.add", onAction: canWrite ? () => onSelect("new") : undefined }}

@@ -238,7 +238,6 @@ export function Permits({ data, state, filters, orgUnits, onFilters, onRetry, no
           captionKey="screens.s11.caption"
           state={tableState}
           density="comfortable"
-          onExport={() => undefined}
           onRetry={onRetry}
           emptyState={{
             messageKey: "screens.s11.empty",

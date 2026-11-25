@@ -136,6 +136,57 @@ export async function apiMutate<T>(
   return schema.parse(text ? JSON.parse(text) : undefined);
 }
 
+/** `filename*=UTF-8''…` first (a Greek title), then `filename="…"`, then the fallback. */
+export function fileNameFrom(disposition: string | null, fallback: string): string {
+  if (!disposition) return fallback;
+  const extended = /filename\*\s*=\s*UTF-8''([^;]+)/i.exec(disposition);
+  if (extended?.[1]) {
+    try {
+      return decodeURIComponent(extended[1].trim());
+    } catch {
+      /* a malformed escape: try the plain name */
+    }
+  }
+  const plain = /filename\s*=\s*"([^"]+)"/i.exec(disposition);
+  return plain?.[1] ?? fallback;
+}
+
+/**
+ * A POST that answers with a file — the generic table export
+ * (`POST /exports/table`, UAT 25/11/2026). The GET exports (S04, S09a, S21,
+ * the reports) are a plain navigation the browser downloads by itself; a
+ * POST cannot be, because its body is the rows, so this reads the bytes and
+ * hands them to the browser through a temporary link. The file name is the
+ * API's own `Content-Disposition`.
+ *
+ * Throws `ApiError` on a non-2xx response, like `apiMutate`.
+ */
+export async function apiDownload(path: string, body: unknown, fallbackName: string): Promise<void> {
+  const res = await fetch(`/api/proxy${path}`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+    cache: "no-store",
+  });
+  if (!res.ok) throw await errorFrom(res, path);
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  try {
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = fileNameFrom(res.headers.get("content-disposition"), fallbackName);
+    link.rel = "noopener";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  } finally {
+    // After the click has handed the bytes to the browser's download.
+    window.setTimeout(() => {
+      if (typeof URL.revokeObjectURL === "function") URL.revokeObjectURL(url);
+    }, 1_000);
+  }
+}
+
 /**
  * S10's `POST /cost/imports`: the one write in this app whose body is not
  * JSON. Never set a `content-type` header by hand here — the browser adds
