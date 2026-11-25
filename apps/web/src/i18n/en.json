@@ -1121,7 +1121,50 @@
           "cumulativePlanned": "Cumulative planned",
           "cumulativeActual": "Cumulative actual"
         },
-        "empty": "There is no cash flow data for the selected range."
+        "empty": "There is no cash flow data for the selected range.",
+        "source": {
+          "plan": "«Planned» comes from the project's cash-flow plan.",
+          "planUpdated": "Last changed {when} by {name}.",
+          "budget": "The project has no cash-flow plan. «Planned» is each year's approved budget, spread evenly over its months."
+        }
+      },
+      "cashflowPlan": {
+        "edit": "Edit plan",
+        "title": "Cash-flow plan",
+        "intro": "Enter the amount you plan to pay each month. A month with no amount is not part of the plan. If you empty every month, the cash flow goes back to each year's budget, spread evenly over its months.",
+        "caption": "Cash-flow plan by month",
+        "columns": {
+          "month": "Month",
+          "amount": "Amount (€)",
+          "note": "Note"
+        },
+        "total": "Plan total",
+        "approved": "Approved budget",
+        "difference": "Plan minus budget",
+        "outside": "Plan months outside the window: {count}. They count in the total.",
+        "amountNotValid": "Enter an amount of zero or more.",
+        "fixErrors": "Fix the marked amounts and save again.",
+        "saving": "Saving…",
+        "downloadTemplate": "Download template",
+        "importExcel": "Import from Excel",
+        "importFile": ".xlsx file",
+        "importIntro": "Download the template, enter one amount per month and upload it. The file replaces the whole plan. If any row is wrong, nothing is saved.",
+        "importing": "Importing…",
+        "importSaved": "The file replaced the plan. Months: {count}.",
+        "importFailed": "Nothing was saved. Fix the rows of the file and upload it again.",
+        "importErrorsCaption": "Rows of the file that need fixing",
+        "row": "Row",
+        "problem": "What to fix",
+        "wholeFile": "Whole file",
+        "problems": {
+          "periodNotValid": "The month is not mm/yyyy: «{value}».",
+          "periodRepeated": "The month «{value}» is already on an earlier row.",
+          "amountMissing": "The amount is missing.",
+          "amountNotNumber": "The amount is not a number: «{value}».",
+          "amountNegative": "The amount is negative: «{value}». Enter zero or more.",
+          "noteTooLong": "The note is longer than 500 characters.",
+          "noMonths": "The file has no months. Fill in the template and upload it again."
+        }
       },
       "budgetLines": {
         "title": "Budget lines",

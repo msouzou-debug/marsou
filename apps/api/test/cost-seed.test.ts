@@ -116,6 +116,27 @@ describe("the cost seed", () => {
     expect(keys).toContain("forecastOverApproved");
   });
 
+  it("gives three projects a monthly cash-flow plan, and their cash flow reads it", async () => {
+    // ADR-0037: the seed shows both sources side by side.
+    const { rows } = await db.query<{ project_id: string; months: number }>(
+      `select project_id, count(*)::int as months from ecapital.project_cashflow_plan
+        group by project_id order by project_id`,
+    );
+    expect(rows.length).toBeGreaterThanOrEqual(3);
+    expect(rows.every((row) => row.months > 0)).toBe(true);
+
+    const { rows: first } = await db.query<{ period: string }>(
+      "select min(period) as period from ecapital.project_cashflow_plan where project_id = $1",
+      [rows[0].project_id],
+    );
+    const token = await tokenFor(app, USERS.finance);
+    const flow = await request(app.getHttpServer())
+      .get(`/projects/${rows[0].project_id}/cost/cashflow?from=${first[0].period}&to=${first[0].period}`)
+      .set(bearer(token));
+    expect(flow.status).toBe(200);
+    expect(flow.body[0].plannedSource).toBe("PLAN");
+  });
+
   it("carries the keys the SAP matching needs", async () => {
     const { rows } = await db.query<{ wbs: number; centres: number }>(
       `select (select count(*) from ecapital.project where sap_wbs is not null)::int as wbs,

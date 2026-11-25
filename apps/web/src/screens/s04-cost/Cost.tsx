@@ -24,12 +24,21 @@
  * | onExport            | () => void        | `GET /projects/:id/cost/export`.                                     |
  * | exporting           | boolean           | Disables the export button while the download is in flight.          |
  * | cashflow…           | —                 | Forwarded to `CashflowSection` — see that component's own props.      |
+ * | cashflowPlan…       | —                 | ADR-0037: the plan, its save/import and the template link; editable for `canManageBudgetLines`. |
  * | budgetLines…        | —                 | Forwarded to `BudgetLinesEditor`, mounted only for `canManageBudgetLines`. |
  * | budgetPosition / budgetPositionState / onRetryBudgetPosition | — | ADR-0029: eFinance's budget position by budget code, next to the CostBar and never inside it. Omit `budgetPositionState` and the panel is not mounted (a fixture that predates it). |
  */
 import type { ReactNode } from "react";
 import { useTranslations } from "next-intl";
-import type { AppRole, CashflowRow, ProjectBudgetPosition, ProjectCost } from "@ecapital/shared";
+import type {
+  AppRole,
+  CashflowPlan,
+  CashflowPlanImportResult,
+  CashflowPlanMonth,
+  CashflowRow,
+  ProjectBudgetPosition,
+  ProjectCost,
+} from "@ecapital/shared";
 import { canManageBudgetLines, canDismissCostWarning, canSetForecastInputs } from "@/auth/roles";
 import { PageTitle } from "@/components/app-shell";
 import { CostBar } from "@/components/cost-bar";
@@ -71,6 +80,10 @@ export interface CostProps {
   cashflowFrom: string;
   cashflowTo: string;
   onCashflowRangeChange: (from: string, to: string) => void;
+  cashflowPlan?: CashflowPlan;
+  onSaveCashflowPlan?: (months: CashflowPlanMonth[]) => Promise<void>;
+  onImportCashflowPlan?: (file: File) => Promise<CashflowPlanImportResult>;
+  cashflowPlanTemplateHref?: (from: string, to: string) => string;
   budgetLines?: BudgetLine[];
   budgetYear: number;
   onBudgetYearChange: (year: number) => void;
@@ -103,6 +116,10 @@ export function Cost({
   cashflowFrom,
   cashflowTo,
   onCashflowRangeChange,
+  cashflowPlan,
+  onSaveCashflowPlan,
+  onImportCashflowPlan,
+  cashflowPlanTemplateHref,
   budgetLines,
   budgetYear,
   onBudgetYearChange,
@@ -259,6 +276,11 @@ export function Cost({
           from={cashflowFrom}
           to={cashflowTo}
           onRangeChange={onCashflowRangeChange}
+          plan={cashflowPlan}
+          canEditPlan={canEditBudgetLines}
+          onSavePlan={onSaveCashflowPlan}
+          onImportPlan={onImportCashflowPlan}
+          planTemplateHref={cashflowPlanTemplateHref}
           onExport={onExport}
         />
       </div>

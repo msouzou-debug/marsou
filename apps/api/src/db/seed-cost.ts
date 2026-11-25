@@ -2,8 +2,9 @@
  * The M2 half of the seed: the approved budget by year for all 41 projects,
  * a month of SAP postings already matched, a second month still waiting in
  * the unmatched queue, three payment certificates at three different points
- * of the workflow, two remembered allocation rules and two live warnings
- * (R11, R13, R14, R17, R18, R31, CAPEX-01 §15).
+ * of the workflow, two remembered allocation rules, two live warnings and
+ * three monthly cash-flow plans (R11, R13, R14, R17, R18, R31, CAPEX-01 §15,
+ * ADR-0037).
  *
  * OBVIOUSLY FAKE FIGURES, NO PATIENT DATA. The amounts are round numbers
  * dealt out by position, the SAP document numbers are sequential, and the
@@ -21,7 +22,7 @@
  * screen re-evaluates them and finds them still true, which is the point —
  * a seeded warning that vanished on first read would be a demo, not a test.
  */
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, notInArray, sql } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { I18nService } from "../common/i18n.service";
 import * as schema from "./schema";
@@ -36,6 +37,7 @@ export interface CostSeedSummary {
   paymentCerts: number;
   allocationRules: number;
   costWarnings: number;
+  cashflowPlans: number;
 }
 
 /** The revision the seeded budget lines belong to (CAPEX-03 §8). */
@@ -100,6 +102,7 @@ export async function seedCostRegister(db: Db): Promise<CostSeedSummary> {
     paymentCerts: 0,
     allocationRules: 0,
     costWarnings: 0,
+    cashflowPlans: 0,
   };
 
   const projects = (await db
@@ -401,7 +404,114 @@ export async function seedCostRegister(db: Db): Promise<CostSeedSummary> {
 
   // ------------------------------------------------------------ warnings --
   summary.costWarnings = await seedWarnings(db, contracts, projectById);
+
+  // ---------------------------------------------------- cash-flow plans --
+  const warningProjectId = contracts[WARNING_CONTRACT_INDEX]?.projectId;
+  summary.cashflowPlans = await seedCashflowPlans(
+    db,
+    projects.filter((project) => project.id !== warningProjectId),
+  );
   return summary;
+}
+
+/**
+ * ADR-0037: three projects with a monthly cash-flow plan, so S04 shows both
+ * sources side by side — these three read «planned» from the plan, every
+ * other project from its budget spread over twelve months. The plan runs
+ * from the planned start to the planned finish, heavier in the middle the
+ * way a job spends. Two add up to the approved budget; the third is 5%
+ * short of it, so the difference the screen reports is not always zero.
+ *
+ * Re-running replaces each plan whole and changes nothing.
+ */
+const PLAN_PROJECTS = 3;
+const PLAN_NOTES_EL = ["Κινητοποίηση αναδόχου", "Παραλαβή κύριου εξοπλισμού", "Τελική πιστοποίηση"];
+
+async function seedCashflowPlans(db: Db, projects: SeedProjectRow[]): Promise<number> {
+  const chosen = projects
+    .filter((project) => project.plannedStart && project.plannedFinish)
+    .slice(0, PLAN_PROJECTS);
+  if (!chosen.length) return 0;
+
+  const [finance] = await db
+    .select({ id: schema.appUser.id })
+    .from(schema.appUser)
+    .where(eq(schema.appUser.subject, "dev-finance"))
+    .limit(1);
+
+  for (const [index, project] of chosen.entries()) {
+    const [budget] = await db
+      .select({ amount: sql<string>`coalesce(sum(${schema.budgetLine.amount}), 0)` })
+      .from(schema.budgetLine)
+      .where(
+        and(
+          eq(schema.budgetLine.projectId, project.id),
+          eq(schema.budgetLine.vintageId, VINTAGE),
+          eq(schema.budgetLine.lineType, "BUDGET"),
+        ),
+      );
+    const total = round2(Number(budget?.amount ?? 0) * (index === 2 ? 0.95 : 1));
+    const periods = monthsOf(project.plannedStart as string, project.plannedFinish as string);
+    const weights = periods.map((_, at) => Math.sin((Math.PI * (at + 0.5)) / periods.length));
+    const weightSum = weights.reduce((sum, weight) => sum + weight, 0);
+
+    let allotted = 0;
+    const rows = periods.map((period, at) => {
+      const last = at === periods.length - 1;
+      const amount = last ? round2(total - allotted) : round2((total * weights[at]) / weightSum);
+      allotted = round2(allotted + amount);
+      const note =
+        at === 0 ? PLAN_NOTES_EL[0] : at === Math.floor(periods.length / 2) ? PLAN_NOTES_EL[1] : last ? PLAN_NOTES_EL[2] : null;
+      return {
+        projectId: project.id,
+        orgUnitId: project.orgUnitId,
+        period,
+        amount: String(amount),
+        note,
+        updatedBy: finance?.id ?? null,
+      };
+    });
+
+    // Upserted, and only a month that moved is touched, so a second run
+    // leaves the audit trail as it was.
+    await db
+      .delete(schema.projectCashflowPlan)
+      .where(
+        and(
+          eq(schema.projectCashflowPlan.projectId, project.id),
+          notInArray(schema.projectCashflowPlan.period, periods),
+        ),
+      );
+    await db
+      .insert(schema.projectCashflowPlan)
+      .values(rows)
+      .onConflictDoUpdate({
+        target: [schema.projectCashflowPlan.projectId, schema.projectCashflowPlan.period],
+        set: { amount: sql`excluded.amount`, note: sql`excluded.note`, updatedAt: sql`now()` },
+        setWhere: sql`(${schema.projectCashflowPlan.amount}, ${schema.projectCashflowPlan.note})
+                      is distinct from (excluded.amount, excluded.note)`,
+      });
+  }
+  return chosen.length;
+}
+
+/** Every YYYY-MM from the start date's month to the finish date's, at most three years. */
+function monthsOf(start: string, finish: string): string[] {
+  const periods: string[] = [];
+  let year = Number(start.slice(0, 4));
+  let month = Number(start.slice(5, 7));
+  const end = finish.slice(0, 7);
+  while (periods.length < 36) {
+    const period = `${year}-${String(month).padStart(2, "0")}`;
+    periods.push(period);
+    if (period >= end) break;
+    month += 1;
+    if (month > 12) {
+      month = 1;
+      year += 1;
+    }
+  }
+  return periods;
 }
 
 /**

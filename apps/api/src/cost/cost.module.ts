@@ -1,5 +1,7 @@
 import { Module } from "@nestjs/common";
 import { EFinanceModule } from "../efinance/efinance.module";
+import { CashflowPlanController } from "./cashflow-plan.controller";
+import { CashflowPlanService } from "./cashflow-plan.service";
 import { CostAccrualsService } from "./cost-accruals.service";
 import { CostController } from "./cost.controller";
 import { CostImportsService } from "./cost-imports.service";
@@ -20,13 +22,14 @@ import { ProjectCostService } from "./project-cost.service";
 @Module({
   // ADR-0029: the project cost screen shows eFinance's figures beside the ledgers.
   imports: [EFinanceModule],
-  controllers: [CostController, ProjectCostController, PaymentCertsController],
+  controllers: [CostController, ProjectCostController, CashflowPlanController, PaymentCertsController],
   providers: [
     CostImportsService,
     CostWarningsService,
     ProjectCostService,
     PaymentCertsService,
     CostAccrualsService,
+    CashflowPlanService,
   ],
   exports: [CostWarningsService, ProjectCostService],
 })

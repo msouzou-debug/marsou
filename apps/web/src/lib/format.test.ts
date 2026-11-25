@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatDate, formatDateTime, formatDecimal, formatEUR, formatEURorDash, formatFileSize, formatInt, formatPct, shortSystemName } from "./format";
+import { formatDate, formatDateTime, formatDecimal, formatEUR, formatEURorDash, formatFileSize, formatInt, formatPct, formatPeriod, parseAmountInput, shortSystemName } from "./format";
 
 const T = " "; // narrow no-break space
 
@@ -98,5 +98,23 @@ describe("formatDecimal", () => {
     expect(formatDecimal(1234.56)).toBe("1.234,6");
     expect(formatDecimal(0.04)).toBe("0");
     expect(formatDecimal(-2.25)).toBe("-2,3");
+  });
+});
+
+describe("formatPeriod", () => {
+  it("shows a month as mm/yyyy", () => {
+    expect(formatPeriod("2027-01")).toBe("01/2027");
+    expect(formatPeriod("not a month")).toBe("not a month");
+  });
+});
+
+describe("parseAmountInput", () => {
+  it("reads Greek and plain amounts, to the cent", () => {
+    expect(parseAmountInput("1.234,56")).toBe(1234.56);
+    expect(parseAmountInput("1234,5 €")).toBe(1234.5);
+    expect(parseAmountInput("1234.567")).toBe(1234.57);
+    expect(parseAmountInput("1.000.000")).toBe(1_000_000);
+    expect(parseAmountInput("")).toBeNull();
+    expect(parseAmountInput("εκατό")).toBeNull();
   });
 });

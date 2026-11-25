@@ -9,6 +9,7 @@ import {
   BudgetCodeList,
   BudgetLine,
   CalendarEntry,
+  CashflowPlan,
   CashflowRow,
   ConfigLinks,
   Contractor,
@@ -326,6 +327,16 @@ export function useCashflow(projectId: string, from: string, to: string) {
       ),
     retry: false,
     enabled: from.length > 0 && to.length > 0,
+  });
+}
+
+// S04's «Ταμειακή ροή»: the project's monthly cash-flow plan (ADR-0037). No
+// months means the cash flow is the budget spread over twelve months.
+export function useCashflowPlan(projectId: string) {
+  return useQuery({
+    queryKey: ["project-cashflow-plan", projectId],
+    queryFn: () => proxyFetch(`/projects/${encodeURIComponent(projectId)}/cost/cashflow-plan`, CashflowPlan),
+    retry: false,
   });
 }
 

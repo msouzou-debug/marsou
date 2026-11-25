@@ -96,6 +96,11 @@
     "budgetLinesNotValid": "The budget lines are not usable. Check the year, the amount and the category on each line.",
     "budgetYearRepeated": "Two lines cover the same year and the same type. Leave one line per year and try again.",
     "cashflowRangeNotValid": "The window is not usable. Give a start and an end as YYYY-MM, with the end after the start.",
+    "cashflowPlanNotValid": "The cash-flow plan is not usable. Each line needs a month as YYYY-MM and an amount of zero or more.",
+    "cashflowPlanPeriodRepeated": "The same month appears twice in the plan. Keep one line per month and try again.",
+    "cashflowPlanFinanceOnly": "Whoever changes the budget lines changes the cash-flow plan. Ask finance to make the change.",
+    "cashflowPlanFileNeeded": "No file was attached. Choose the plan's .xlsx file and try again.",
+    "cashflowPlanFileNotValid": "The file does not open as an Excel workbook (.xlsx). Download the template, fill it in and upload it again.",
     "accrualQueryNotValid": "The accruals need a year as YYYY. Fill it in and try again.",
     "paymentCertNotFound": "The payment certificate was not found, or you have no access to it. Choose one from the contract.",
     "paymentCertNotValid": "The certificate is incomplete. Fill in the period, the value of work done and the materials on site.",
@@ -435,6 +440,22 @@
         "forecast": "Forecast final cost",
         "variance": "Variance"
       }
+    },
+    "cashflowPlan": {
+      "sheet": "Cash-flow plan",
+      "columns": {
+        "month": "Month (mm/yyyy)",
+        "amount": "Amount (€)",
+        "note": "Note"
+      },
+      "summary": {
+        "total": "Plan total",
+        "approved": "Approved budget",
+        "difference": "Difference (plan − budget)",
+        "project": "Project"
+      },
+      "validationTitle": "Amount",
+      "validationError": "Enter an amount of zero or more."
     }
   },
   "permitClash": {

@@ -55,7 +55,8 @@ describe("migrations", () => {
     expect(result.applied).toContain("0024_unit_codes_follow_efinance");
     expect(result.applied).toContain("0025_delay_extensions_claims");
     expect(result.applied).toContain("0027_unit_people");
-    expect(result.lastMigrationId).toBe("0027_unit_people");
+    expect(result.applied).toContain("0028_project_cashflow_plan");
+    expect(result.lastMigrationId).toBe("0028_project_cashflow_plan");
 
     const client = new Client({ connectionString: targetUrl });
     await client.connect();
@@ -116,6 +117,7 @@ describe("migrations", () => {
       "permit_ref_seq",
       "pm_schedule",
       "project",
+      "project_cashflow_plan",
       "project_code_seq",
       "project_note",
       "rfi",
@@ -164,6 +166,7 @@ describe("migrations", () => {
     expect(result.skipped).toContain("0024_unit_codes_follow_efinance");
     expect(result.skipped).toContain("0025_delay_extensions_claims");
     expect(result.skipped).toContain("0027_unit_people");
+    expect(result.skipped).toContain("0028_project_cashflow_plan");
     expect(await snapshot(targetUrl)).toEqual(before);
   });
 
@@ -765,6 +768,58 @@ describe("migrations", () => {
         "WHERE (vendor_no IS NULL)",
       );
 
+      await client.query(file!.sql);
+      expect(await state()).toEqual(before);
+    } finally {
+      await client.end();
+    }
+  });
+
+  /**
+   * ADR-0037. The plan table: row-level security, the audit trigger, the two
+   * checks a script cannot get past, and the file run a second time by hand
+   * changing nothing.
+   */
+  it("0028 adds the cash-flow plan with its policies, its checks and its trail, and is idempotent", async () => {
+    const client = new Client({ connectionString: targetUrl });
+    await client.connect();
+    try {
+      const file = readMigrations().find((m) => m.id === "0028_project_cashflow_plan");
+      expect(file).toBeDefined();
+      const state = async () => {
+        const { rows: policies } = await client.query<{ policyname: string }>(
+          `select policyname from pg_policies
+            where schemaname = 'ecapital'
+              and (tablename = 'project_cashflow_plan' or policyname = 'audit_log_read_cashflow_plan')
+            order by policyname`,
+        );
+        const { rows: triggers } = await client.query<{ tgname: string }>(
+          `select t.tgname from pg_trigger t join pg_class c on c.oid = t.tgrelid
+            where c.relname = 'project_cashflow_plan' and not t.tgisinternal order by t.tgname`,
+        );
+        const { rows: checks } = await client.query<{ conname: string }>(
+          `select conname from pg_constraint where conrelid = 'ecapital.project_cashflow_plan'::regclass
+            order by conname`,
+        );
+        return { policies, triggers, checks };
+      };
+      const before = await state();
+      expect(before.policies.map((p) => p.policyname)).toEqual([
+        "audit_log_read_cashflow_plan",
+        "project_cashflow_plan_read",
+        "project_cashflow_plan_write",
+      ]);
+      expect(before.triggers.map((t) => t.tgname)).toEqual([
+        "project_cashflow_plan_audit",
+        "project_cashflow_plan_inherit_org_unit",
+      ]);
+      expect(before.checks.map((c) => c.conname)).toEqual(
+        expect.arrayContaining([
+          "project_cashflow_plan_amount_nonnegative",
+          "project_cashflow_plan_period_key",
+          "project_cashflow_plan_period_month",
+        ]),
+      );
       await client.query(file!.sql);
       expect(await state()).toEqual(before);
     } finally {
