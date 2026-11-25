@@ -25,7 +25,7 @@
  * | `selectable`        | `boolean`                                         | `false`       | Adds the checkbox column. |
  * | `emptyState`        | `{ messageKey, actionLabelKey, onAction? }`       | —             | Required for the `empty` state: one sentence plus one action (UI §6). |
  * | `skeletonRows`      | `number`                                          | `6`           | How many skeleton rows the `loading` state draws. |
- * | `onExport`          | `() => void`                                      | —             | Fired by the export button. |
+ * | `onExport`          | `() => void`                                      | generic       | Fired by the export button. Leave it unset and the table exports what it shows itself (`table-export.ts`, `POST /exports/table`); set it only for a purpose-built workbook (S04, S09a, S21, the reports). |
  * | `onCellEdit`        | `(row: T, columnId: string, value: string) => void` | —           | Fired when `Enter` commits an inline edit. |
  * | `onRowOpen`         | `(row: T) => void`                                | —             | Fired by `Enter` on a focused row, or a click on it. |
  * | `onSelectionChange` | `(ids: string[]) => void`                         | —             | Fired whenever the checkbox selection changes. |
@@ -34,7 +34,8 @@
  *
  * `TableColumn<T>`: `id`, `headerKey` (full i18n path), `accessor`, optional
  * `cell` renderer, `numeric`, `editable`, `sortable` (default `true`),
- * `defaultHidden`.
+ * `defaultHidden`, `exportKind` (how the generic export writes the column;
+ * read off the values when unset, `"none"` leaves it out).
  *
  * Keyboard: `↑`/`↓` move row focus, `Enter` (or a click) opens the row, double-click
  * starts an inline edit on an `editable` cell, `Enter` saves it and `Esc`
@@ -54,6 +55,9 @@ import {
   type VisibilityState,
 } from "@tanstack/react-table";
 import { ChevronDown, ChevronUp, ChevronsUpDown, Columns3, FileSpreadsheet } from "lucide-react";
+import type { TableExportKind } from "@ecapital/shared";
+import { ApiError } from "@/data/client";
+import { exportTable } from "./table-export";
 
 export type Density = "dense" | "comfortable";
 
@@ -76,6 +80,8 @@ export interface TableColumn<T> {
   sortable?: boolean;
   /** Start hidden; the user can switch it on in the column chooser. */
   defaultHidden?: boolean;
+  /** How the generic export writes this column; read off the values when unset. `"none"` leaves it out. */
+  exportKind?: TableExportKind | "none";
 }
 
 export interface TableEmptyState {
@@ -181,6 +187,8 @@ export function Table<T>({
   const [editing, setEditing] = useState<{ rowId: string; columnId: string } | null>(null);
   const [draft, setDraft] = useState("");
   const [hydrated, setHydrated] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
 
   const rowRefs = useRef<Array<HTMLTableRowElement | null>>([]);
   const selectionCallback = useRef(onSelectionChange);
@@ -305,6 +313,29 @@ export function Table<T>({
   const exportDisabledReason =
     state === "loading" ? t("loadingExport") : readOnly ? t("offlineExport") : undefined;
 
+  // RULE (UAT 25/11/2026): a table with no export of its own exports what it
+  // shows — the visible columns, the rows in their current order — through
+  // the generic `POST /exports/table`. Never a button that does nothing.
+  const genericExport = async () => {
+    setExporting(true);
+    setExportError(null);
+    try {
+      await exportTable({
+        title: tRoot(captionKey),
+        columns: table
+          .getVisibleLeafColumns()
+          .map((column) => columnsById.get(column.id))
+          .filter((column): column is TableColumn<T> => column !== undefined),
+        rows: table.getRowModel().rows.map((row) => row.original),
+        t: (key) => tRoot(key),
+      });
+    } catch (error) {
+      setExportError(error instanceof ApiError ? error.message : t("exportFailed"));
+    } finally {
+      setExporting(false);
+    }
+  };
+
   // No permission replaces the whole component: there is no data to export and
   // §6 forbids a blank page. The back link belongs to the screen, not here.
   if (state === "noPermission") {
@@ -370,16 +401,24 @@ export function Table<T>({
           {readOnly && <p className="text-fs-14 text-k-text">{tRoot("states.offline.readOnly")}</p>}
         </div>
 
-        <button
-          type="button"
-          onClick={onExport}
-          disabled={state === "loading" || readOnly}
-          title={exportDisabledReason}
-          className="flex items-center gap-s-2 rounded-k border border-k-grey px-s-3 py-s-2 text-fs-14 text-k-blue-deep disabled:opacity-50"
-        >
-          <FileSpreadsheet size={24} strokeWidth={1.5} aria-hidden="true" />
-          {tRoot("buttons.exportExcel")}
-        </button>
+        <div className="flex flex-wrap items-center gap-s-2">
+          {exportError && (
+            <p role="alert" className="text-fs-14 text-k-red">
+              {exportError}
+            </p>
+          )}
+          <button
+            type="button"
+            onClick={onExport ?? (() => void genericExport())}
+            disabled={state === "loading" || readOnly || exporting}
+            aria-busy={exporting || undefined}
+            title={exporting ? t("exporting") : exportDisabledReason}
+            className="flex items-center gap-s-2 rounded-k border border-k-grey px-s-3 py-s-2 text-fs-14 text-k-blue-deep disabled:opacity-50"
+          >
+            <FileSpreadsheet size={24} strokeWidth={1.5} aria-hidden="true" />
+            {exporting ? t("exporting") : tRoot("buttons.exportExcel")}
+          </button>
+        </div>
       </div>
 
       {state === "error" ? (

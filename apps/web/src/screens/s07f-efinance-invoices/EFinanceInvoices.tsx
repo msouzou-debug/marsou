@@ -156,7 +156,6 @@ export function EFinanceInvoices({ contract, list, state, onRetry, noPermission,
           getRowId={(row) => row.id}
           captionKey="screens.s07f.caption"
           state={tableState}
-          onExport={() => undefined}
           onRetry={onRetry}
           emptyState={{ messageKey: emptyKey, actionLabelKey: "buttons.add" }}
         />

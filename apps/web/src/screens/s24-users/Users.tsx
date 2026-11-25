@@ -256,7 +256,6 @@ export function Users({
         getRowId={(row) => row.id}
         captionKey="screens.s24users.caption"
         state={tableState}
-        onExport={() => undefined}
         onRowOpen={(row) => onSelect(row.id)}
         onRetry={onRetry}
         emptyState={{

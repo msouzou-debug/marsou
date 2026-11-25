@@ -100,7 +100,6 @@ export function PaymentCerts({
         getRowId={(row) => row.id}
         captionKey="screens.s09.caption"
         state={tableState}
-        onExport={() => undefined}
         onRowOpen={onRowOpen}
         onRetry={onRetry}
         emptyState={{ messageKey: "screens.s09.empty", actionLabelKey: "buttons.add", onAction: canAdd ? onAdd : undefined }}

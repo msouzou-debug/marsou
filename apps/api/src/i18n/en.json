@@ -262,7 +262,9 @@
     "dateOrder": "The end date cannot be before the start date. Correct one of the two and save again.",
     "dateBeforeAward": "The date cannot be before the contract was awarded. Check the date and save again.",
     "claimDocumentKindNeeded": "Choose what the document is: the claim letter, a reply or a lawyer's letter.",
-    "businessCaseMissing": "The project cannot leave the Idea phase without a filed business case. File it on the project and try again."
+    "businessCaseMissing": "The project cannot leave the Idea phase without a filed business case. File it on the project and try again.",
+    "tableExportNotValid": "The export is incomplete or goes over the 20,000-row limit. Narrow the table with the screen's filters and try again.",
+    "bodyTooLarge": "You sent more than the system takes in one request. Narrow it down with the screen's filters and try again."
   },
   "exceptions": {
     "milestoneSlip": "Milestone {milestone} on {project} ({unit}) is {days} days behind its baseline date.",
@@ -973,5 +975,15 @@
     "clinical_approver": "Clinical approver",
     "executive_readonly": "Executive, read-only",
     "auditor_readonly": "Auditor, read-only"
+  },
+  "tableExport": {
+    "dataSheet": "Data",
+    "infoSheet": "About",
+    "total": "Total",
+    "screen": "Screen",
+    "source": "Path",
+    "exportedAt": "Exported on",
+    "rowCount": "Number of rows",
+    "note": "The rows are those the screen's table showed at the moment of export, in its order and with the columns chosen. The totals are SUBTOTAL formulas and follow the filter."
   }
 }

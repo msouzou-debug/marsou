@@ -45,6 +45,12 @@ export class HttpExceptionFilter implements ExceptionFilter {
     } else if (exception instanceof HttpException) {
       status = exception.getStatus();
       key = statusKey(status);
+    } else if (tooLarge(exception)) {
+      // body-parser's own refusal, thrown before any route runs: a body over
+      // its limit (100 kB, or the table export's own; exports.module.ts). It
+      // is the caller's size, not a fault here, so 413 with a sentence.
+      status = HttpStatus.PAYLOAD_TOO_LARGE;
+      key = "errors.bodyTooLarge";
     } else if (sqlState(exception) === INVALID_TEXT_REPRESENTATION) {
       // A value the database could not read as its column's type: most often
       // text where an id belongs (24/11/2026, a name typed as a risk owner).
@@ -60,6 +66,14 @@ export class HttpExceptionFilter implements ExceptionFilter {
     };
     response.status(status).json(body);
   }
+}
+
+function tooLarge(exception: unknown): boolean {
+  return (
+    !!exception &&
+    typeof exception === "object" &&
+    (exception as { type?: unknown }).type === "entity.too.large"
+  );
 }
 
 function stringOrNull(value: unknown): string | null {

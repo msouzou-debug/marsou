@@ -92,7 +92,7 @@ export function Calendar({
 
       <section className="mb-s-6">
         <h2 className="mb-s-2 text-fs-20 text-k-blue-deep">{t("screens.s15.hoursTitle")}</h2>
-        <DisruptionHoursTable rows={hours ?? []} state={hoursState} onExport={() => undefined} />
+        <DisruptionHoursTable rows={hours ?? []} state={hoursState}/>
       </section>
 
       <div className="mb-s-4 flex flex-wrap items-center gap-s-3">

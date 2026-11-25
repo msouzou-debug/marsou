@@ -4,6 +4,7 @@ import type { NestExpressApplication } from "@nestjs/platform-express";
 import { Logger } from "nestjs-pino";
 import { AppModule } from "./app.module";
 import { CONFIG, type AppConfig } from "./config";
+import { useTableExportBodyParser } from "./exports/exports.module";
 import { buildOpenApiDocument } from "./openapi-document";
 
 async function bootstrap(): Promise<void> {
@@ -23,6 +24,9 @@ async function bootstrap(): Promise<void> {
   // trail. The value is 1 — trust one hop, the proxy in front — rather than
   // `true`, which trusts the whole chain the caller can prepend to.
   if (config.TRUST_PROXY) app.set("trust proxy", 1);
+
+  // Before `listen`: the table export's own body limit (exports.module.ts).
+  useTableExportBodyParser(app);
 
   // The document is checked into apps/api/openapi.json; serving it here as
   // well means a developer can read it without a build step.

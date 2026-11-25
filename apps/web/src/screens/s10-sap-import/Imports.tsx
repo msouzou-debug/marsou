@@ -111,7 +111,6 @@ export function Imports({
         getRowId={(row) => row.id}
         captionKey="screens.s10.caption"
         state={tableState}
-        onExport={() => undefined}
         onRowOpen={onRowOpen}
         onRetry={onRetry}
         emptyState={{ messageKey: "screens.s10.empty", actionLabelKey: "buttons.exportExcel" }}
