@@ -229,6 +229,95 @@ export const PmGenerationResult = z.object({
 });
 export type PmGenerationResult = z.infer<typeof PmGenerationResult>;
 
+// ------------------------------------------------- agreements dashboard --
+// Owner UAT: preventive maintenance needs one view of every agreement the
+// caller may see, filtered by hospital and equipment type, not a unit
+// drop-down only. S18b opens on it; a row opens the per-unit view above.
+
+/** Days before the end date from which an agreement counts as «expiring». */
+export const AGREEMENT_EXPIRY_WARNING_DAYS = 90;
+
+/**
+ * OK: in force and more than 90 days to run (or no end date). EXPIRING: in
+ * force, 0–90 days to run. EXPIRED: past its end date, or marked ENDED.
+ */
+export const AgreementExpiryBand = z.enum(["OK", "EXPIRING", "EXPIRED"]);
+export type AgreementExpiryBand = z.infer<typeof AgreementExpiryBand>;
+
+/** Whole days from `today` to `endDate`, both ISO dates; null without an end date. */
+export function daysToExpiry(endDate: string | null, today: string): number | null {
+  if (!endDate) return null;
+  const end = Date.parse(`${endDate.slice(0, 10)}T00:00:00Z`);
+  const now = Date.parse(`${today.slice(0, 10)}T00:00:00Z`);
+  return Math.round((end - now) / 86_400_000);
+}
+
+/** RULE: the band is the dates' and the status's, never the colour's alone. */
+export function agreementExpiryBand(
+  status: MaintenanceContractStatus,
+  endDate: string | null,
+  today: string,
+): AgreementExpiryBand {
+  if (status === "ENDED") return "EXPIRED";
+  const days = daysToExpiry(endDate, today);
+  if (days === null) return "OK";
+  if (days < 0) return "EXPIRED";
+  return days <= AGREEMENT_EXPIRY_WARNING_DAYS ? "EXPIRING" : "OK";
+}
+
+/**
+ * One row of `GET /maintenance/agreements`. «Equipment type» is the register
+ * class (`AssetClass`) the agreement's active catalogue lines map to — the
+ * one equipment field the agreement data carries in common with the asset
+ * register. Lines with no class (drainage, steam) cover no register class.
+ */
+export const MaintenanceAgreementRow = z.object({
+  id: z.string(),
+  orgUnitId: z.string(),
+  ref: z.string(),
+  titleEl: z.string(),
+  contractorId: z.string(),
+  contractorName: z.string(),
+  startDate: z.string(), // ISO date
+  endDate: z.string().nullable(),
+  status: MaintenanceContractStatus,
+  /** The whole agreement's value. The data has no annual figure. */
+  contractValue: z.number().nonnegative().nullable(),
+  daysToExpiry: z.number().int().nullable(),
+  expiryBand: AgreementExpiryBand,
+  assetClasses: z.array(AssetClass),
+  /** Active catalogue lines. */
+  systemsCount: z.number().int().nonnegative(),
+  /** Active programme lines. */
+  pmSchedulesCount: z.number().int().nonnegative(),
+  /** Register assets of the unit, in service or out of it, of a class the agreement covers. */
+  assetsCount: z.number().int().nonnegative(),
+  /** PM orders of this agreement due this Nicosia month, as S18's tile counts them. */
+  pmDueThisMonth: z.number().int().nonnegative(),
+  /** Open PM orders of this agreement past their deadline. */
+  pmOverdue: z.number().int().nonnegative(),
+});
+export type MaintenanceAgreementRow = z.infer<typeof MaintenanceAgreementRow>;
+
+/** Every filter repeats; an empty list does not filter. `q` matches reference, title and contractor. */
+export const MaintenanceAgreementQuery = z.object({
+  orgUnitId: z.array(z.string().min(1)).default([]),
+  assetClass: z.array(AssetClass).default([]),
+  contractorId: z.array(z.string().min(1)).default([]),
+  band: z.array(AgreementExpiryBand).default([]),
+  q: z.string().max(200).default(""),
+});
+export type MaintenanceAgreementQuery = z.infer<typeof MaintenanceAgreementQuery>;
+
+export const MaintenanceAgreementList = z.object({
+  items: z.array(MaintenanceAgreementRow),
+  /** Every contractor of an agreement the caller may see, filters aside: the filter's options. */
+  contractors: z.array(z.object({ id: z.string(), name: z.string() })),
+  /** The Nicosia date the days and bands were counted from. */
+  today: z.string(),
+});
+export type MaintenanceAgreementList = z.infer<typeof MaintenanceAgreementList>;
+
 // ----------------------------------------------------------- work orders --
 
 export const WorkOrderKind = z.enum(["CORRECTIVE", "PM", "STATUTORY"]);

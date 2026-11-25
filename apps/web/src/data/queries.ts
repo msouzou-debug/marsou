@@ -40,6 +40,7 @@ import {
   UnmatchedQueue,
   BacklogItem,
   BacklogSummaryRow,
+  MaintenanceAgreementList,
   MaintenanceContract,
   MaintenanceSummary,
   PmSchedule,
@@ -62,6 +63,7 @@ import {
   type AreaType,
   type AssetClass,
   type BacklogListQuery,
+  type MaintenanceAgreementQuery,
   type Condition,
   type AssetStatus,
   type PermitSystem,
@@ -73,6 +75,7 @@ import { useQuery } from "@tanstack/react-query";
 import { z } from "zod";
 import { proxyFetch } from "./client";
 import { projectsApiPath } from "@/screens/s02-projects/query";
+import { agreementsQueryToSearchParams } from "@/screens/s18b-pm-plan/agreements-query";
 
 // M1: S01–S03 talk to the real API (apps/api) through `proxyFetch`
 // (`src/data/client.ts`) — GET /portfolio, GET /projects and
@@ -756,6 +759,18 @@ export function useMaintenanceSummary(orgUnitId?: string) {
         orgUnitId ? `/maintenance/summary?orgUnitId=${encodeURIComponent(orgUnitId)}` : "/maintenance/summary",
         MaintenanceSummary,
       ),
+    retry: false,
+  });
+}
+
+// S18b dashboard: every agreement the caller may see, with the URL's filters.
+export function useMaintenanceAgreements(query: MaintenanceAgreementQuery) {
+  return useQuery({
+    queryKey: ["maintenance-agreements", query],
+    queryFn: () => {
+      const qs = agreementsQueryToSearchParams(query).toString();
+      return proxyFetch(qs ? `/maintenance/agreements?${qs}` : "/maintenance/agreements", MaintenanceAgreementList);
+    },
     retry: false,
   });
 }

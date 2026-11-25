@@ -2181,6 +2181,56 @@
           "nextDue": "Next date",
           "openOrder": "Open order"
         }
+      },
+      "tabs": {
+        "label": "Preventive maintenance views",
+        "dashboard": "All agreements",
+        "agreement": "By unit"
+      },
+      "dashboard": {
+        "intro": "Every maintenance agreement you can see, with its end date, the equipment it covers and this month's preventive visits. Filter by hospital, equipment type, contractor or expiry and open an agreement for its catalogue and programme.",
+        "kpiLabel": "Agreements summary",
+        "kpi": {
+          "active": "Agreements in force",
+          "activeOf": "of {total} in all",
+          "expiring": "Ending within 90 days",
+          "expiringHint": "Time to renew or retender",
+          "expired": "Expired",
+          "value": "Value of agreements in force",
+          "noValue": "{count, plural, one {# with no value recorded} other {# with no value recorded}}",
+          "pmDue": "PM visits this month",
+          "pmOverdue": "Overdue: {count}"
+        },
+        "searchPlaceholder": "Number, subject or contractor",
+        "filters": {
+          "unit": "Hospital",
+          "assetClass": "Equipment type",
+          "contractor": "Contractor",
+          "band": "Expiry"
+        },
+        "band": {
+          "OK": "In force",
+          "EXPIRING": "Ends in ≤ 90 days",
+          "EXPIRED": "Expired"
+        },
+        "columns": {
+          "unit": "Hospital",
+          "ref": "Agreement",
+          "contractor": "Contractor",
+          "classes": "Equipment type",
+          "systems": "Systems",
+          "start": "Start",
+          "end": "End",
+          "days": "Days to expiry",
+          "band": "Status of cover",
+          "value": "Value",
+          "assets": "Assets",
+          "schedules": "Programme lines",
+          "pmDue": "PM this month",
+          "pmOverdue": "Overdue PM"
+        },
+        "caption": "Maintenance agreements",
+        "empty": "No agreement matches the filters."
       }
     },
     "s21": {

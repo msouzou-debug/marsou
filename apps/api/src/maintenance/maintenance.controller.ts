@@ -25,6 +25,8 @@ import {
   ApiTags,
 } from "@nestjs/swagger";
 import {
+  MaintenanceAgreementList,
+  MaintenanceAgreementQuery,
   MaintenanceContract,
   MaintenanceContractWrite,
   MaintenanceSummary,
@@ -55,6 +57,12 @@ const XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
 /** A catalogue upload is a table, not an archive: 5 MB is generous. */
 const MAX_IMPORT_BYTES = 5 * 1024 * 1024;
+
+/** Express hands `?a=1&a=2` back as an array and `?a=1` as a string. */
+function repeated(value: unknown): string[] {
+  if (value === undefined || value === null || value === "") return [];
+  return Array.isArray(value) ? value.map(String) : [String(value)];
+}
 
 const UnitQuery = z.object({ orgUnitId: z.string().min(1).optional() });
 
@@ -115,6 +123,31 @@ export class MaintenanceController {
   }
 
   // ---------------------------------------------------- the agreement --
+
+  @Get("agreements")
+  @Needs("maintenanceAgreement", "READ")
+  @ApiOperation({ summary: "S18b's dashboard: every agreement the caller may see, with cover, expiry and PM counts" })
+  @ApiQuery({ name: "orgUnitId", required: false, isArray: true, schema: { type: "array", items: { type: "string" } }, description: "Unit ids; repeat for several" })
+  @ApiQuery({ name: "assetClass", required: false, isArray: true, schema: { type: "array", items: { type: "string" } }, description: "Register class an active catalogue line maps to; repeat for several" })
+  @ApiQuery({ name: "contractorId", required: false, isArray: true, schema: { type: "array", items: { type: "string" } } })
+  @ApiQuery({ name: "band", required: false, isArray: true, schema: { type: "array", items: { type: "string", enum: ["OK", "EXPIRING", "EXPIRED"] } } })
+  @ApiQuery({ name: "q", required: false, description: "Reference, title or contractor; case- and accent-insensitive" })
+  @ApiZodResponse(200, MaintenanceAgreementList, "The rows, the contractors to filter by, and the date the days were counted from")
+  @ApiZodError(400, "A filter that is not one of the allowed values")
+  @ApiZodError(401, "No token, or a token that does not verify")
+  @ApiZodError(403, "A role the matrix gives no read of maintenance agreements")
+  agreements(@Query() query: unknown): Promise<MaintenanceAgreementList> {
+    const raw = (query ?? {}) as Record<string, unknown>;
+    const parsed = MaintenanceAgreementQuery.safeParse({
+      orgUnitId: repeated(raw.orgUnitId),
+      assetClass: repeated(raw.assetClass),
+      contractorId: repeated(raw.contractorId),
+      band: repeated(raw.band),
+      q: raw.q === undefined ? undefined : String(raw.q),
+    });
+    if (!parsed.success) throw AppError.badRequest("errors.maintenanceQueryNotValid");
+    return this.contracts.overview(parsed.data, new Date());
+  }
 
   @Get("contracts")
   @ApiOperation({ summary: "The maintenance agreements the caller may see" })

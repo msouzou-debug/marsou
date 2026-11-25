@@ -3,6 +3,7 @@ import { z } from "zod";
 import {
   BacklogItem,
   BacklogSummaryRow,
+  MaintenanceAgreementList,
   MaintenanceContract,
   MaintenanceSummary,
   PmGenerationResult,
@@ -17,6 +18,7 @@ import {
 import {
   buildBacklogList,
   buildBacklogSummary,
+  buildMaintenanceAgreementList,
   buildMaintenanceContract,
   buildMaintenanceSummary,
   buildPmGenerationResult,
@@ -37,6 +39,7 @@ describe("maintenance fixtures parse with the shared schemas", () => {
   it("summary, agreement, catalogue, import result", () => {
     expect(() => MaintenanceSummary.parse(buildMaintenanceSummary())).not.toThrow();
     expect(() => MaintenanceContract.parse(buildMaintenanceContract())).not.toThrow();
+    expect(() => MaintenanceAgreementList.parse(buildMaintenanceAgreementList())).not.toThrow();
     expect(() => z.array(SlaSystem).parse(buildSlaSystems())).not.toThrow();
     expect(() => SlaImportResult.parse(buildSlaImportResult())).not.toThrow();
   });

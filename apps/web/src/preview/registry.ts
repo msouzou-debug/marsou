@@ -61,6 +61,7 @@ import s10UnmatchedQueue from "@/screens/s10-sap-import/UnmatchedQueue.preview";
 import s18WorkOrders from "@/screens/s18-work-orders/WorkOrders.preview";
 import s18aWorkOrder from "@/screens/s18a-work-order/WorkOrderDetail.preview";
 import s18bPmPlan from "@/screens/s18b-pm-plan/PmPlan.preview";
+import s18bAgreements from "@/screens/s18b-pm-plan/AgreementsDashboard.preview";
 import s19WorkOrderRun from "@/screens/s19-work-order-run/WorkOrderRun.preview";
 import s20Call from "@/screens/s20-call/CallForm.preview";
 import s21Backlog from "@/screens/s21-backlog/Backlog.preview";
@@ -137,6 +138,7 @@ const entries: PreviewEntry[] = [
   s10UnmatchedQueue,
   s18WorkOrders,
   s18aWorkOrder,
+  s18bAgreements,
   s18bPmPlan,
   s19WorkOrderRun,
   s20Call,

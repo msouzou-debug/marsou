@@ -28,7 +28,10 @@ export interface PmPlanScreenProps {
   orgUnits: OrgUnit[];
   roles: AppRole[];
   defaultOrgUnitId?: string;
+  /** From the dashboard: open this agreement rather than the unit's ACTIVE one. */
+  agreementId?: string;
   noPermission: ReactNode;
+  tabs?: ReactNode;
 }
 
 function tableState(q: { isLoading: boolean; error: unknown; data?: unknown[] }, offline: boolean): TableState {
@@ -39,7 +42,7 @@ function tableState(q: { isLoading: boolean; error: unknown; data?: unknown[] },
   return "default";
 }
 
-export function PmPlanScreen({ orgUnits, roles, defaultOrgUnitId, noPermission }: PmPlanScreenProps) {
+export function PmPlanScreen({ orgUnits, roles, defaultOrgUnitId, agreementId, noPermission, tabs }: PmPlanScreenProps) {
   const queryClient = useQueryClient();
   const online = useOnlineStatus();
   const [unitId, setUnitId] = useState(() =>
@@ -50,8 +53,9 @@ export function PmPlanScreen({ orgUnits, roles, defaultOrgUnitId, noPermission }
   const agreements = useMaintenanceContracts(unitId || undefined);
   const forUnit = (agreements.data ?? []).filter((a) => a.orgUnitId === unitId);
   // RULE (ADR-0031 §1): the ACTIVE agreement is the one the timers use; an
-  // ended one still shows when it is all the unit has.
-  const agreement = forUnit.find((a) => a.status === "ACTIVE") ?? forUnit[0] ?? null;
+  // ended one still shows when it is all the unit has. A dashboard row names
+  // its agreement, which wins while it belongs to the unit on screen.
+  const agreement = forUnit.find((a) => a.id === agreementId) ?? forUnit.find((a) => a.status === "ACTIVE") ?? forUnit[0] ?? null;
   const systems = useSlaSystems(agreement?.id ?? "");
   const schedules = usePmSchedules({ orgUnitId: unitId || undefined, maintenanceContractId: agreement?.id });
   const assets = useAssetsForUnit(unitId);
@@ -63,7 +67,11 @@ export function PmPlanScreen({ orgUnits, roles, defaultOrgUnitId, noPermission }
   else if (agreements.error) state = agreements.error instanceof ApiError && agreements.error.status === 403 ? "noPermission" : "error";
   else state = "default";
 
-  const invalidate = (key: string) => queryClient.invalidateQueries({ queryKey: [key] });
+  const invalidate = (key: string) => {
+    // The dashboard counts systems, programme lines and orders: it follows every write here.
+    void queryClient.invalidateQueries({ queryKey: ["maintenance-agreements"] });
+    return queryClient.invalidateQueries({ queryKey: [key] });
+  };
 
   return (
     <PmPlan
@@ -77,6 +85,7 @@ export function PmPlanScreen({ orgUnits, roles, defaultOrgUnitId, noPermission }
         void schedules.refetch();
       }}
       noPermission={noPermission}
+      tabs={tabs}
       agreement={agreement}
       contractors={contractors.data ?? []}
       systems={systems.data}

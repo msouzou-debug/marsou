@@ -12,15 +12,20 @@
  * code, so a re-upload of a corrected sheet updates and never duplicates.
  */
 import { Injectable } from "@nestjs/common";
-import type {
-  MaintenanceContract,
-  MaintenanceContractWrite,
-  SlaImportResult,
-  SlaSystem,
-  SlaSystemWrite,
+import {
+  MaintenanceAgreementRow,
+  agreementExpiryBand,
+  daysToExpiry,
+  type MaintenanceAgreementList,
+  type MaintenanceAgreementQuery,
+  type MaintenanceContract,
+  type MaintenanceContractWrite,
+  type SlaImportResult,
+  type SlaSystem,
+  type SlaSystemWrite,
 } from "@ecapital/shared";
 import ExcelJS from "exceljs";
-import { and, asc, eq, sql, type SQL } from "drizzle-orm";
+import { and, asc, eq, exists, inArray, sql, type SQL } from "drizzle-orm";
 import { UUID } from "../common/actor";
 import { AppError } from "../common/errors";
 import {
@@ -32,6 +37,7 @@ import {
 import { currentTx } from "../db/client";
 import * as schema from "../db/schema";
 import { slaTemplateWorkbook } from "./maintenance-export";
+import { todayInNicosia } from "./maintenance-rules";
 import { money, num, toMaintenanceContract, toSlaSystem } from "./maintenance-rows";
 import { type ParsedSlaRow, cellValue, parseSlaSheet, type SheetRowInput } from "./sla-import";
 
@@ -56,6 +62,123 @@ export class MaintenanceContractsService {
       .where(filters.length ? and(...filters) : undefined)
       .orderBy(asc(schema.maintenanceContract.orgUnitId), asc(schema.maintenanceContract.ref));
     return rows.map((r) => toMaintenanceContract(r.contract, r.contractorName, r.systemsCount));
+  }
+
+  /**
+   * S18b's dashboard: every agreement the caller may see, with what it
+   * covers and how close it is to its end. The row policies decide which
+   * agreements, catalogue lines, programme lines, assets and orders are
+   * counted; nothing here widens them.
+   *
+   * «Equipment type» is the register class of the agreement's active
+   * catalogue lines (`sla_system.asset_class`), the one equipment field an
+   * agreement carries. The band is worked out here from the Nicosia date
+   * (`agreementExpiryBand`), so the filter and the chip always agree.
+   */
+  async overview(query: MaintenanceAgreementQuery, now: Date): Promise<MaintenanceAgreementList> {
+    const tx = currentTx();
+    if (!tx) throw AppError.internal();
+    const today = todayInNicosia(now);
+    const first = `${today.slice(0, 7)}-01`;
+    const next = firstOfNextMonth(first);
+    const nowIso = now.toISOString();
+    const c = schema.maintenanceContract;
+    const s = schema.slaSystem;
+
+    const contractors = await tx.db
+      .selectDistinct({ id: schema.contractor.id, name: schema.contractor.name })
+      .from(c)
+      .innerJoin(schema.contractor, eq(schema.contractor.id, c.contractorId))
+      .orderBy(asc(schema.contractor.name));
+
+    // A contractor id that is not a uuid matches nothing; asking Postgres
+    // to cast it would be a 500.
+    const contractorIds = query.contractorId.filter((id) => UUID.test(id));
+    if (query.contractorId.length && !contractorIds.length) {
+      return { items: [], contractors, today };
+    }
+
+    const filters: SQL[] = [];
+    if (query.orgUnitId.length) filters.push(inArray(c.orgUnitId, query.orgUnitId));
+    if (contractorIds.length) filters.push(inArray(c.contractorId, contractorIds));
+    if (query.assetClass.length) {
+      filters.push(
+        exists(
+          tx.db
+            .select({ one: sql`1` })
+            .from(s)
+            .where(and(eq(s.maintenanceContractId, c.id), eq(s.active, true), inArray(s.assetClass, query.assetClass))),
+        ),
+      );
+    }
+    const q = query.q.trim();
+    if (q) {
+      filters.push(
+        sql`ecapital.normalise(${c.ref} || ' ' || ${c.titleEl} || ' ' || ${schema.contractor.name})
+              like '%' || ecapital.normalise(${q}) || '%'`,
+      );
+    }
+
+    const rows = await tx.db
+      .select({
+        contract: c,
+        contractorName: schema.contractor.name,
+        assetClasses: sql<string[] | null>`(select array_agg(distinct s.asset_class::text order by s.asset_class::text)
+                                    from ecapital.sla_system s
+                                   where s.maintenance_contract_id = ${c.id} and s.active and s.asset_class is not null)`,
+        systemsCount: sql<number>`(select count(*)::int from ecapital.sla_system s
+                                    where s.maintenance_contract_id = ${c.id} and s.active)`,
+        pmSchedulesCount: sql<number>`(select count(*)::int from ecapital.pm_schedule p
+                                        where p.maintenance_contract_id = ${c.id} and p.active)`,
+        assetsCount: sql<number>`(select count(*)::int from ecapital.asset a
+                                   where a.org_unit_id = ${c.orgUnitId}
+                                     and a.status in ('IN_SERVICE', 'OUT_OF_SERVICE')
+                                     and a.asset_class in (select s.asset_class from ecapital.sla_system s
+                                                            where s.maintenance_contract_id = ${c.id}
+                                                              and s.active and s.asset_class is not null))`,
+        // The same two counts as S18's tiles (WorkOrdersService.summary), per agreement.
+        pmDueThisMonth: sql<number>`(select count(*)::int from ecapital.work_order w
+                                      where w.maintenance_contract_id = ${c.id} and w.kind = 'PM'
+                                        and w.status <> 'CANCELLED'
+                                        and w.due_date >= ${first}::date and w.due_date < ${next}::date)`,
+        pmOverdue: sql<number>`(select count(*)::int from ecapital.work_order w
+                                 where w.maintenance_contract_id = ${c.id} and w.kind = 'PM'
+                                   and w.status not in ('COMPLETED', 'CANCELLED')
+                                   and w.due_restore_at < ${nowIso}::timestamptz)`,
+      })
+      .from(c)
+      .innerJoin(schema.contractor, eq(schema.contractor.id, c.contractorId))
+      .where(filters.length ? and(...filters) : undefined)
+      .orderBy(asc(c.orgUnitId), asc(c.ref));
+
+    const items = rows
+      .map((r) =>
+        MaintenanceAgreementRow.parse({
+          id: r.contract.id,
+          orgUnitId: r.contract.orgUnitId,
+          ref: r.contract.ref,
+          titleEl: r.contract.titleEl,
+          contractorId: r.contract.contractorId,
+          contractorName: r.contractorName,
+          startDate: r.contract.startDate,
+          endDate: r.contract.endDate,
+          status: r.contract.status,
+          contractValue: num(r.contract.contractValue),
+          daysToExpiry: daysToExpiry(r.contract.endDate, today),
+          expiryBand: agreementExpiryBand(r.contract.status, r.contract.endDate, today),
+          assetClasses: r.assetClasses ?? [],
+          systemsCount: r.systemsCount,
+          pmSchedulesCount: r.pmSchedulesCount,
+          assetsCount: r.assetsCount,
+          pmDueThisMonth: r.pmDueThisMonth,
+          pmOverdue: r.pmOverdue,
+        }),
+      )
+      .filter((row) => !query.band.length || query.band.includes(row.expiryBand))
+      // The nearest end first; an agreement with no end date last.
+      .sort((a, b) => (a.daysToExpiry ?? Number.MAX_SAFE_INTEGER) - (b.daysToExpiry ?? Number.MAX_SAFE_INTEGER));
+
+    return { items, contractors, today };
   }
 
   async detail(id: string): Promise<MaintenanceContract> {
@@ -361,6 +484,13 @@ const contractColumns = {
   systemsCount: sql<number>`(select count(*)::int from ecapital.sla_system s
                                where s.maintenance_contract_id = ${schema.maintenanceContract.id})`,
 };
+
+/** «2026-12-01» from «2026-11-01». */
+function firstOfNextMonth(first: string): string {
+  const d = new Date(`${first}T00:00:00Z`);
+  d.setUTCMonth(d.getUTCMonth() + 1);
+  return d.toISOString().slice(0, 10);
+}
 
 /** «1.2.10» after «1.2.9»: the table's own numbering, compared part by part. */
 function byCode(a: { code: string }, b: { code: string }): number {

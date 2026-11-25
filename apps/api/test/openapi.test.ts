@@ -107,6 +107,7 @@ describe("openapi.json", () => {
       "/icra/matrix/versions/{id}/activate",
       "/inbox",
       "/inbox/{id}/read",
+      "/maintenance/agreements",
       "/maintenance/contracts",
       "/maintenance/contracts/{id}",
       "/maintenance/contracts/{id}/systems",

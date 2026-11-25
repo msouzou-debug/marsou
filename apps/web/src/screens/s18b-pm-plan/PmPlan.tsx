@@ -14,6 +14,7 @@
  * | state          | PmPlanState                  | The agreements read; the two tables carry their own.     |
  * | agreement      | MaintenanceContract \| null  | The unit's ACTIVE agreement, else its latest, else null. |
  * | canManage      | boolean                      | `canManageMaintenanceContract`.                          |
+ * | tabs           | ReactNode?                   | PlanTabs, under the title (dashboard or per unit).       |
  * | …              |                              | See each section's own props table.                      |
  */
 import type { ReactNode } from "react";
@@ -48,6 +49,7 @@ export interface PmPlanProps {
   state: PmPlanState;
   onRetry?: () => void;
   noPermission: ReactNode;
+  tabs?: ReactNode;
   agreement: MaintenanceContract | null;
   contractors: Contractor[];
   systems?: SlaSystem[];
@@ -64,7 +66,7 @@ export interface PmPlanProps {
 }
 
 export function PmPlan(props: PmPlanProps) {
-  const { orgUnits, unitId, onUnitChange, state, onRetry, noPermission, agreement, contractors, canManage } = props;
+  const { orgUnits, unitId, onUnitChange, state, onRetry, noPermission, tabs, agreement, contractors, canManage } = props;
   const t = useTranslations();
   const locale = useLocale() as Locale;
 
@@ -81,6 +83,7 @@ export function PmPlan(props: PmPlanProps) {
         }
         title={t("screens.s18plan.title")}
       />
+      {tabs}
       <p className="mb-s-5 max-w-[720px] text-fs-16 text-k-text">{t("screens.s18plan.intro")}</p>
 
       <label className="mb-s-5 flex max-w-[420px] flex-col gap-s-1 text-fs-14 text-k-text">
