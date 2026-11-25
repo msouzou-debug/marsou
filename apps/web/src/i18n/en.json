@@ -131,6 +131,7 @@
     "permitBanner": {
       "state": {
         "inForce": "In force",
+        "approved": "Approved, works not started",
         "pendingApproval": "Approval pending",
         "expired": "Expired",
         "revoked": "Revoked"

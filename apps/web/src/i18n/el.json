@@ -131,6 +131,7 @@
     "permitBanner": {
       "state": {
         "inForce": "Σε ισχύ",
+        "approved": "Εγκρίθηκε, οι εργασίες δεν άρχισαν",
         "pendingApproval": "Εκκρεμεί έγκριση",
         "expired": "Έληξε",
         "revoked": "Ανακλήθηκε"

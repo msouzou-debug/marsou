@@ -74,10 +74,10 @@ describe("closeoutComplete", () => {
 });
 
 describe("permitBannerState", () => {
-  it("maps the eight-value status onto the banner's four states", () => {
+  it("maps the eight-value status onto the banner's five states", () => {
     expect(permitBannerState("SUBMITTED")).toBe("pendingApproval");
     expect(permitBannerState("CLINICAL_REVIEW")).toBe("pendingApproval");
-    expect(permitBannerState("APPROVED")).toBe("inForce");
+    expect(permitBannerState("APPROVED")).toBe("approved");
     expect(permitBannerState("ACTIVE")).toBe("inForce");
     expect(permitBannerState("BREACH")).toBe("expired");
     expect(permitBannerState("REJECTED")).toBe("revoked");

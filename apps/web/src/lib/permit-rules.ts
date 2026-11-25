@@ -60,13 +60,17 @@ export function closeoutComplete(checklist: CloseoutChecklist): boolean {
   );
 }
 
-/** Permit detail banner — maps the contract's eight-value status onto the four PermitBanner states, per the task's own mapping. */
+/** Permit detail banner — maps the contract's eight-value status onto the five PermitBanner states. */
 export function permitBannerState(status: PermitStatus): PermitState | null {
   switch (status) {
     case "CLINICAL_REVIEW":
     case "SUBMITTED":
       return "pendingApproval";
+    // RULE (UAT 25/11/2026): an approved permit whose works have not started
+    // is «Εγκρίθηκε», not «Σε ισχύ» — the owner read a greyed «Έναρξη
+    // εργασιών» under «Σε ισχύ» as a fault.
     case "APPROVED":
+      return "approved";
     case "ACTIVE":
       return "inForce";
     case "BREACH":
