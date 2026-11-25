@@ -82,6 +82,13 @@ export const EFinanceRawVendor = z
     blocked: z.boolean(),
     active: z.boolean(),
     sap_batch: Scalar.nullable().optional(),
+    // Asked of eFinance on 25/11/2026 (docs/integration/
+    // 2026-11-25-to-efinance-vendor-contact-fields.md) and not sent today:
+    // SAP's address e-mail and telephone. Optional, so today's answer parses
+    // as it always did. Any other field eFinance adds — bank details
+    // included — is dropped by this schema and never stored.
+    email: OptionalText,
+    phone: OptionalText,
   })
   .refine((vendor) => Boolean(vendor.vendor_code ?? vendor.code), { message: "vendor_code" });
 export type EFinanceRawVendor = z.infer<typeof EFinanceRawVendor>;

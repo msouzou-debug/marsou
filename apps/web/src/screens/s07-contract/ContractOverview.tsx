@@ -39,6 +39,7 @@ import { formatEUR, formatPct } from "@/lib/format";
 import { GrossAmount } from "@/components/vat-fields";
 import { BoqSection, type BoqDraftRow } from "./BoqSection";
 import { ContractFacts } from "./ContractFacts";
+import { ContractorContact } from "./ContractorContact";
 import { EFinancePanel, type EFinancePushResult } from "./EFinancePanel";
 import { ContractTabs } from "./ContractTabs";
 import { LinkOuts } from "./LinkOuts";
@@ -201,6 +202,9 @@ export function ContractOverview({
         </div>
 
         <div className="grid gap-s-6 desktop:col-span-5">
+          {/* Owner UAT 25/11/2026: who to write to at the contractor. */}
+          <ContractorContact contractor={data.contractor} />
+
           {/* Nit 1: S07's "approved"/"committed" ledgers are the original and
               current contract value, not the glossary's own words, so the
               legend labels are overridden rather than adding a second, mono

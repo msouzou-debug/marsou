@@ -59,7 +59,8 @@ describe("migrations", () => {
     expect(result.applied).toContain("0029_claim_documents");
     expect(result.applied).toContain("0030_rfi_recipient_and_sap_asset_class");
     expect(result.applied).toContain("0031_vat");
-    expect(result.lastMigrationId).toBe("0031_vat");
+    expect(result.applied).toContain("0032_rfi_close_and_contractor_contact");
+    expect(result.lastMigrationId).toBe("0032_rfi_close_and_contractor_contact");
 
     const client = new Client({ connectionString: targetUrl });
     await client.connect();
@@ -1053,6 +1054,101 @@ describe("migrations", () => {
     }
   }, 180_000);
 
+  /**
+   * Owner UAT 25/11/2026, 0032. An RFI closed under 0006's rule gets its
+   * closed_at from updated_at; an existing contractor gets an empty MANUAL
+   * contact; a second run changes nothing and writes no audit row.
+   */
+  it("0032 backfills the close of an old closed RFI, gives contractors an empty contact, and is idempotent", async () => {
+    const legacyDb = "ecapital_migration_0032_test";
+    const legacyUrl = adminUrl.replace(/\/postgres$/, `/${legacyDb}`);
+
+    const admin = new Client({ connectionString: adminUrl });
+    await admin.connect();
+    await admin.query(`drop database if exists ${legacyDb}`);
+    await admin.query(`create database ${legacyDb}`);
+    await admin.end();
+
+    const client = new Client({ connectionString: legacyUrl });
+    await client.connect();
+    try {
+      const files = readMigrations();
+      const before0032 = files.filter((m) => m.id < "0032");
+      const close = files.find((m) => m.id === "0032_rfi_close_and_contractor_contact");
+      expect(close).toBeDefined();
+
+      await client.query("create schema if not exists ecapital");
+      for (const migration of before0032) await client.query(migration.sql);
+
+      const U = "00000000-0000-4000-8000-0000000032a1";
+      const P = "00000000-0000-4000-8000-000000003201";
+      const K = "00000000-0000-4000-8000-0000000032b1";
+      const C = "00000000-0000-4000-8000-0000000032c1";
+      await client.query(`
+        insert into ecapital.org_unit (id, code, name_el, name_en, type, directorate, entity_code, efinance_code)
+        values ('larnaca-general', 'LGH', 'Γενικό Νοσοκομείο Λάρνακας', 'Larnaca General Hospital',
+                'HOSPITAL', 'LARNAKAS_AMMOCHOSTOU', 'LGH', 'LGH')`);
+      await client.query(`insert into ecapital.app_user (id, subject, name, email)
+        values ('${U}', 'engineer', 'Μηχανικός', 'engineer@example.test')`);
+      await client.query(`
+        insert into ecapital.project (id, org_unit_id, code, title_el, category, phase, approved_budget)
+        values ('${P}', 'larnaca-general', ecapital.allocate_project_code('larnaca-general', 2026),
+                'Ανακαίνιση', 'RENOVATION', 'IN_PROGRESS', 100000)`);
+      await client.query(`insert into ecapital.contractor (id, name, sap_vendor_id) values ('${K}', 'Ανάδοχος επαφής', '100123')`);
+      await client.query(`
+        insert into ecapital.contract (id, project_id, org_unit_id, contractor_id, ref, contract_no, type,
+                                       award_date, original_value, current_value)
+        values ('${C}', '${P}', '', '${K}', ecapital.allocate_contract_ref(2026), 'ΤΥ/2026/032', 'BOQ',
+                '2026-01-10', 1000, 1000)`);
+      await client.query(`
+        insert into ecapital.rfi (contract_id, org_unit_id, number, question_el, answer_el, raised_by, raised_at,
+                                  answered_by, answered_at, sla_due_at, sla_hours, status, updated_at)
+        values ('${C}', '', 1, 'Παλιά ερώτηση', 'Παλιά απάντηση', '${U}', '2026-03-01T08:00:00Z',
+                '${U}', '2026-03-02T08:00:00Z', '2026-03-08T08:00:00Z', 168, 'CLOSED', '2026-03-03T09:00:00Z'),
+               ('${C}', '', 2, 'Ανοιχτή ερώτηση', null, '${U}', '2026-03-01T08:00:00Z',
+                null, null, '2026-03-08T08:00:00Z', 168, 'OPEN', '2026-03-01T08:00:00Z')`);
+
+      await client.query(close!.sql);
+
+      const { rows: rfis } = await client.query(`
+        select number, closed_at, closed_by, closing_note, answered_on
+          from ecapital.rfi where contract_id = '${C}' order by number`);
+      expect(rfis[0].closed_at.toISOString()).toBe("2026-03-03T09:00:00.000Z");
+      expect(rfis[0].closed_by).toBeNull();
+      expect(rfis[0].answered_on).toBeNull();
+      expect(rfis[1].closed_at).toBeNull();
+
+      const { rows: [contractor] } = await client.query(`
+        select contact_name, contact_email, contact_phone, contact_source, contact_synced_at
+          from ecapital.contractor where id = '${K}'`);
+      expect(contractor).toEqual({
+        contact_name: null,
+        contact_email: null,
+        contact_phone: null,
+        contact_source: "MANUAL",
+        contact_synced_at: null,
+      });
+
+      // The new rule holds on the old data: the open one closes with a note.
+      await client.query(`update ecapital.rfi set status = 'CLOSED', closed_at = now(), closed_by = '${U}',
+                                 closing_note = 'Δεν χρειάζεται πια.' where contract_id = '${C}' and number = 2`);
+
+      const snapshot = async () =>
+        (await client.query(`
+          select (select json_agg(r order by r.number) from (select number, status, closed_at, closing_note from ecapital.rfi) r)::text as r,
+                 (select count(*) from ecapital.audit_log)::text as audit`)).rows[0];
+      const first = await snapshot();
+      await client.query(close!.sql);
+      expect(await snapshot()).toEqual(first);
+    } finally {
+      await client.end();
+      const cleanup = new Client({ connectionString: adminUrl });
+      await cleanup.connect();
+      await cleanup.query(`drop database if exists ${legacyDb}`);
+      await cleanup.end();
+    }
+  }, 180_000);
+
   it("leaves row-level security on every table that has a policy", async () => {
     const client = new Client({ connectionString: targetUrl });
     await client.connect();
@@ -1084,8 +1180,11 @@ describe("migrations", () => {
     );
     await client.end();
     const names = rows.map((r) => r.conname);
-    // R09: an RFI is closed after it has been answered.
-    expect(names).toContain("rfi_answered_before_closed");
+    // R09 as the owner changed it (UAT 25/11/2026, 0032): an RFI closes with
+    // an answer or with a closing note, and 0006's «answered first» is gone.
+    expect(names).toContain("rfi_closed_answer_or_note");
+    expect(names).toContain("rfi_answered_on_not_before_raised");
+    expect(names).not.toContain("rfi_answered_before_closed");
     // R09: only a cost-impact instruction turns into a variation.
     expect(names).toContain("site_instruction_variation_needs_cost_impact");
     // R35: funded means a capital project is paying for it.

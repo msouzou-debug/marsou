@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  answeredOnBeforeRaised,
   clockAt,
   dueWindowOn,
   evidenceMime,
@@ -77,6 +78,33 @@ describe("clockAt", () => {
     expect(clockAt(null, NOW)).toBe(NOW);
     expect(slaState(due(1), 48, clockAt(answered, NOW))).toBe("GREEN");
     expect(slaState(due(1), 48, clockAt(null, NOW))).toBe("RED");
+  });
+
+  it("stops at the end of the day the answer arrived when it was typed in later (owner, UAT 25/11/2026)", () => {
+    // Typed in on 14/03 at 02:00 Nicosia; arrived on 10/03, which ends at
+    // 22:00 UTC (Nicosia is UTC+2 in March).
+    const typedIn = new Date("2026-03-14T00:00:00Z");
+    expect(clockAt(typedIn, NOW, { answeredOn: "2026-03-10" }).toISOString()).toBe(
+      "2026-03-10T21:59:59.999Z",
+    );
+    // A day after the typing cannot move the clock past the typing.
+    expect(clockAt(typedIn, NOW, { answeredOn: "2026-03-20" })).toBe(typedIn);
+  });
+
+  it("stops at the close of an RFI closed without an answer", () => {
+    const closedAt = new Date("2026-03-12T00:00:00Z");
+    expect(clockAt(null, NOW, { closedAt })).toBe(closedAt);
+    expect(clockAt(null, NOW, { closedAt: null })).toBe(NOW);
+  });
+});
+
+describe("answeredOnBeforeRaised", () => {
+  it("refuses the day before the RFI was raised and allows that day and later", () => {
+    // 23:30 UTC on 13/03 is 01:30 on 14/03 in Nicosia.
+    const raisedAt = new Date("2026-03-13T23:30:00Z");
+    expect(answeredOnBeforeRaised(raisedAt, "2026-03-13")).toBe(true);
+    expect(answeredOnBeforeRaised(raisedAt, "2026-03-14")).toBe(false);
+    expect(answeredOnBeforeRaised(raisedAt, "2026-03-15")).toBe(false);
   });
 });
 

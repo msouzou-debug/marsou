@@ -4,7 +4,12 @@
 // `RfiUpdate`, the same pattern S08's own `schema.ts` sits on top of
 // `VariationCreate`.
 import { z } from "zod";
-import { RFI_RECIPIENT_EMAIL_MAX, RFI_RECIPIENT_NAME_MAX, isCalendarDate } from "@ecapital/shared";
+import {
+  RFI_CLOSING_NOTE_MAX,
+  RFI_RECIPIENT_EMAIL_MAX,
+  RFI_RECIPIENT_NAME_MAX,
+  isCalendarDate,
+} from "@ecapital/shared";
 
 /**
  * Owner decision 25/11/2026: eCapital sends no e-mail. The form records who
@@ -56,13 +61,47 @@ export function rfiFormSchema(today: string) {
   });
 }
 
+/** «Απάντηση» (owner, UAT 25/11/2026): the answer and the day it arrived. */
 export interface RfiAnswerFormValues {
   answerEl: string;
+  answeredOn: string; // yyyy-mm-dd, today unless changed
 }
 
-export const RfiAnswerFormSchema = z.object({
-  answerEl: z.string().trim().min(1, "forms.required"),
-});
+/**
+ * RULE (owner, UAT 25/11/2026): the day the answer arrived is not after
+ * today and not before the day the RFI was raised. The API refuses the same
+ * with errors.dateInFuture and errors.rfiAnsweredBeforeRaised.
+ */
+export function rfiAnswerFormSchema(raisedOn: string, today: string) {
+  return z.object({
+    answerEl: z.string().trim().min(1, "forms.required"),
+    answeredOn: z
+      .string()
+      .min(1, "forms.required")
+      .refine(isCalendarDate, "forms.invalidDate")
+      .refine((value) => !isCalendarDate(value) || value <= today, "forms.dateInFuture")
+      .refine((value) => !isCalendarDate(value) || value >= raisedOn, "forms.answeredBeforeRaised"),
+  });
+}
+
+/** «Κλείσιμο αιτήματος» (owner, UAT 25/11/2026). */
+export interface RfiCloseFormValues {
+  closingNote: string;
+}
+
+/**
+ * RULE (owner, UAT 25/11/2026): an RFI closes with or without an answer;
+ * without one, the closing note says why (the API: errors.rfiCloseNoteNeeded).
+ * A message key, or undefined when the note will do. A function of the RFI
+ * at the moment of submitting rather than a schema fixed at mount, because
+ * the sheet stays open while an answer arrives.
+ */
+export function closingNoteError(note: string, answered: boolean): string | undefined {
+  const trimmed = note.trim();
+  if (!answered && trimmed === "") return "forms.closingNoteNeeded";
+  if (trimmed.length > RFI_CLOSING_NOTE_MAX) return "forms.closingNoteTooLong";
+  return undefined;
+}
 
 /** UAT 25/11/2026 — the «Επεξεργασία» form: the question, the due date, and who it went to and when. */
 export interface RfiEditFormValues {

@@ -48,8 +48,32 @@ export function slaState(dueAt: Date | string, slaHours: number, at: Date): SlaS
  * of drifting to BREACHED while it waits to be closed — the SLA is a promise
  * about the answer, not about the paperwork after it.
  */
-export function clockAt(answeredAt: Date | null, now: Date): Date {
-  return answeredAt ?? now;
+export function clockAt(
+  answeredAt: Date | null,
+  now: Date,
+  stop: { answeredOn?: string | null; closedAt?: Date | null } = {},
+): Date {
+  if (answeredAt) {
+    // Owner UAT 25/11/2026: the answer may be recorded days after it
+    // arrived. The clock stops at the end of the day it arrived, or at the
+    // moment it was recorded if that is earlier.
+    if (stop.answeredOn) {
+      const endOfDay = endOfNicosiaDay(stop.answeredOn);
+      return endOfDay.getTime() < answeredAt.getTime() ? endOfDay : answeredAt;
+    }
+    return answeredAt;
+  }
+  // RULE (owner, UAT 25/11/2026): an RFI closed without an answer is no
+  // longer waiting for one, so its clock stops at the close.
+  return stop.closedAt ?? now;
+}
+
+/**
+ * RULE (owner, UAT 25/11/2026): the day the answer arrived is not before
+ * the day the RFI was raised. «Not after today» is the zod schema's.
+ */
+export function answeredOnBeforeRaised(raisedAt: Date, answeredOn: string): boolean {
+  return answeredOn < nicosiaDateOf(raisedAt);
 }
 
 /** raisedAt + slaDays × 24h, and the length of that promise in hours. */
@@ -126,6 +150,11 @@ export interface RfiRow {
   recipientEmail: string | null;
   /** A `date` column: drizzle hands it back as yyyy-mm-dd. */
   sentOn: string | null;
+  answeredOn: string | null;
+  closedById: string | null;
+  closedByName: string | null;
+  closedAt: Date | null;
+  closingNote: string | null;
 }
 
 export function toRfi(row: RfiRow, now: Date): Rfi {
@@ -146,9 +175,20 @@ export function toRfi(row: RfiRow, now: Date): Rfi {
     slaHours: row.slaHours,
     status: row.status,
     // Computed here and never stored (ADR-0017).
-    slaState: slaState(row.slaDueAt, row.slaHours, clockAt(row.answeredAt, now)),
+    slaState: slaState(
+      row.slaDueAt,
+      row.slaHours,
+      clockAt(row.answeredAt, now, { answeredOn: row.answeredOn, closedAt: row.closedAt }),
+    ),
     recipientName: row.recipientName,
     recipientEmail: row.recipientEmail,
     sentOn: row.sentOn,
+    // An answer recorded before 0032 has no day of its own: the day it was
+    // typed in is the best there is.
+    answeredOn: row.answeredOn ?? (row.answeredAt ? nicosiaDateOf(row.answeredAt) : null),
+    closedById: row.closedById,
+    closedByName: row.closedByName,
+    closedAt: row.closedAt ? row.closedAt.toISOString() : null,
+    closingNote: row.closingNote,
   };
 }

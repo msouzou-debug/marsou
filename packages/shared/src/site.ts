@@ -51,6 +51,18 @@ export const Rfi = z.object({
   recipientName: z.string().nullable(),
   recipientEmail: z.string().nullable(),
   sentOn: z.string().nullable(),
+  // Owner UAT 25/11/2026 (migration 0032). `answeredOn` is the day the
+  // answer arrived (yyyy-mm-dd); for an answer recorded before 0032 it is
+  // the day of `answeredAt`. An RFI can be closed with or without an
+  // answer: who closed it, when, and the note (required when there is no
+  // answer). `closedAt` is null only on an RFI that is not closed;
+  // `closedById` is also null on one closed before 0032. Optional for the
+  // fixture reason `ContractDetail` gives; the API always sends them.
+  answeredOn: z.string().nullable().optional(),
+  closedById: z.string().nullable().optional(),
+  closedByName: z.string().nullable().optional(),
+  closedAt: z.string().nullable().optional(),
+  closingNote: z.string().nullable().optional(),
 });
 export type Rfi = z.infer<typeof Rfi>;
 
@@ -107,8 +119,25 @@ export const RfiDocument = z.object({
 });
 export type RfiDocument = z.infer<typeof RfiDocument>;
 
-export const RfiAnswer = z.object({ answerEl: z.string().min(1) });
+// RULE (owner, UAT 25/11/2026): the answer and the day it arrived. Not
+// after today, here; not before the day the RFI was raised, in the service.
+// Left out, it is today.
+export const RfiAnswer = z.object({
+  answerEl: z.string().trim().min(1),
+  answeredOn: PastOrTodayDate.optional(),
+});
 export type RfiAnswer = z.infer<typeof RfiAnswer>;
+
+export const RFI_CLOSING_NOTE_MAX = 4000;
+
+// RULE (owner, UAT 25/11/2026): an RFI closes with or without an answer.
+// The note is optional on an answered RFI and required on an unanswered one
+// (the service says errors.rfiCloseNoteNeeded). An empty body is a close
+// with no note.
+export const RfiClose = z.object({
+  closingNote: z.string().trim().max(RFI_CLOSING_NOTE_MAX).optional(),
+});
+export type RfiClose = z.infer<typeof RfiClose>;
 
 export const SiteInstruction = z.object({
   id: z.string(),

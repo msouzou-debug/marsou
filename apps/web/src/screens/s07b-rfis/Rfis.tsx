@@ -11,12 +11,14 @@
  * | contract     | ContractDetail?     | For the eyebrow, the tab strip and its counts.                     |
  * | rfis         | Rfi[]?              | Ignored in `noPermission` \| `loading` \| `error`.                  |
  * | state        | RfisScreenState     | The five states (build brief §6).                                  |
- * | roles        | AppRole[]           | `canWriteRfis(roles)` — the «Προσθήκη», answer and «Ολοκλήρωση» gate. |
+ * | roles        | AppRole[]           | `canWriteRfis(roles)` — the «Προσθήκη», «Απάντηση», «Κλείσιμο αιτήματος» and «Επεξεργασία» gate; offline, none of them. |
  * | now          | Date?               | Injectable "now" for `SlaChip`'s tests and preview.                 |
  * | selectedId / onSelect / sheetSaving / sheetApiError / onCreate / onAnswer / onCloseRfi / onUpdate / onRetry | — | Wired by `RfisScreen`. |
  * | documents / onUpload / uploading / uploadError | — | The selected RFI's correspondence and its upload, wired by `RfisScreen`. |
  *
  * A row opens the sheet's read view on a click or on Enter (UAT 25/11/2026).
+ * A new RFI's recipient starts from the contract's contractor's contact
+ * (owner UAT 25/11/2026), and stays editable.
  * «Παραλήπτης» and «Αποστολή» are columns (owner decision 25/11/2026: the
  * RFI is sent from Outlook, and the table says to whom and when).
  *
@@ -32,7 +34,7 @@ import { SlaChip } from "@/components/sla-chip";
 import { Table, type TableColumn } from "@/components/table";
 import { formatDate } from "@/lib/format";
 import { ContractTabs } from "@/screens/s07-contract/ContractTabs";
-import type { RfiEditFormValues, RfiFormValues } from "./schema";
+import type { RfiAnswerFormValues, RfiEditFormValues, RfiFormValues } from "./schema";
 import { RfiSheet } from "./RfiSheet";
 
 export type RfisScreenState = "default" | "loading" | "empty" | "error" | "noPermission" | "offline";
@@ -49,8 +51,10 @@ export interface RfisProps {
   sheetSaving?: boolean;
   sheetApiError?: string;
   onCreate: (values: RfiFormValues) => void;
-  onAnswer: (answerEl: string) => void;
-  onCloseRfi: () => void;
+  /** `POST .../answer`; resolves true once saved (owner, UAT 25/11/2026). */
+  onAnswer: (values: RfiAnswerFormValues) => Promise<boolean> | void;
+  /** `POST .../close` with the closing note; resolves true once closed. */
+  onCloseRfi: (closingNote: string) => Promise<boolean> | void;
   /** UAT 25/11/2026: `PATCH .../rfis/:rid`; resolves true once saved. Omitted (or offline), no «Επεξεργασία». */
   onUpdate?: (values: RfiEditFormValues) => Promise<boolean>;
   /** The open RFI's correspondence; undefined while it loads. */
@@ -123,14 +127,14 @@ export function Rfis({
       accessor: (row) => row.slaDueAt,
       numeric: true,
       // RULE (ADR-0017): the clock stops at the answer — once ANSWERED or
-      // CLOSED, the chip is replaced by the answered date in mono, never a
-      // chip that would keep drifting toward BREACHED for paperwork alone.
-      cell: (row) =>
-        row.status === "OPEN" ? (
-          <SlaChip dueAt={row.slaDueAt} totalHours={row.slaHours} />
-        ) : (
-          <span className="num text-k-ink">{row.answeredAt ? formatDate(row.answeredAt) : t("common.notAvailable")}</span>
-        ),
+      // CLOSED, the chip is replaced by the day the answer arrived in mono
+      // (owner UAT 25/11/2026), or by the day it was closed when it closed
+      // unanswered, never a chip drifting toward BREACHED for paperwork alone.
+      cell: (row) => {
+        if (row.status === "OPEN") return <SlaChip dueAt={row.slaDueAt} totalHours={row.slaHours} />;
+        const stopped = row.answeredOn ?? row.answeredAt ?? row.closedAt;
+        return <span className="num text-k-ink">{stopped ? formatDate(stopped) : t("common.notAvailable")}</span>;
+      },
     },
     {
       id: "status",
@@ -144,6 +148,17 @@ export function Rfis({
 
   const selectedRfi = selectedId && selectedId !== "new" ? rows.find((r) => r.id === selectedId) : undefined;
   const sheetOpen = selectedId !== undefined && selectedId !== null;
+  // Owner UAT 25/11/2026: the contractor's contact, for the new form only.
+  const contractorContact = contract?.contractor;
+  const recipientDefaults =
+    contractorContact && (contractorContact.contactName || contractorContact.contactEmail)
+      ? {
+          name: contractorContact.contactName
+            ? `${contractorContact.contactName}, ${contractorContact.name}`
+            : contractorContact.name,
+          email: contractorContact.contactEmail ?? "",
+        }
+      : undefined;
 
   return (
     <>
@@ -192,7 +207,7 @@ export function Rfis({
           key={selectedId}
           open
           rfi={selectedRfi}
-          canWrite={canWrite}
+          canWrite={canWrite && state !== "offline"}
           saving={sheetSaving}
           apiError={sheetApiError}
           onClose={() => onSelect(null)}
@@ -204,6 +219,7 @@ export function Rfis({
           onUpload={state === "offline" ? undefined : onUpload}
           uploading={uploading}
           uploadError={uploadError}
+          recipientDefaults={recipientDefaults}
         />
       )}
     </>

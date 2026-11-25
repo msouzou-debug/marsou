@@ -9,7 +9,10 @@
  * (`useRfis`) side by side, and owns every mutation: create, answer, edit
  * (UAT 25/11/2026), close, and the correspondence upload (owner decision
  * 25/11/2026; `useRfiDocuments` reads the open RFI's files).
- * Every one refetches what it changed; create and close also close the sheet.
+ * Every one refetches what it changed — the contract (its tab counts) and the
+ * RFI list — before it resolves. Create closes the sheet; answer and close
+ * (owner UAT 25/11/2026) leave it on the RFI, which now reads ANSWERED or
+ * CLOSED from the refetched list.
  *
  * | Prop         | Type       | Notes                                             |
  * |--------------|------------|----------------------------------------------------|
@@ -23,7 +26,7 @@ import { RfiDocument, Rfi as RfiSchema } from "@ecapital/shared";
 import { ApiError, apiMutate, apiMutateMultipart } from "@/data/client";
 import { useContract, useRfiDocuments, useRfis } from "@/data/queries";
 import { Rfis, type RfisScreenState } from "./Rfis";
-import type { RfiEditFormValues, RfiFormValues } from "./schema";
+import type { RfiAnswerFormValues, RfiEditFormValues, RfiFormValues } from "./schema";
 
 export interface RfisScreenProps {
   contractId: string;
@@ -109,21 +112,24 @@ export function RfisScreen({ contractId, roles, noPermission }: RfisScreenProps)
     }
   }
 
-  async function handleAnswer(answerEl: string): Promise<void> {
-    if (!selectedId || selectedId === "new") return;
+  /** Owner UAT 25/11/2026: the answer and the day it arrived; true once saved. */
+  async function handleAnswer(values: RfiAnswerFormValues): Promise<boolean> {
+    if (!selectedId || selectedId === "new") return false;
     setSheetSaving(true);
     setSheetApiError(undefined);
     try {
       await apiMutate<Rfi>(
         `/contracts/${encodeURIComponent(contractId)}/rfis/${encodeURIComponent(selectedId)}/answer`,
         "POST",
-        { answerEl },
+        { answerEl: values.answerEl.trim(), answeredOn: values.answeredOn },
         RfiSchema,
       );
+      // Stay on the row: it now shows the answer and «Κλείσιμο αιτήματος».
       await refetchAll();
-      // Stay on the row: it now shows the answer and the «Ολοκλήρωση» button.
+      return true;
     } catch (submitError) {
       setSheetApiError(submitError instanceof ApiError ? submitError.message : String(submitError));
+      return false;
     } finally {
       setSheetSaving(false);
     }
@@ -186,16 +192,27 @@ export function RfisScreen({ contractId, roles, noPermission }: RfisScreenProps)
     }
   }
 
-  async function handleClose(): Promise<void> {
-    if (!selectedId || selectedId === "new") return;
+  /**
+   * Owner UAT 25/11/2026: with or without an answer; the note is left out
+   * when blank. The sheet stays on the RFI and shows it closed, who closed
+   * it and when; true once closed.
+   */
+  async function handleClose(closingNote: string): Promise<boolean> {
+    if (!selectedId || selectedId === "new") return false;
     setSheetSaving(true);
     setSheetApiError(undefined);
     try {
-      await apiMutate<Rfi>(`/contracts/${encodeURIComponent(contractId)}/rfis/${encodeURIComponent(selectedId)}/close`, "POST", undefined, RfiSchema);
-      setSelectedId(null);
+      await apiMutate<Rfi>(
+        `/contracts/${encodeURIComponent(contractId)}/rfis/${encodeURIComponent(selectedId)}/close`,
+        "POST",
+        closingNote.trim() ? { closingNote: closingNote.trim() } : {},
+        RfiSchema,
+      );
       await refetchAll();
+      return true;
     } catch (submitError) {
       setSheetApiError(submitError instanceof ApiError ? submitError.message : String(submitError));
+      return false;
     } finally {
       setSheetSaving(false);
     }
@@ -214,8 +231,8 @@ export function RfisScreen({ contractId, roles, noPermission }: RfisScreenProps)
       sheetSaving={sheetSaving}
       sheetApiError={sheetApiError}
       onCreate={(values) => void handleCreate(values)}
-      onAnswer={(answerEl) => void handleAnswer(answerEl)}
-      onCloseRfi={() => void handleClose()}
+      onAnswer={handleAnswer}
+      onCloseRfi={handleClose}
       onUpdate={handleUpdate}
       documents={documentsQuery.data}
       onUpload={handleUpload}

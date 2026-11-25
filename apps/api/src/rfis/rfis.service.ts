@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import type { Rfi, RfiAnswer, RfiCreate, RfiDocument, RfiUpdate } from "@ecapital/shared";
+import type { Rfi, RfiAnswer, RfiClose, RfiCreate, RfiDocument, RfiUpdate } from "@ecapital/shared";
 import { nicosiaDateOf } from "@ecapital/shared";
 import { and, desc, eq, sql } from "drizzle-orm";
 import { UUID, callerUserId } from "../common/actor";
@@ -13,7 +13,14 @@ import {
 import { currentTx } from "../db/client";
 import * as schema from "../db/schema";
 import { DocumentsService, type UploadInput } from "../documents/documents.service";
-import { type RfiRow, dueWindowOn, sentOnBeforeRaised, slaWindow, toRfi } from "./rfi-rows";
+import {
+  type RfiRow,
+  answeredOnBeforeRaised,
+  dueWindowOn,
+  sentOnBeforeRaised,
+  slaWindow,
+  toRfi,
+} from "./rfi-rows";
 
 /**
  * M1 — the RFI log (R09). Αίτημα διευκρίνισης: a question about the works,
@@ -180,15 +187,27 @@ export class RfisService {
    * no segregation rule here — the variation has one because a variation moves
    * money, and answering a question does not.
    *
-   * RULE (R09): an RFI is answered once. A second answer would overwrite a
-   * piece of correspondence, which is what a new RFI is for.
+   * RULE (R09): an RFI is answered once, and only while it is open. A second
+   * answer would overwrite a piece of correspondence, which is what a new RFI
+   * is for; a closed RFI is settled.
+   *
+   * RULE (owner, UAT 25/11/2026): the day the answer arrived is recorded with
+   * it — today when the caller does not say, never after today (the zod
+   * schema) and never before the day the RFI was raised
+   * (errors.rfiAnsweredBeforeRaised). `answered_at` stays the moment it was
+   * typed in: that is the record of who did what when.
    */
   async answer(contractId: string, rfiId: string, input: RfiAnswer, now: Date): Promise<Rfi> {
     const tx = currentTx();
     if (!tx) throw AppError.internal();
     await this.contractOf(contractId);
     const existing = await this.row(contractId, rfiId);
+    if (existing.status === "CLOSED") throw AppError.unprocessable("errors.rfiAlreadyClosed");
     if (existing.status !== "OPEN") throw AppError.unprocessable("errors.rfiNotOpen");
+    const answeredOn = input.answeredOn ?? nicosiaDateOf(now);
+    if (answeredOnBeforeRaised(existing.raisedAt, answeredOn)) {
+      throw AppError.unprocessable("errors.rfiAnsweredBeforeRaised");
+    }
 
     const caller = await callerUserId();
     try {
@@ -198,6 +217,7 @@ export class RfisService {
           answerEl: input.answerEl,
           answeredBy: caller,
           answeredAt: now,
+          answeredOn,
           status: "ANSWERED",
           updatedAt: sql`now()`,
         })
@@ -211,23 +231,37 @@ export class RfisService {
   }
 
   /**
-   * RULE (R09): ANSWERED → CLOSED, and closing an unanswered RFI is refused
-   * with errors.rfiNotAnswered. Closing is what says the answer was good
-   * enough, so there has to be one to be good enough. The CHECK constraint in
-   * migration 0006 says the same thing to every other code path (ADR-0017).
+   * RULE (owner, UAT 25/11/2026, replacing R09's «answered before closed»):
+   * an RFI closes with or without an answer. A question can stop mattering —
+   * settled on site, overtaken by a drawing revision — and waiting for an
+   * answer nobody will send kept it open for ever. What closes it then is a
+   * reason: the closing note is optional on an answered RFI and required on
+   * an unanswered one (errors.rfiCloseNoteNeeded). The CHECK
+   * `rfi_closed_answer_or_note` (0032) says the same to every code path.
+   * Who closed it and when are recorded; a closed RFI is not edited.
    */
-  async close(contractId: string, rfiId: string, now: Date): Promise<Rfi> {
+  async close(contractId: string, rfiId: string, input: RfiClose, now: Date): Promise<Rfi> {
     const tx = currentTx();
     if (!tx) throw AppError.internal();
     await this.contractOf(contractId);
     const existing = await this.row(contractId, rfiId);
-    if (existing.status === "OPEN") throw AppError.unprocessable("errors.rfiNotAnswered");
     if (existing.status === "CLOSED") throw AppError.unprocessable("errors.rfiAlreadyClosed");
+    const note = input.closingNote?.trim() || null;
+    if (existing.status === "OPEN" && !note) {
+      throw AppError.unprocessable("errors.rfiCloseNoteNeeded");
+    }
 
+    const caller = await callerUserId();
     try {
       const touched = await tx.db
         .update(schema.rfi)
-        .set({ status: "CLOSED", updatedAt: sql`now()` })
+        .set({
+          status: "CLOSED",
+          closedBy: caller,
+          closedAt: now,
+          closingNote: note,
+          updatedAt: sql`now()`,
+        })
         .where(eq(schema.rfi.id, rfiId))
         .returning({ id: schema.rfi.id });
       if (!touched.length) throw AppError.forbidden("errors.readOnlyAccount");
@@ -348,12 +382,12 @@ export class RfisService {
   private async row(
     contractId: string,
     rfiId: string,
-  ): Promise<{ id: string; status: Rfi["status"] }> {
+  ): Promise<{ id: string; status: Rfi["status"]; raisedAt: Date }> {
     const tx = currentTx();
     if (!tx) throw AppError.internal();
     if (!UUID.test(rfiId)) throw AppError.notFound("errors.rfiNotFound");
     const rows = await tx.db
-      .select({ id: schema.rfi.id, status: schema.rfi.status })
+      .select({ id: schema.rfi.id, status: schema.rfi.status, raisedAt: schema.rfi.raisedAt })
       .from(schema.rfi)
       .where(and(eq(schema.rfi.id, rfiId), eq(schema.rfi.contractId, contractId)))
       .limit(1);
@@ -384,6 +418,13 @@ export class RfisService {
     // first; reaching one means the service rule was bypassed somehow.
     if (state === CHECK_VIOLATION) {
       const constraint = constraintName(error);
+      if (constraint === "rfi_answered_on_not_before_raised") {
+        throw AppError.unprocessable("errors.rfiAnsweredBeforeRaised");
+      }
+      if (constraint === "rfi_closed_answer_or_note") {
+        throw AppError.unprocessable("errors.rfiCloseNoteNeeded");
+      }
+      if (constraint === "rfi_closing_note_length") throw AppError.badRequest("errors.rfiCloseNotValid");
       if (constraint === "rfi_sent_not_before_raised") {
         throw AppError.unprocessable("errors.rfiSentBeforeRaised");
       }
@@ -391,7 +432,7 @@ export class RfisService {
       if (constraint === "rfi_recipient_email_shape") {
         throw AppError.badRequest("errors.rfiRecipientEmailNotValid");
       }
-      throw AppError.unprocessable("errors.rfiNotAnswered");
+      throw AppError.unprocessable("errors.rfiNotValid");
     }
     throw error;
   }
@@ -416,4 +457,9 @@ const RFI_COLUMNS = {
   recipientName: schema.rfi.recipientName,
   recipientEmail: schema.rfi.recipientEmail,
   sentOn: schema.rfi.sentOn,
+  answeredOn: schema.rfi.answeredOn,
+  closedById: schema.rfi.closedBy,
+  closedByName: sql<string | null>`ecapital.user_display_name(${schema.rfi.closedBy})`,
+  closedAt: schema.rfi.closedAt,
+  closingNote: schema.rfi.closingNote,
 };

@@ -316,3 +316,155 @@ describe("Rfis — recipient, sent day and correspondence (owner decision 25/11/
     expect(within(screen.getByRole("dialog")).queryByRole("button", { name: "Επισύναψη αρχείου" })).not.toBeInTheDocument();
   });
 });
+
+describe("RfiSheet — «Απάντηση» and «Κλείσιμο αιτήματος» (owner UAT 25/11/2026)", () => {
+  const rfis = buildRfis(now);
+  const openRfi = rfis.find((r) => r.status === "OPEN" && r.slaState === "GREEN")!;
+  const closedRfi = rfis.find((r) => r.status === "CLOSED")!;
+  const answeredRfi = {
+    ...openRfi,
+    status: "ANSWERED" as const,
+    answerEl: "Θύρες EI 60.",
+    answeredById: "user-engineer",
+    answeredByName: "Ελένη Χριστοδούλου",
+    answeredAt: "2026-09-18T08:00:00.000Z",
+    answeredOn: "2026-09-17",
+  };
+
+  function sheet(props: Partial<Parameters<typeof RfiSheet>[0]> = {}) {
+    return renderWithIntl(
+      <RfiSheet
+        open
+        rfi={openRfi}
+        canWrite
+        today="2026-09-19"
+        onClose={vi.fn()}
+        onCreate={vi.fn()}
+        onAnswer={vi.fn().mockResolvedValue(true)}
+        onCloseRfi={vi.fn().mockResolvedValue(true)}
+        onUpdate={vi.fn().mockResolvedValue(true)}
+        documents={[]}
+        {...props}
+      />,
+    );
+  }
+
+  it("offers «Απάντηση», «Επεξεργασία» and «Κλείσιμο αιτήματος» on an open RFI", () => {
+    sheet();
+    const actions = within(screen.getByRole("dialog"))
+      .getAllByRole("button")
+      .map((button) => button.textContent)
+      .filter((label) => ["Απάντηση", "Επεξεργασία", "Κλείσιμο αιτήματος"].includes(label ?? ""));
+    expect(actions).toEqual(["Απάντηση", "Επεξεργασία", "Κλείσιμο αιτήματος"]);
+  });
+
+  it("offers no action to a role that only reads the log", () => {
+    sheet({ canWrite: false });
+    const dialog = within(screen.getByRole("dialog"));
+    for (const name of ["Απάντηση", "Επεξεργασία", "Κλείσιμο αιτήματος"]) {
+      expect(dialog.queryByRole("button", { name })).not.toBeInTheDocument();
+    }
+  });
+
+  it("offers no action while offline", () => {
+    renderWithIntl(
+      <Rfis
+        contract={contract}
+        rfis={rfis}
+        state="offline"
+        noPermission={noPermission}
+        roles={["project_engineer"]}
+        selectedId={openRfi.id}
+        onSelect={vi.fn()}
+        onCreate={vi.fn()}
+        onAnswer={vi.fn()}
+        onCloseRfi={vi.fn()}
+        onUpdate={vi.fn()}
+      />,
+    );
+    const dialog = within(screen.getByRole("dialog"));
+    expect(dialog.queryByRole("button", { name: "Απάντηση" })).not.toBeInTheDocument();
+    expect(dialog.queryByRole("button", { name: "Κλείσιμο αιτήματος" })).not.toBeInTheDocument();
+  });
+
+  it("records the answer with today as the day, and refuses a day after today or before it was raised", async () => {
+    const user = userEvent.setup();
+    const onAnswer = vi.fn().mockResolvedValue(true);
+    sheet({ onAnswer });
+    await user.click(screen.getByRole("button", { name: "Απάντηση" }));
+    const dialog = within(screen.getByRole("dialog", { name: `Απάντηση στο αίτημα διευκρίνισης ${openRfi.number}` }));
+    const day = dialog.getByLabelText("Ημερομηνία απάντησης");
+    expect(day).toHaveValue("2026-09-19");
+
+    await user.click(dialog.getByRole("button", { name: "Αποθήκευση" }));
+    expect(onAnswer).not.toHaveBeenCalled();
+    expect(await dialog.findByText("Συμπληρώστε αυτό το πεδίο.")).toBeInTheDocument();
+
+    await user.type(dialog.getByLabelText("Απάντηση"), "Θύρες EI 60.");
+    fireEvent.change(day, { target: { value: "2026-09-20" } });
+    await user.click(dialog.getByRole("button", { name: "Αποθήκευση" }));
+    expect(onAnswer).not.toHaveBeenCalled();
+    expect(await dialog.findByText("Η ημερομηνία δεν μπορεί να είναι μεταγενέστερη της σημερινής.")).toBeInTheDocument();
+
+    const dayBefore = new Date(`${nicosiaDateOf(openRfi.raisedAt)}T00:00:00Z`);
+    dayBefore.setUTCDate(dayBefore.getUTCDate() - 1);
+    fireEvent.change(day, { target: { value: dayBefore.toISOString().slice(0, 10) } });
+    await user.click(dialog.getByRole("button", { name: "Αποθήκευση" }));
+    expect(onAnswer).not.toHaveBeenCalled();
+    expect(
+      await dialog.findByText("Η ημερομηνία απάντησης δεν μπορεί να είναι πριν από την ημερομηνία υποβολής."),
+    ).toBeInTheDocument();
+
+    fireEvent.change(day, { target: { value: nicosiaDateOf(openRfi.raisedAt) } });
+    await user.click(dialog.getByRole("button", { name: "Αποθήκευση" }));
+    expect(onAnswer).toHaveBeenCalledWith({ answerEl: "Θύρες EI 60.", answeredOn: nicosiaDateOf(openRfi.raisedAt) });
+    expect(await screen.findByRole("status")).toHaveTextContent("Η απάντηση καταχωρίστηκε.");
+  });
+
+  it("requires a closing note on an unanswered RFI", async () => {
+    const user = userEvent.setup();
+    const onCloseRfi = vi.fn().mockResolvedValue(true);
+    sheet({ onCloseRfi });
+    await user.click(screen.getByRole("button", { name: "Κλείσιμο αιτήματος" }));
+    const dialog = within(screen.getByRole("dialog", { name: `Κλείσιμο αιτήματος διευκρίνισης ${openRfi.number}` }));
+    expect(dialog.getByText(/Κλείνει και χωρίς απάντηση/)).toBeInTheDocument();
+    await user.click(dialog.getByRole("button", { name: "Κλείσιμο αιτήματος" }));
+    expect(onCloseRfi).not.toHaveBeenCalled();
+    expect(await dialog.findByText("Το αίτημα δεν έχει απάντηση. Γράψτε γιατί κλείνει.")).toBeInTheDocument();
+
+    await user.type(dialog.getByLabelText("Σημείωση κλεισίματος"), "Διευθετήθηκε επί τόπου.");
+    await user.click(dialog.getByRole("button", { name: "Κλείσιμο αιτήματος" }));
+    expect(onCloseRfi).toHaveBeenCalledWith("Διευθετήθηκε επί τόπου.");
+  });
+
+  it("closes an answered RFI without a note, and «Ακύρωση» goes back to the read view", async () => {
+    const user = userEvent.setup();
+    const onCloseRfi = vi.fn().mockResolvedValue(true);
+    sheet({ rfi: answeredRfi, onCloseRfi });
+    const read = within(screen.getByRole("dialog"));
+    // The answer shows the day it arrived, not the day it was typed in.
+    expect(read.getByText(/Ελένη Χριστοδούλου · 17\/09\/2026/)).toBeInTheDocument();
+    expect(read.queryByRole("button", { name: "Απάντηση" })).not.toBeInTheDocument();
+
+    await user.click(read.getByRole("button", { name: "Κλείσιμο αιτήματος" }));
+    await user.click(screen.getByRole("button", { name: "Ακύρωση" }));
+    expect(screen.getByRole("dialog", { name: `Αίτημα διευκρίνισης ${answeredRfi.number}` })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Κλείσιμο αιτήματος" }));
+    const dialog = within(screen.getByRole("dialog"));
+    expect(dialog.getByLabelText("Σημείωση κλεισίματος (προαιρετικά)")).toHaveValue("");
+    await user.click(dialog.getByRole("button", { name: "Κλείσιμο αιτήματος" }));
+    expect(onCloseRfi).toHaveBeenCalledWith("");
+  });
+
+  it("shows a closed RFI's closer, day and note, and offers nothing to change", () => {
+    sheet({ rfi: closedRfi });
+    const dialog = within(screen.getByRole("dialog"));
+    expect(dialog.getByText("Έκλεισε από").nextElementSibling?.textContent).toContain("Ελένη Χριστοδούλου");
+    expect(dialog.getByText(formatDate(closedRfi.closedAt!))).toBeInTheDocument();
+    expect(dialog.getByText("Η στάθμη εφαρμόστηκε στο εργοτάξιο.")).toBeInTheDocument();
+    for (const name of ["Απάντηση", "Επεξεργασία", "Κλείσιμο αιτήματος"]) {
+      expect(dialog.queryByRole("button", { name })).not.toBeInTheDocument();
+    }
+  });
+});

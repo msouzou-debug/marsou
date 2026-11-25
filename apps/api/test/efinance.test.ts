@@ -684,6 +684,77 @@ describe("eFinance, configured (ADR-0029)", () => {
     expect(byCode.body.items[byCode.body.items.length - 1].active).toBe(false);
   });
 
+  it("fills an empty or eFinance contact from the vendor's e-mail and telephone, never a typed one (owner, UAT 25/11/2026)", async () => {
+    const stamp = Date.now();
+    const codes = ["100901", "100902", "100903", "100904"];
+    const added = [
+      // Empty contact: filled.
+      { vendor_code: codes[0], name: `Ζήτα ${stamp}`, vat: null, blocked: false, active: true, sap_batch: "2026-11",
+        email: "Info@Zeta.example.cy", phone: "+357 22 100901", iban: "CY17002001280000001200527600" },
+      // A contact a user typed: left alone.
+      { vendor_code: codes[1], name: `Ήτα ${stamp}`, vat: null, blocked: false, active: true, sap_batch: "2026-11",
+        email: "office@eta.example.cy", phone: "22 100902" },
+      // eFinance's own from before: kept up to date.
+      { vendor_code: codes[2], name: `Θήτα ${stamp}`, vat: null, blocked: false, active: true, sap_batch: "2026-11",
+        email: "new@theta.example.cy", phone: null },
+      // Nothing usable sent: nothing changes.
+      { vendor_code: codes[3], name: `Ιώτα ${stamp}`, vat: null, blocked: false, active: true, sap_batch: "2026-11",
+        email: "δεν είναι διεύθυνση", phone: "καλέστε" },
+    ];
+    fake.vendors.push(...added);
+    const ids: string[] = [];
+    try {
+      for (const [index, code] of codes.entries()) {
+        const { rows } = await db.query(
+          `insert into ecapital.contractor (name, category, sap_vendor_id, contact_name, contact_email, contact_phone, contact_source)
+           values ($1, 'OTHER', $2, $3, $4, $5, $6) returning id`,
+          [
+            `Επαφή ${index} ${stamp}`,
+            code,
+            index === 1 ? "Γιώργος Χ." : null,
+            index === 1 ? "giorgos@eta.example.cy" : index === 2 ? "old@theta.example.cy" : null,
+            index === 2 ? "22 999999" : null,
+            index === 2 ? "EFINANCE" : "MANUAL",
+          ],
+        );
+        ids.push(rows[0].id);
+      }
+
+      const response = await request(app.getHttpServer()).post("/admin/efinance/sync-master").set(bearer(admin));
+      expect(response.status).toBe(200);
+      expect(EFinanceMasterSyncResult.parse(response.body).error).toBeNull();
+
+      const { rows } = await db.query(
+        `select sap_vendor_id, contact_name, contact_email, contact_phone, contact_source, contact_synced_at
+           from ecapital.contractor where id = any($1::uuid[]) order by sap_vendor_id`,
+        [ids],
+      );
+      expect(rows[0]).toMatchObject({ contact_name: null, contact_email: "info@zeta.example.cy", contact_phone: "+357 22 100901", contact_source: "EFINANCE" });
+      expect(rows[0].contact_synced_at).not.toBeNull();
+      expect(rows[1]).toMatchObject({ contact_name: "Γιώργος Χ.", contact_email: "giorgos@eta.example.cy", contact_phone: null, contact_source: "MANUAL", contact_synced_at: null });
+      // eFinance sent an e-mail and no telephone: the telephone it gave before stays.
+      expect(rows[2]).toMatchObject({ contact_email: "new@theta.example.cy", contact_phone: "22 999999", contact_source: "EFINANCE" });
+      expect(rows[3]).toMatchObject({ contact_email: null, contact_phone: null, contact_source: "MANUAL" });
+
+      // SECURITY: the mirror keeps the address data and never a bank field.
+      const vendor = await db.query("select * from ecapital.efinance_vendor where vendor_code = $1", [codes[0]]);
+      expect(vendor.rows[0]).toMatchObject({ email: "info@zeta.example.cy", phone: "+357 22 100901" });
+      expect(Object.keys(vendor.rows[0]).some((column) => /iban|bank|account/i.test(column))).toBe(false);
+      expect(JSON.stringify(vendor.rows[0])).not.toContain("CY17002001280000001200527600");
+
+      // A second run with nothing new writes nothing (no audit line a day).
+      const audits = async () =>
+        Number((await db.query("select count(*) from ecapital.audit_log where entity_type = 'contractor' and entity_id = any($1::text[])", [ids])).rows[0].count);
+      const before = await audits();
+      await request(app.getHttpServer()).post("/admin/efinance/sync-master").set(bearer(admin)).expect(200);
+      expect(await audits()).toBe(before);
+    } finally {
+      fake.vendors.splice(fake.vendors.length - added.length, added.length);
+      await db.query("delete from ecapital.contractor where id = any($1::uuid[])", [ids]);
+      await db.query("delete from ecapital.efinance_vendor where vendor_code = any($1::text[])", [codes]);
+    }
+  });
+
   it("keeps the manual routes to the administrator", async () => {
     const finance = await tokenFor(app, USERS.finance);
     expect((await request(app.getHttpServer()).post("/admin/efinance/sync").set(bearer(finance))).status).toBe(403);

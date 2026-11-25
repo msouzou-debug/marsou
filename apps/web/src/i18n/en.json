@@ -69,7 +69,12 @@
     "dateEndBeforeStart": "The end date cannot be before the start date.",
     "emailInvalid": "The e-mail address is not valid.",
     "sentBeforeRaised": "The sent date cannot be before the day the RFI was raised.",
-    "titleTooShort": "The title needs at least 3 characters."
+    "titleTooShort": "The title needs at least 3 characters.",
+    "answeredBeforeRaised": "The day the answer arrived cannot be before the day the RFI was raised.",
+    "closingNoteNeeded": "This RFI has no answer. Write why it is being closed.",
+    "closingNoteTooLong": "The note can be at most 4,000 characters.",
+    "phoneInvalid": "The telephone number is not valid. Use digits, spaces and the symbols + - ( ).",
+    "tooLong": "The text is too long. Shorten it."
   },
   "components": {
     "passwordField": {
@@ -703,6 +708,14 @@
         "push": "Send to eFinance",
         "pushOk": "The contract was sent to eFinance.",
         "offlineReason": "Offline. Sending needs a connection."
+      },
+      "contractor": {
+        "title": "Contractor",
+        "contactName": "Contact person",
+        "contactEmail": "E-mail",
+        "contactPhone": "Telephone",
+        "noContact": "No contact details recorded. They are filled in on the contractor register.",
+        "fromEfinance": "From eFinance."
       }
     },
     "s07a": {
@@ -798,13 +811,16 @@
         "recipientNameHint": "Name and organisation, for example the design office or the contractor.",
         "recipientEmail": "Recipient's e-mail",
         "sentOn": "Sent on",
-        "sentOnHint": "eCapital sends no e-mail. Send the RFI from Outlook and record the day you sent it here."
+        "sentOnHint": "eCapital sends no e-mail. Send the RFI from Outlook and record the day you sent it here.",
+        "answeredOn": "Answered on",
+        "answeredOnHint": "The day you received the answer: not after today and not before the RFI was raised.",
+        "closingNote": "Closing note",
+        "closingNoteOptional": "Closing note (optional)",
+        "closed": "Closed by"
       },
       "sheetTitle": "RFI {number}",
       "answeredOn": "Answered",
       "noAnswerYet": "No answer has been recorded yet.",
-      "closeConfirmTitle": "Close this RFI?",
-      "closeConfirmConsequence": "The RFI closes and no further answer can be recorded against it.",
       "editTitle": "Edit RFI {number}",
       "closedNoEdit": "This RFI is closed and can no longer be changed.",
       "notRecorded": "Not recorded",
@@ -817,7 +833,16 @@
         "titleLabel": "Title (optional)",
         "pendingFiling": "Waiting for a protocol number",
         "saving": "Saving…"
-      }
+      },
+      "answerAction": "Answer",
+      "answerTitle": "Answer RFI {number}",
+      "answerSaved": "The answer has been recorded.",
+      "closeAction": "Close RFI",
+      "closeTitle": "Close RFI {number}",
+      "closeConsequence": "The RFI closes and can no longer be changed. You can still attach correspondence after it is closed.",
+      "closeConsequenceUnanswered": "This RFI has no answer. It can be closed without one if you write why. Once closed it can no longer be changed.",
+      "closeSaved": "The RFI has been closed.",
+      "recipientFromContractor": "The recipient comes from the contractor's contact details. You can change it."
     },
     "s07c": {
       "title": "Site instructions",
@@ -891,7 +916,8 @@
         "registrationNo": "Registration no.",
         "category": "Category",
         "sapVendorId": "SAP code",
-        "status": "Status"
+        "status": "Status",
+        "contact": "Contact"
       },
       "blacklistedChip": "Blacklisted",
       "fields": {
@@ -899,13 +925,20 @@
         "vatNumber": "VAT number",
         "registrationNo": "Registration no.",
         "category": "Category",
-        "sapVendorId": "SAP code"
+        "sapVendorId": "SAP code",
+        "contactName": "Contact person",
+        "contactEmail": "E-mail",
+        "contactPhone": "Telephone"
       },
       "titleNew": "New contractor",
       "titleEdit": "Edit contractor",
       "blacklistToggle": "Blacklist",
       "blacklistHint": "A blacklisted contractor takes no new contract. Its existing contracts carry on as they are.",
-      "noPermissionAskRole": "The contractor register is managed by the system administrator and the head of estates."
+      "noPermissionAskRole": "The contractor register is managed by the system administrator and the head of estates.",
+      "contactTitle": "Contact details",
+      "contactHint": "They fill in the recipient of a new RFI. No bank details are recorded here.",
+      "contactFromEfinance": "These details came from eFinance. If you change them, eFinance no longer replaces them.",
+      "contactFromEfinanceOn": "These details came from eFinance on {date}. If you change them, eFinance no longer replaces them."
     },
     "s07e": {
       "eyebrow": "CONTRACTS",
@@ -1656,7 +1689,8 @@
         "noteLabel": "Note",
         "assessedAtLabel": "Assessment date",
         "conditionLabel": "Condition",
-        "submit": "Record"
+        "submit": "Record",
+        "saved": "The physical condition has been recorded."
       },
       "childrenTitle": "Components",
       "childrenEmpty": "This asset has no recorded components.",

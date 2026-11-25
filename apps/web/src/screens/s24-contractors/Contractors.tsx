@@ -70,6 +70,22 @@ export function Contractors({
       cell: (row) => t(`contractorCategories.${row.category}`),
     },
     { id: "sapVendorId", headerKey: "screens.s24.columns.sapVendorId", accessor: (row) => row.sapVendorId ?? "" },
+    // Owner UAT 25/11/2026: who to write to.
+    {
+      id: "contact",
+      headerKey: "screens.s24.columns.contact",
+      accessor: (row) => row.contactName ?? row.contactEmail ?? "",
+      cell: (row) =>
+        row.contactName || row.contactEmail || row.contactPhone ? (
+          <span className="block">
+            {row.contactName && <span className="block text-k-ink">{row.contactName}</span>}
+            {row.contactEmail && <span className="block text-k-text">{row.contactEmail}</span>}
+            {row.contactPhone && <span className="num block text-k-text">{row.contactPhone}</span>}
+          </span>
+        ) : (
+          t("common.notAvailable")
+        ),
+    },
     {
       id: "status",
       headerKey: "screens.s24.columns.status",

@@ -11,24 +11,35 @@
  *   25/11/2026) the recipient, their e-mail and the day it was sent. RULE:
  *   eCapital sends no e-mail — the engineer sends the RFI from Outlook and
  *   records it here. The recipient is required; the sent day, when given, is
- *   today (not after today, not before the day it is raised).
+ *   today (not after today, not before the day it is raised). The recipient
+ *   and the e-mail start from the contractor's contact (`recipientDefaults`,
+ *   owner UAT 25/11/2026) and stay editable; nothing typed here goes back to
+ *   the contractor.
  * - an existing RFI → the **read view**: number, question, recipient and
  *   e-mail, the day it was sent, who raised it and when, the due date,
  *   status, the answer with who gave it and when, and the correspondence
  *   filed against it (sent e-mail, reply) with «Προβολή» / «Λήψη» links
  *   (`documentViewHref` / `documentContentHref`, the S17 pattern). Writers
  *   attach more files while online (`onUpload`).
- * - `OPEN` → also an **answer form** when the caller may write (`canWrite`) —
- *   RULE (ADR-0017): the answerer may be the raiser; there is no segregation
- *   rule here the way there is for a variation's decision.
- * - «Επεξεργασία» (writers, while not `CLOSED`, and only when `onUpdate` is
- *   wired) → the **edit form**: question, due date, recipient, e-mail and
- *   sent day. RULE (owner, UAT 25/11/2026): the due date and the sent day are
- *   not before the day it was raised, and the sent day is not after today,
- *   said under the field before the API says it again.
- * - «Ολοκλήρωση» only appears on `ANSWERED`, behind a `ConfirmDialog` — RULE
- *   (ADR-0017): an RFI closes after it is answered and not before, and a
- *   breach never blocks this either way.
+ * - the read view's actions, for a caller who may write (`canWrite`), owner
+ *   UAT 25/11/2026 («there is no button to close it»):
+ *   - «Επεξεργασία» (while not `CLOSED`, and only when `onUpdate` is wired)
+ *     → the **edit form**: question, due date, recipient, e-mail and sent
+ *     day. RULE: the due date and the sent day are not before the day it was
+ *     raised, and the sent day is not after today.
+ *   - «Απάντηση» (while `OPEN`) → the **answer form**: the answer and the day
+ *     it arrived, today unless changed, not after today and not before the
+ *     day it was raised. RULE (ADR-0017): the answerer may be the raiser.
+ *   - «Κλείσιμο αιτήματος» (while not `CLOSED`) → the **close form**: a
+ *     closing note, optional on an answered RFI and required on an
+ *     unanswered one. RULE (owner, UAT 25/11/2026): an RFI closes with or
+ *     without an answer. A breach never blocks any of the three.
+ *   The button is «Κλείσιμο αιτήματος» and not «Κλείσιμο» because the
+ *   sheet's own ✕ is already «Κλείσιμο» to a screen reader.
+ * - `CLOSED` → the read view says who closed it, when and why, and offers
+ *   no action but the correspondence upload.
+ * - After an answer or a close the sheet stays on the RFI, back on its read
+ *   view, with a short confirmation (role=status).
  *
  * | Prop      | Type                          | Notes                                          |
  * |-----------|-------------------------------|--------------------------------------------------|
@@ -39,8 +50,9 @@
  * | apiError  | string?                       |                                                    |
  * | onClose   | () => void                    |                                                    |
  * | onCreate  | (values: RfiFormValues) => void |                                                  |
- * | onAnswer  | (answerEl: string) => void    |                                                    |
- * | onCloseRfi| () => void                    | `POST .../close`, after the `ConfirmDialog`.       |
+ * | onAnswer  | (values) => Promise<boolean> \| void | `POST .../answer`; true on success, which returns the sheet to the read view. |
+ * | onCloseRfi| (closingNote: string) => Promise<boolean> \| void | `POST .../close`; true on success, likewise. |
+ * | recipientDefaults | { name, email }? | The contract's contractor's contact, prefilled on the new form. |
  * | onUpdate  | (values) => Promise<boolean>? | `PATCH .../rfis/:rid`; true on success, which returns the sheet to the read view. |
  * | documents | RfiDocument[]?                | `GET .../rfis/:rid/documents`; absent while loading. |
  * | onUpload  | (file, titleEl) => Promise<boolean>? | `POST .../rfis/:rid/documents` (multipart). Omitted (or offline), no upload form. |
@@ -53,16 +65,17 @@ import { useForm, type UseFormRegisterReturn } from "react-hook-form";
 import { useTranslations } from "next-intl";
 import { LoaderCircle, X } from "lucide-react";
 import { nicosiaDateOf, type Rfi, type RfiDocument } from "@ecapital/shared";
-import { ConfirmDialog } from "@/components/confirm-dialog";
 import { documentContentHref, documentViewHref } from "@/data/queries";
 import { zodResolver } from "@/lib/zod-resolver";
 import { formatDate } from "@/lib/format";
 import {
-  RfiAnswerFormSchema,
   evidenceTitleError,
+  rfiAnswerFormSchema,
+  closingNoteError,
   rfiEditFormSchema,
   rfiFormSchema,
   type RfiAnswerFormValues,
+  type RfiCloseFormValues,
   type RfiEditFormValues,
   type RfiFormValues,
 } from "./schema";
@@ -75,9 +88,11 @@ export interface RfiSheetProps {
   apiError?: string;
   onClose: () => void;
   onCreate: (values: RfiFormValues) => void;
-  onAnswer: (answerEl: string) => void;
-  onCloseRfi: () => void;
+  onAnswer: (values: RfiAnswerFormValues) => Promise<boolean> | void;
+  onCloseRfi: (closingNote: string) => Promise<boolean> | void;
   onUpdate?: (values: RfiEditFormValues) => Promise<boolean>;
+  /** Owner UAT 25/11/2026: the contractor's contact, the new form's starting recipient. */
+  recipientDefaults?: { name: string; email: string };
   documents?: RfiDocument[];
   onUpload?: (file: File, titleEl: string) => Promise<boolean>;
   uploading?: boolean;
@@ -142,10 +157,11 @@ export function RfiSheet({
   uploading = false,
   uploadError,
   today = nicosiaDateOf(new Date()),
+  recipientDefaults,
 }: RfiSheetProps) {
   const t = useTranslations();
-  const [confirmCloseOpen, setConfirmCloseOpen] = useState(false);
-  const [editing, setEditing] = useState(false);
+  const [mode, setMode] = useState<"read" | "edit" | "answer" | "close">("read");
+  const [notice, setNotice] = useState<string | undefined>(undefined);
   const [uploadOpen, setUploadOpen] = useState(false);
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploadTitle, setUploadTitle] = useState("");
@@ -154,12 +170,19 @@ export function RfiSheet({
 
   const createForm = useForm<RfiFormValues>({
     resolver: zodResolver<RfiFormValues>(rfiFormSchema(today)),
-    defaultValues: { questionEl: "", slaDays: 7, recipientName: "", recipientEmail: "", sentOn: "" },
+    defaultValues: {
+      questionEl: "",
+      slaDays: 7,
+      recipientName: recipientDefaults?.name ?? "",
+      recipientEmail: recipientDefaults?.email ?? "",
+      sentOn: "",
+    },
   });
   const answerForm = useForm<RfiAnswerFormValues>({
-    resolver: zodResolver<RfiAnswerFormValues>(RfiAnswerFormSchema),
-    defaultValues: { answerEl: "" },
+    resolver: zodResolver<RfiAnswerFormValues>(rfiAnswerFormSchema(raisedOn, today)),
+    defaultValues: { answerEl: "", answeredOn: today },
   });
+  const closeForm = useForm<RfiCloseFormValues>({ defaultValues: { closingNote: "" } });
   const editForm = useForm<RfiEditFormValues>({
     // An RFI from before the recipient existed can be corrected without one.
     resolver: zodResolver<RfiEditFormValues>(rfiEditFormSchema(raisedOn, today, !!rfi?.recipientName)),
@@ -212,6 +235,9 @@ export function RfiSheet({
             minSentOn={today}
             maxSentOn={today}
           />
+          {recipientDefaults && (recipientDefaults.name || recipientDefaults.email) && (
+            <p className="text-fs-14 text-k-text">{t("screens.s07b.recipientFromContractor")}</p>
+          )}
           {apiError && (
             <p role="alert" className="rounded-k border border-k-red bg-k-white p-s-3 text-fs-14 text-k-red">
               {apiError}
@@ -231,16 +257,18 @@ export function RfiSheet({
   }
 
   const canEdit = canWrite && !!onUpdate && rfi.status !== "CLOSED";
+  const canAnswer = canWrite && rfi.status === "OPEN";
+  const canCloseRfi = canWrite && rfi.status !== "CLOSED";
 
   // ----------------------------------------------------------------- edit --
-  if (editing && canEdit) {
+  if (mode === "edit" && canEdit) {
     const errors = editForm.formState.errors;
     return (
       <SheetShell title={t("screens.s07b.editTitle", { number: rfi.number })} onClose={onClose}>
         <form
           noValidate
           onSubmit={editForm.handleSubmit(async (values) => {
-            if (await onUpdate(values)) setEditing(false);
+            if (await onUpdate(values)) setMode("read");
           })}
           className="flex flex-col gap-s-4"
         >
@@ -296,7 +324,132 @@ export function RfiSheet({
               {saving && <LoaderCircle size={20} strokeWidth={1.5} aria-hidden="true" className="animate-spin" />}
               {t("buttons.save")}
             </button>
-            <button type="button" onClick={() => setEditing(false)} disabled={saving} className="h-11 rounded-k px-s-5 text-fs-14 text-k-text disabled:opacity-60">
+            <button type="button" onClick={() => setMode("read")} disabled={saving} className="h-11 rounded-k px-s-5 text-fs-14 text-k-text disabled:opacity-60">
+              {t("buttons.cancel")}
+            </button>
+          </div>
+        </form>
+      </SheetShell>
+    );
+  }
+
+  // --------------------------------------------------------------- answer --
+  if (mode === "answer" && canAnswer) {
+    const errors = answerForm.formState.errors;
+    return (
+      <SheetShell title={t("screens.s07b.answerTitle", { number: rfi.number })} onClose={onClose}>
+        <p className="mb-s-4 whitespace-pre-line text-fs-14 text-k-ink">{rfi.questionEl}</p>
+        <form
+          noValidate
+          onSubmit={answerForm.handleSubmit(async (values) => {
+            if (await onAnswer(values)) {
+              setNotice(t("screens.s07b.answerSaved"));
+              setMode("read");
+            }
+          })}
+          className="flex flex-col gap-s-4"
+        >
+          <div className="flex flex-col gap-s-1">
+            <label htmlFor="rfi-answer" className="text-fs-14 text-k-text">
+              {t("screens.s07b.fields.answer")}
+            </label>
+            <textarea
+              id="rfi-answer"
+              rows={5}
+              {...answerForm.register("answerEl")}
+              aria-invalid={errors.answerEl ? "true" : undefined}
+              className="rounded-k border border-k-grey p-s-3 text-fs-14 text-k-ink"
+            />
+            <FieldError message={errors.answerEl?.message} />
+          </div>
+          <div className="flex flex-col gap-s-1">
+            <label htmlFor="rfi-answered-on" className="text-fs-14 text-k-text">
+              {t("screens.s07b.fields.answeredOn")}
+            </label>
+            <input
+              id="rfi-answered-on"
+              type="date"
+              min={raisedOn}
+              max={today}
+              {...answerForm.register("answeredOn")}
+              aria-invalid={errors.answeredOn ? "true" : undefined}
+              className={`num w-[200px] ${INPUT}`}
+            />
+            <p className="text-fs-14 text-k-text">{t("screens.s07b.fields.answeredOnHint")}</p>
+            <FieldError message={errors.answeredOn?.message} />
+          </div>
+          {apiError && (
+            <p role="alert" className="rounded-k border border-k-red bg-k-white p-s-3 text-fs-14 text-k-red">
+              {apiError}
+            </p>
+          )}
+          <div className="mt-s-2 flex items-center gap-s-3">
+            <button
+              type="submit"
+              disabled={saving}
+              className="flex h-11 items-center justify-center gap-s-2 rounded-k bg-k-blue px-s-5 text-fs-14 font-bold text-k-white shadow-k disabled:opacity-60"
+            >
+              {saving && <LoaderCircle size={20} strokeWidth={1.5} aria-hidden="true" className="animate-spin" />}
+              {t("buttons.save")}
+            </button>
+            <button type="button" onClick={() => setMode("read")} disabled={saving} className="h-11 rounded-k px-s-5 text-fs-14 text-k-text disabled:opacity-60">
+              {t("buttons.cancel")}
+            </button>
+          </div>
+        </form>
+      </SheetShell>
+    );
+  }
+
+  // ---------------------------------------------------------------- close --
+  if (mode === "close" && canCloseRfi) {
+    const errors = closeForm.formState.errors;
+    const answered = !!rfi.answerEl;
+    return (
+      <SheetShell title={t("screens.s07b.closeTitle", { number: rfi.number })} onClose={onClose}>
+        <p className="mb-s-4 text-fs-14 text-k-text">
+          {answered ? t("screens.s07b.closeConsequence") : t("screens.s07b.closeConsequenceUnanswered")}
+        </p>
+        <form
+          noValidate
+          onSubmit={closeForm.handleSubmit(async (values) => {
+            if (await onCloseRfi(values.closingNote.trim())) {
+              setNotice(t("screens.s07b.closeSaved"));
+              setMode("read");
+            }
+          })}
+          className="flex flex-col gap-s-4"
+        >
+          <div className="flex flex-col gap-s-1">
+            <label htmlFor="rfi-closing-note" className="text-fs-14 text-k-text">
+              {answered ? t("screens.s07b.fields.closingNoteOptional") : t("screens.s07b.fields.closingNote")}
+            </label>
+            <textarea
+              id="rfi-closing-note"
+              rows={4}
+              {...closeForm.register("closingNote", {
+                validate: (value) => closingNoteError(value, answered) ?? true,
+              })}
+              aria-invalid={errors.closingNote ? "true" : undefined}
+              className="rounded-k border border-k-grey p-s-3 text-fs-14 text-k-ink"
+            />
+            <FieldError message={errors.closingNote?.message} />
+          </div>
+          {apiError && (
+            <p role="alert" className="rounded-k border border-k-red bg-k-white p-s-3 text-fs-14 text-k-red">
+              {apiError}
+            </p>
+          )}
+          <div className="mt-s-2 flex items-center gap-s-3">
+            <button
+              type="submit"
+              disabled={saving}
+              className="flex h-11 items-center justify-center gap-s-2 rounded-k bg-k-blue px-s-5 text-fs-14 font-bold text-k-white shadow-k disabled:opacity-60"
+            >
+              {saving && <LoaderCircle size={20} strokeWidth={1.5} aria-hidden="true" className="animate-spin" />}
+              {t("screens.s07b.closeAction")}
+            </button>
+            <button type="button" onClick={() => setMode("read")} disabled={saving} className="h-11 rounded-k px-s-5 text-fs-14 text-k-text disabled:opacity-60">
               {t("buttons.cancel")}
             </button>
           </div>
@@ -307,7 +460,6 @@ export function RfiSheet({
 
   // ------------------------------------------------------------ read view --
   const title = t("screens.s07b.sheetTitle", { number: rfi.number });
-  const answerErrors = answerForm.formState.errors;
   const notRecorded = <span className="text-k-text">{t("screens.s07b.notRecorded")}</span>;
 
   async function submitUpload() {
@@ -359,86 +511,99 @@ export function RfiSheet({
           <dd className="text-k-ink">{t(`rfiStatus.${rfi.status}`)}</dd>
         </div>
 
-        {rfi.status === "OPEN" ? (
-          canWrite ? (
-            <form onSubmit={answerForm.handleSubmit((values) => onAnswer(values.answerEl))} className="grid gap-s-2">
-              <label htmlFor="rfi-answer" className="text-fs-14 text-k-text">
-                {t("screens.s07b.fields.answer")}
-              </label>
-              <textarea
-                id="rfi-answer"
-                rows={4}
-                {...answerForm.register("answerEl")}
-                aria-invalid={answerErrors.answerEl ? "true" : undefined}
-                className="rounded-k border border-k-grey p-s-3 text-fs-14 text-k-ink"
-              />
-              <FieldError message={answerErrors.answerEl?.message} />
-              {apiError && (
-                <p role="alert" className="rounded-k border border-k-red bg-k-white p-s-3 text-fs-14 text-k-red">
-                  {apiError}
+        <div>
+          <dt className="text-k-text">{t("screens.s07b.fields.answer")}</dt>
+          {rfi.answerEl ? (
+            <>
+              <dd className="whitespace-pre-line text-k-ink">{rfi.answerEl}</dd>
+              {rfi.answeredAt && (
+                <p className="num mt-s-1 text-fs-14 text-k-text">
+                  {rfi.answeredByName} · {formatDate(rfi.answeredOn ?? rfi.answeredAt)}
                 </p>
               )}
-              <button
-                type="submit"
-                disabled={saving}
-                className="flex h-11 w-fit items-center justify-center gap-s-2 rounded-k bg-k-blue px-s-5 text-fs-14 font-bold text-k-white shadow-k disabled:opacity-60"
-              >
-                {saving && <LoaderCircle size={20} strokeWidth={1.5} aria-hidden="true" className="animate-spin" />}
-                {t("buttons.save")}
-              </button>
-            </form>
+            </>
           ) : (
-            <div>
-              <dt className="text-k-text">{t("screens.s07b.fields.answer")}</dt>
-              <dd className="text-k-text">{t("screens.s07b.noAnswerYet")}</dd>
-            </div>
-          )
-        ) : (
+            <dd className="text-k-text">{t("screens.s07b.noAnswerYet")}</dd>
+          )}
+        </div>
+
+        {/* Owner UAT 25/11/2026: who closed it, when, and why. */}
+        {rfi.status === "CLOSED" && (
           <div>
-            <dt className="text-k-text">{t("screens.s07b.fields.answer")}</dt>
-            <dd className="whitespace-pre-line text-k-ink">{rfi.answerEl}</dd>
-            {rfi.answeredAt && (
-              <p className="num mt-s-1 text-fs-12 text-k-text-muted">
-                {rfi.answeredByName} · {formatDate(rfi.answeredAt)}
-              </p>
-            )}
+            <dt className="text-k-text">{t("screens.s07b.fields.closed")}</dt>
+            <dd className="text-k-ink">
+              {rfi.closedByName ?? notRecorded}
+              {rfi.closedAt && (
+                <>
+                  {" · "}
+                  <span className="num">{formatDate(rfi.closedAt)}</span>
+                </>
+              )}
+            </dd>
+            {rfi.closingNote && <dd className="mt-s-1 whitespace-pre-line text-k-ink">{rfi.closingNote}</dd>}
           </div>
         )}
       </dl>
 
-      <div className="mt-s-4 flex flex-wrap items-center gap-s-3">
-        {canEdit && (
-          <button
-            type="button"
-            onClick={() => {
-              editForm.reset(editValuesOf(rfi));
-              setEditing(true);
-            }}
-            disabled={saving}
-            className="h-11 rounded-k border border-k-grey px-s-5 text-fs-14 font-bold text-k-blue-deep disabled:opacity-60"
-          >
-            {t("buttons.edit")}
-          </button>
-        )}
-        {/* RULE (ADR-0017): closes after it is answered and not before — the
-            button only appears on ANSWERED, never on OPEN or CLOSED. Breach is
-            a state, never a block: a BREACHED-when-answered RFI closes exactly
-            the same way as one that came in on time. */}
-        {rfi.status === "ANSWERED" && canWrite && (
-          <button
-            type="button"
-            onClick={() => setConfirmCloseOpen(true)}
-            disabled={saving}
-            className="h-11 rounded-k border border-k-grey px-s-5 text-fs-14 font-bold text-k-text disabled:opacity-60"
-          >
-            {t("buttons.complete")}
-          </button>
-        )}
-      </div>
+      {notice && (
+        <p role="status" className="mt-s-4 rounded-k border border-k-grey bg-k-surface p-s-3 text-fs-14 text-k-ink">
+          {notice}
+        </p>
+      )}
+
+      {(canEdit || canAnswer || canCloseRfi) && (
+        <div className="mt-s-4 flex flex-wrap items-center gap-s-3">
+          {canAnswer && (
+            <button
+              type="button"
+              onClick={() => {
+                answerForm.reset({ answerEl: "", answeredOn: today });
+                setNotice(undefined);
+                setMode("answer");
+              }}
+              disabled={saving}
+              className="h-11 rounded-k bg-k-blue px-s-5 text-fs-14 font-bold text-k-white shadow-k disabled:opacity-60"
+            >
+              {t("screens.s07b.answerAction")}
+            </button>
+          )}
+          {canEdit && (
+            <button
+              type="button"
+              onClick={() => {
+                editForm.reset(editValuesOf(rfi));
+                setNotice(undefined);
+                setMode("edit");
+              }}
+              disabled={saving}
+              className="h-11 rounded-k border border-k-grey px-s-5 text-fs-14 font-bold text-k-blue-deep disabled:opacity-60"
+            >
+              {t("buttons.edit")}
+            </button>
+          )}
+          {/* RULE (owner, UAT 25/11/2026): open or answered, an RFI can be
+              closed; without an answer the close form asks why. Breach is a
+              state, never a block. */}
+          {canCloseRfi && (
+            <button
+              type="button"
+              onClick={() => {
+                closeForm.reset({ closingNote: "" });
+                setNotice(undefined);
+                setMode("close");
+              }}
+              disabled={saving}
+              className="h-11 rounded-k border border-k-grey px-s-5 text-fs-14 font-bold text-k-text disabled:opacity-60"
+            >
+              {t("screens.s07b.closeAction")}
+            </button>
+          )}
+        </div>
+      )}
 
       {rfi.status === "CLOSED" && canWrite && <p className="mt-s-4 text-fs-14 text-k-text">{t("screens.s07b.closedNoEdit")}</p>}
 
-      {apiError && rfi.status !== "OPEN" && (
+      {apiError && (
         <p role="alert" className="mt-s-4 rounded-k border border-k-red bg-k-white p-s-3 text-fs-14 text-k-red">
           {apiError}
         </p>
@@ -552,17 +717,6 @@ export function RfiSheet({
         )}
       </section>
 
-      <ConfirmDialog
-        open={confirmCloseOpen}
-        title={t("screens.s07b.closeConfirmTitle")}
-        consequence={t("screens.s07b.closeConfirmConsequence")}
-        destructiveLabel={t("buttons.complete")}
-        onCancel={() => setConfirmCloseOpen(false)}
-        onConfirm={() => {
-          setConfirmCloseOpen(false);
-          onCloseRfi();
-        }}
-      />
     </SheetShell>
   );
 }

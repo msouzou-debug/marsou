@@ -9,6 +9,18 @@ import { ContractorUpdate } from "./contractor-write";
 import { ContractorsService } from "./contractors.service";
 
 /**
+ * The sentence a refused contractor body gets: a bad contact (owner, UAT
+ * 25/11/2026) has its own, anything else is the general one.
+ */
+function bodyError(error: z.ZodError): AppError {
+  const field = error.issues[0]?.path[0];
+  if (field === "contactName" || field === "contactEmail" || field === "contactPhone") {
+    return AppError.badRequest("errors.contractorContactNotValid");
+  }
+  return AppError.badRequest("errors.contractorNotValid");
+}
+
+/**
  * M1 — the supplier register (R08). Shared across the eleven units: a
  * contractor is a company, not a hospital's property, so there is no unit
  * filter here and every signed-in user reads the list.
@@ -36,28 +48,31 @@ export class ContractorsController {
   @ApiOperation({ summary: "Add a contractor to the register" })
   @ApiBody({ schema: jsonSchema(ContractorCreate) as never })
   @ApiZodResponse(201, Contractor, "The contractor as stored, not blacklisted")
-  @ApiZodError(400, "The body is not a valid contractor")
+  @ApiZodError(400, "The body is not a valid contractor, or its contact e-mail or telephone is not valid")
   @ApiZodError(403, "A read-only account, or a role that does not keep the register")
   @ApiZodError(422, "Another contractor already has that name")
   create(@Body() body: unknown): Promise<Contractor> {
     const parsed = ContractorCreate.safeParse(body);
-    if (!parsed.success) throw AppError.badRequest("errors.contractorNotValid");
+    if (!parsed.success) throw bodyError(parsed.error);
     return this.contractors.create(parsed.data);
   }
 
   /** RULE (R08): `blacklisted` is an administrator's field; see the service. */
   @Patch(":id")
-  @ApiOperation({ summary: "Change a contractor; only an administrator may blacklist one" })
+  @ApiOperation({
+    summary:
+      "Change a contractor; only an administrator may blacklist one. A changed contact becomes MANUAL and the eFinance sync leaves it alone",
+  })
   @ApiParam({ name: "id", schema: { type: "string", format: "uuid" } })
   @ApiBody({ schema: jsonSchema(ContractorUpdate) as never })
   @ApiZodResponse(200, Contractor, "The contractor after the change")
-  @ApiZodError(400, "The body is not a valid change")
+  @ApiZodError(400, "The body is not a valid change, or the contact e-mail or telephone is not valid")
   @ApiZodError(403, "A read-only account, or an attempt to blacklist without being an administrator")
   @ApiZodError(404, "No such contractor")
   @ApiZodError(422, "Another contractor already has that name")
   update(@Param("id") id: string, @Body() body: unknown): Promise<Contractor> {
     const parsed = ContractorUpdate.safeParse(body);
-    if (!parsed.success) throw AppError.badRequest("errors.contractorNotValid");
+    if (!parsed.success) throw bodyError(parsed.error);
     return this.contractors.update(id, sentKeysOnly(parsed.data, body));
   }
 }

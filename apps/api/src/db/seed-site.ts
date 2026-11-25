@@ -199,6 +199,11 @@ async function upsertRfi(
     slaDueAt: new Date(raisedAt.getTime() + slaHours * HOUR_MS),
     slaHours,
     status: fixture.status,
+    // 0032: who closed it and when. The seed's closed RFIs are answered, so
+    // they carry no closing note.
+    closedBy: fixture.status === "CLOSED" ? author : null,
+    closedAt: fixture.status === "CLOSED" ? (answeredAt ?? new Date(now)) : null,
+    closingNote: null,
     updatedAt: sql`now()`,
   };
 

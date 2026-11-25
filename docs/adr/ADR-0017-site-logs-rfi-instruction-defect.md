@@ -30,6 +30,8 @@ CAPEX-01 §1 describes the RFI as a question put to the ΟΚΥπΥ side: the con
 
 The one state rule is that an RFI is **closed after it is answered and not before** — closing is what says the answer was good enough, so there has to be one. It is a service rule (`errors.rfiNotAnswered`, 422) and a CHECK constraint, `rfi_answered_before_closed`, for the reason ADR-0015 gives.
 
+**Superseded by the owner, UAT 25/11/2026 (migration 0032).** An RFI may be closed with or without an answer: a question can stop mattering — settled on site, overtaken by a revised drawing — and an RFI waiting for an answer nobody will send stayed open for ever. What closes an unanswered RFI is a reason: the closing note is optional on an answered RFI and required on an unanswered one (`errors.rfiCloseNoteNeeded`, 422; CHECK `rfi_closed_answer_or_note`, which replaces `rfi_answered_before_closed`). Who closed it and when are recorded (`closed_by`, `closed_at`), and the answer carries the day it arrived (`answered_on`, not before the day the RFI was raised, not after today). The SLA clock stops at the end of that day, or at the close for an RFI closed unanswered.
+
 ### A cost-impact instruction becomes a variation, once
 
 CAPEX-01 §4 carries `cost_impact_flag` on `site_instruction` and nothing that says what happens next. The answer is that it becomes a variation, because otherwise the works grow and the commitment does not (CAPEX-01 §7).

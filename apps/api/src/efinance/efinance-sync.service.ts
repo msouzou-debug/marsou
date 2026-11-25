@@ -45,6 +45,8 @@ import {
   projectedLines,
   spendJson,
   toNumber,
+  vendorEmail,
+  vendorPhone,
 } from "./efinance-rows";
 
 export const SYNC_INTERVAL_MS = 15 * 60_000;
@@ -453,6 +455,10 @@ export class EFinanceSyncService {
           blocked: vendor.blocked,
           active: vendor.active,
           sapBatch: vendor.sap_batch ?? null,
+          // An address that is not one, or a telephone that is not one, is
+          // left out rather than failing the batch (efinance-rows).
+          email: vendorEmail(vendor.email),
+          phone: vendorPhone(vendor.phone),
           syncedAt: ranAt,
         }));
         // The same code twice in one answer would make the upsert touch a row
@@ -469,11 +475,14 @@ export class EFinanceSyncService {
               blocked: sql`excluded.blocked`,
               active: sql`excluded.active`,
               sapBatch: sql`excluded.sap_batch`,
+              email: sql`excluded.email`,
+              phone: sql`excluded.phone`,
               syncedAt: sql`excluded.synced_at`,
             },
           });
         vendorsUpserted += unique.length;
       }
+      await this.fillContractorContacts(ranAt);
       // Latest SAP batch only (record §3): a vendor eFinance no longer lists
       // is marked inactive, never deleted.
       const gone = await db
@@ -504,6 +513,36 @@ export class EFinanceSyncService {
       error: null,
       ranAt: ranAt.toISOString(),
     };
+  }
+
+  /**
+   * Owner UAT 25/11/2026: a contractor linked to an eFinance vendor
+   * (`sap_vendor_id` = `vendor_code`) gets the vendor's e-mail and telephone
+   * as its contact, once eFinance sends them.
+   *
+   * RULE: only where the contractor's contact is empty, or was filled by
+   * eFinance before (`contact_source` 'EFINANCE'). A contact a user typed
+   * ('MANUAL', with anything in it) is never overwritten. A vendor that
+   * sends neither field changes nothing; one that sends one keeps the other
+   * as it was. A row that would not change is not touched, so the audit
+   * trail does not gain a line a day per contractor.
+   */
+  private async fillContractorContacts(ranAt: Date): Promise<void> {
+    await this.db().execute(sql`
+      update ecapital.contractor c
+         set contact_email = coalesce(v.email, c.contact_email),
+             contact_phone = coalesce(v.phone, c.contact_phone),
+             contact_source = 'EFINANCE',
+             contact_synced_at = ${ranAt.toISOString()}::timestamptz,
+             updated_at = now()
+        from ecapital.efinance_vendor v
+       where v.vendor_code = c.sap_vendor_id
+         and (v.email is not null or v.phone is not null)
+         and (c.contact_source = 'EFINANCE'
+              or (c.contact_name is null and c.contact_email is null and c.contact_phone is null))
+         and (c.contact_source <> 'EFINANCE'
+              or c.contact_email is distinct from coalesce(v.email, c.contact_email)
+              or c.contact_phone is distinct from coalesce(v.phone, c.contact_phone))`);
   }
 
   private async masterDue(): Promise<boolean> {

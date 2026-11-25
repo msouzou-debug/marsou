@@ -2,7 +2,7 @@
 // figures for a fake contract, per CAPEX-01 §15. Dates are relative to `now`
 // (an injectable `Date`) so the SLA band is a live fact about the fixture's
 // own clock, the same reasoning `seedRfisEveryContract` gives in the API.
-import type { Rfi } from "@ecapital/shared";
+import { nicosiaDateOf, type Rfi } from "@ecapital/shared";
 
 const HOUR = 3_600_000;
 
@@ -70,6 +70,12 @@ export function buildRfis(now: Date = new Date("2026-09-19T09:00:00.000Z")): Rfi
       recipientName: "Δοκιμαστική Εργοληπτική Λτδ",
       recipientEmail: null,
       sentOn: "2026-08-21",
+      // Owner UAT 25/11/2026: the day the answer arrived, and the close.
+      answeredOn: nicosiaDateOf(new Date(now.getTime() - 26 * 24 * HOUR)),
+      closedById: "user-engineer",
+      closedByName: "Ελένη Χριστοδούλου",
+      closedAt: new Date(now.getTime() - 25 * 24 * HOUR).toISOString(),
+      closingNote: "Η στάθμη εφαρμόστηκε στο εργοτάξιο.",
     },
   ];
 }

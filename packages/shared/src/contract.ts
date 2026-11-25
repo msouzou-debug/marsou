@@ -20,6 +20,26 @@ export const ContractorCategory = z.enum([
 ]);
 export type ContractorCategory = z.infer<typeof ContractorCategory>;
 
+// Owner UAT 25/11/2026 (migration 0032): who to write to at a contractor.
+// MANUAL — typed by a user; EFINANCE — filled from the eFinance vendor
+// master (SAP address data). RULE: the sync fills a contact only where it is
+// empty or came from eFinance before; a MANUAL contact is never overwritten.
+// SECURITY: a contact is a person, an e-mail and a telephone — never bank
+// details, which eCapital does not hold.
+export const ContactSource = z.enum(["MANUAL", "EFINANCE"]);
+export type ContactSource = z.infer<typeof ContactSource>;
+
+export const CONTACT_NAME_MAX = 200;
+export const CONTACT_EMAIL_MAX = 254;
+// Digits, spaces, +, -, ., /, brackets; 3 to 40 characters with at least one
+// digit. The same rule as the CHECK in 0032.
+export const CONTACT_PHONE_PATTERN = /^(?=.*[0-9])[0-9+()./ -]{3,40}$/;
+
+/** A telephone as people write it, or false. Used by the form, the API and the sync. */
+export function isContactPhone(value: string): boolean {
+  return CONTACT_PHONE_PATTERN.test(value.trim());
+}
+
 export const Contractor = z.object({
   id: z.string(),
   name: z.string(),
@@ -30,8 +50,20 @@ export const Contractor = z.object({
   // RULE: a blacklisted contractor cannot be given a new contract; existing
   // contracts continue. The API refuses with errors.contractorBlacklisted.
   blacklisted: z.boolean(),
+  // 0032. Optional for the fixture reason `ContractDetail` gives: screens
+  // and fixtures written before the contact existed do not carry it. The API
+  // always sends all five.
+  contactName: z.string().nullable().optional(),
+  contactEmail: z.string().nullable().optional(),
+  contactPhone: z.string().nullable().optional(),
+  contactSource: ContactSource.optional(),
+  contactSyncedAt: z.string().nullable().optional(),
 });
 export type Contractor = z.infer<typeof Contractor>;
+
+const ContactName = z.string().trim().min(1).max(CONTACT_NAME_MAX);
+const ContactEmail = z.string().trim().max(CONTACT_EMAIL_MAX).email();
+const ContactPhone = z.string().trim().refine(isContactPhone);
 
 export const ContractType = z.enum(["LUMP_SUM", "BOQ", "FRAMEWORK", "MEASURE_TERM", "SUPPLY", "SERVICE"]);
 export type ContractType = z.infer<typeof ContractType>;
@@ -412,7 +444,21 @@ export const ContractList = z.object({
 export type ContractList = z.infer<typeof ContractList>;
 
 // Writes
-export const ContractorCreate = Contractor.omit({ id: true, blacklisted: true });
+// The contact is optional on a create and typed by the user (MANUAL); the
+// source and the sync time are the API's, never the caller's.
+export const ContractorCreate = Contractor.omit({
+  id: true,
+  blacklisted: true,
+  contactName: true,
+  contactEmail: true,
+  contactPhone: true,
+  contactSource: true,
+  contactSyncedAt: true,
+}).extend({
+  contactName: ContactName.nullable().optional(),
+  contactEmail: ContactEmail.nullable().optional(),
+  contactPhone: ContactPhone.nullable().optional(),
+});
 export type ContractorCreate = z.infer<typeof ContractorCreate>;
 
 export const ContractCreate = Contract.pick({

@@ -27326,6 +27326,37 @@
                       },
                       "blacklisted": {
                         "type": "boolean"
+                      },
+                      "contactName": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "contactEmail": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "contactPhone": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "contactSource": {
+                        "type": "string",
+                        "enum": [
+                          "MANUAL",
+                          "EFINANCE"
+                        ]
+                      },
+                      "contactSyncedAt": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
                       }
                     },
                     "required": [
@@ -27439,6 +27470,37 @@
                       "string",
                       "null"
                     ]
+                  },
+                  "contactName": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 200
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "contactEmail": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 254,
+                        "format": "email",
+                        "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "contactPhone": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   }
                 },
                 "required": [
@@ -27499,6 +27561,37 @@
                     },
                     "blacklisted": {
                       "type": "boolean"
+                    },
+                    "contactName": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "contactEmail": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "contactPhone": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "contactSource": {
+                      "type": "string",
+                      "enum": [
+                        "MANUAL",
+                        "EFINANCE"
+                      ]
+                    },
+                    "contactSyncedAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     }
                   },
                   "required": [
@@ -27516,7 +27609,7 @@
             }
           },
           "400": {
-            "description": "The body is not a valid contractor",
+            "description": "The body is not a valid contractor, or its contact e-mail or telephone is not valid",
             "content": {
               "application/json": {
                 "schema": {
@@ -27687,6 +27780,37 @@
                       "null"
                     ]
                   },
+                  "contactName": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 200
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "contactEmail": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 254,
+                        "format": "email",
+                        "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "contactPhone": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
                   "blacklisted": {
                     "type": "boolean"
                   }
@@ -27742,6 +27866,37 @@
                     },
                     "blacklisted": {
                       "type": "boolean"
+                    },
+                    "contactName": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "contactEmail": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "contactPhone": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "contactSource": {
+                      "type": "string",
+                      "enum": [
+                        "MANUAL",
+                        "EFINANCE"
+                      ]
+                    },
+                    "contactSyncedAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     }
                   },
                   "required": [
@@ -27759,7 +27914,7 @@
             }
           },
           "400": {
-            "description": "The body is not a valid change",
+            "description": "The body is not a valid change, or the contact e-mail or telephone is not valid",
             "content": {
               "application/json": {
                 "schema": {
@@ -27892,7 +28047,7 @@
             "bearer": []
           }
         ],
-        "summary": "Change a contractor; only an administrator may blacklist one",
+        "summary": "Change a contractor; only an administrator may blacklist one. A changed contact becomes MANUAL and the eFinance sync leaves it alone",
         "tags": [
           "contractors"
         ]
@@ -28671,6 +28826,37 @@
                         },
                         "blacklisted": {
                           "type": "boolean"
+                        },
+                        "contactName": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "contactEmail": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "contactPhone": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "contactSource": {
+                          "type": "string",
+                          "enum": [
+                            "MANUAL",
+                            "EFINANCE"
+                          ]
+                        },
+                        "contactSyncedAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
                         }
                       },
                       "required": [
@@ -30581,6 +30767,37 @@
                         },
                         "blacklisted": {
                           "type": "boolean"
+                        },
+                        "contactName": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "contactEmail": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "contactPhone": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "contactSource": {
+                          "type": "string",
+                          "enum": [
+                            "MANUAL",
+                            "EFINANCE"
+                          ]
+                        },
+                        "contactSyncedAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
                         }
                       },
                       "required": [
@@ -32014,6 +32231,37 @@
                         },
                         "blacklisted": {
                           "type": "boolean"
+                        },
+                        "contactName": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "contactEmail": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "contactPhone": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "contactSource": {
+                          "type": "string",
+                          "enum": [
+                            "MANUAL",
+                            "EFINANCE"
+                          ]
+                        },
+                        "contactSyncedAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
                         }
                       },
                       "required": [
@@ -33966,6 +34214,37 @@
                         },
                         "blacklisted": {
                           "type": "boolean"
+                        },
+                        "contactName": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "contactEmail": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "contactPhone": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "contactSource": {
+                          "type": "string",
+                          "enum": [
+                            "MANUAL",
+                            "EFINANCE"
+                          ]
+                        },
+                        "contactSyncedAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
                         }
                       },
                       "required": [
@@ -35406,6 +35685,37 @@
                         },
                         "blacklisted": {
                           "type": "boolean"
+                        },
+                        "contactName": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "contactEmail": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "contactPhone": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "contactSource": {
+                          "type": "string",
+                          "enum": [
+                            "MANUAL",
+                            "EFINANCE"
+                          ]
+                        },
+                        "contactSyncedAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
                         }
                       },
                       "required": [
@@ -36797,6 +37107,37 @@
                         },
                         "blacklisted": {
                           "type": "boolean"
+                        },
+                        "contactName": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "contactEmail": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "contactPhone": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "contactSource": {
+                          "type": "string",
+                          "enum": [
+                            "MANUAL",
+                            "EFINANCE"
+                          ]
+                        },
+                        "contactSyncedAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
                         }
                       },
                       "required": [
@@ -38173,6 +38514,37 @@
                         },
                         "blacklisted": {
                           "type": "boolean"
+                        },
+                        "contactName": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "contactEmail": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "contactPhone": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "contactSource": {
+                          "type": "string",
+                          "enum": [
+                            "MANUAL",
+                            "EFINANCE"
+                          ]
+                        },
+                        "contactSyncedAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
                         }
                       },
                       "required": [
@@ -39566,6 +39938,37 @@
                         },
                         "blacklisted": {
                           "type": "boolean"
+                        },
+                        "contactName": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "contactEmail": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "contactPhone": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "contactSource": {
+                          "type": "string",
+                          "enum": [
+                            "MANUAL",
+                            "EFINANCE"
+                          ]
+                        },
+                        "contactSyncedAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
                         }
                       },
                       "required": [
@@ -40954,6 +41357,37 @@
                         },
                         "blacklisted": {
                           "type": "boolean"
+                        },
+                        "contactName": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "contactEmail": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "contactPhone": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "contactSource": {
+                          "type": "string",
+                          "enum": [
+                            "MANUAL",
+                            "EFINANCE"
+                          ]
+                        },
+                        "contactSyncedAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
                         }
                       },
                       "required": [
@@ -42373,6 +42807,37 @@
                         },
                         "blacklisted": {
                           "type": "boolean"
+                        },
+                        "contactName": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "contactEmail": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "contactPhone": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "contactSource": {
+                          "type": "string",
+                          "enum": [
+                            "MANUAL",
+                            "EFINANCE"
+                          ]
+                        },
+                        "contactSyncedAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
                         }
                       },
                       "required": [
@@ -43756,6 +44221,37 @@
                         },
                         "blacklisted": {
                           "type": "boolean"
+                        },
+                        "contactName": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "contactEmail": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "contactPhone": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "contactSource": {
+                          "type": "string",
+                          "enum": [
+                            "MANUAL",
+                            "EFINANCE"
+                          ]
+                        },
+                        "contactSyncedAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
                         }
                       },
                       "required": [
@@ -53730,6 +54226,36 @@
                           "string",
                           "null"
                         ]
+                      },
+                      "answeredOn": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "closedById": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "closedByName": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "closedAt": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "closingNote": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
                       }
                     },
                     "required": [
@@ -54005,6 +54531,36 @@
                       ]
                     },
                     "sentOn": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "answeredOn": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "closedById": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "closedByName": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "closedAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "closingNote": {
                       "type": [
                         "string",
                         "null"
@@ -54354,6 +54910,36 @@
                         "string",
                         "null"
                       ]
+                    },
+                    "answeredOn": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "closedById": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "closedByName": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "closedAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "closingNote": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     }
                   },
                   "required": [
@@ -54565,6 +55151,9 @@
                   "answerEl": {
                     "type": "string",
                     "minLength": 1
+                  },
+                  "answeredOn": {
+                    "type": "string"
                   }
                 },
                 "required": [
@@ -54577,7 +55166,7 @@
         },
         "responses": {
           "200": {
-            "description": "The RFI, now ANSWERED, with the answer and who gave it",
+            "description": "The RFI, now ANSWERED, with the answer, the day and who recorded it",
             "content": {
               "application/json": {
                 "schema": {
@@ -54675,6 +55264,36 @@
                         "string",
                         "null"
                       ]
+                    },
+                    "answeredOn": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "closedById": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "closedByName": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "closedAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "closingNote": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     }
                   },
                   "required": [
@@ -54704,7 +55323,7 @@
             }
           },
           "400": {
-            "description": "The body carries no answer",
+            "description": "The body carries no answer, or a day after today",
             "content": {
               "application/json": {
                 "schema": {
@@ -54800,7 +55419,7 @@
             }
           },
           "422": {
-            "description": "The RFI has already been answered",
+            "description": "The RFI has already been answered or closed, or the day is before it was raised",
             "content": {
               "application/json": {
                 "schema": {
@@ -54837,7 +55456,7 @@
             "bearer": []
           }
         ],
-        "summary": "Answer an open RFI",
+        "summary": "Answer an open RFI, with the day the answer arrived",
         "tags": [
           "site log"
         ]
@@ -54876,9 +55495,26 @@
             "description": "el or en. Greek when the header is absent."
           }
         ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "closingNote": {
+                    "type": "string",
+                    "maxLength": 4000
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
-            "description": "The RFI, now CLOSED",
+            "description": "The RFI, now CLOSED, with who closed it, when and why",
             "content": {
               "application/json": {
                 "schema": {
@@ -54976,6 +55612,36 @@
                         "string",
                         "null"
                       ]
+                    },
+                    "answeredOn": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "closedById": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "closedByName": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "closedAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "closingNote": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     }
                   },
                   "required": [
@@ -54998,6 +55664,38 @@
                     "recipientName",
                     "recipientEmail",
                     "sentOn"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A closing note over 4,000 characters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
                   ],
                   "additionalProperties": false
                 }
@@ -55069,7 +55767,7 @@
             }
           },
           "422": {
-            "description": "The RFI has not been answered yet, or is closed already",
+            "description": "The RFI is closed already, or it has no answer and no closing note",
             "content": {
               "application/json": {
                 "schema": {
@@ -55106,7 +55804,7 @@
             "bearer": []
           }
         ],
-        "summary": "Close an answered RFI",
+        "summary": "Close an RFI, answered or not, with an optional closing note",
         "tags": [
           "site log"
         ]

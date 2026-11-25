@@ -10,7 +10,8 @@ import type {
   EFinanceRawContractSpend,
   EFinanceRawInvoice,
 } from "@ecapital/shared";
-import { roundMoney } from "@ecapital/shared";
+import { CONTACT_EMAIL_MAX, isContactPhone, roundMoney } from "@ecapital/shared";
+import { z } from "zod";
 import { isoUtc, toAmount, toMoneyString } from "./efinance-client";
 
 /** What `contract.efinance_spend` holds: eFinance's own strings, and when we read them. */
@@ -237,4 +238,22 @@ export function budgetPositionOf(
 
 export function round2(value: number): number {
   return Math.round(value * 100) / 100;
+}
+
+/**
+ * Owner UAT 25/11/2026: a vendor's e-mail as eFinance may one day send it,
+ * or null. Trimmed and lower-cased; anything that is not an address — a
+ * name, two addresses with a semicolon — is null rather than a batch that
+ * fails the contractor CHECK (0032).
+ */
+export function vendorEmail(value: string | null | undefined): string | null {
+  const trimmed = value?.trim().toLowerCase();
+  if (!trimmed || trimmed.length > CONTACT_EMAIL_MAX) return null;
+  return z.email().safeParse(trimmed).success ? trimmed : null;
+}
+
+/** The same for a telephone: kept as written when it reads as one, else null. */
+export function vendorPhone(value: string | null | undefined): string | null {
+  const trimmed = value?.trim().replace(/\s+/g, " ");
+  return trimmed && isContactPhone(trimmed) ? trimmed : null;
 }

@@ -75,6 +75,8 @@ export interface AssetDetailProps {
   onConditionFormChange: (next: ConditionFormValue) => void;
   conditionSaving: boolean;
   conditionError?: string;
+  /** Owner UAT 25/11/2026: the last condition was saved; a short confirmation shows. */
+  conditionSaved?: boolean;
   onSubmitCondition: () => void;
 
   readingForm: ReadingFormValue;
@@ -128,6 +130,7 @@ export function AssetDetail(props: AssetDetailProps) {
     onConditionFormChange,
     conditionSaving,
     conditionError,
+    conditionSaved = false,
     onSubmitCondition,
     readingForm,
     onReadingFormChange,
@@ -337,6 +340,13 @@ export function AssetDetail(props: AssetDetailProps) {
                   </label>
                 </div>
                 {conditionError && <p role="alert" className="text-fs-14 text-k-red">{conditionError}</p>}
+                {/* Owner UAT 25/11/2026: «a change does not take effect» — it
+                    did, but the form gave no sign of it. */}
+                {conditionSaved && !conditionError && (
+                  <p role="status" className="text-fs-14 text-k-ink">
+                    {t("screens.s17.condition.saved")}
+                  </p>
+                )}
                 <div>
                   <button
                     type="submit"

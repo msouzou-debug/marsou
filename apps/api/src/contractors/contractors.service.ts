@@ -4,6 +4,7 @@ import { asc, eq } from "drizzle-orm";
 import { sql } from "drizzle-orm";
 import { AppError } from "../common/errors";
 import {
+  CHECK_VIOLATION,
   INSUFFICIENT_PRIVILEGE,
   UNIQUE_VIOLATION,
   sqlState,
@@ -53,12 +54,19 @@ export class ContractorsService {
           category: input.category,
           sapVendorId: input.sapVendorId,
           blacklisted: false,
+          // Owner UAT 25/11/2026: a contact typed by a user is MANUAL, and
+          // the eFinance sync never overwrites it.
+          contactName: blankToNull(input.contactName),
+          contactEmail: blankToNull(input.contactEmail),
+          contactPhone: blankToNull(input.contactPhone),
+          contactSource: "MANUAL",
         })
         .returning();
       return toContractor(row);
     } catch (error) {
       const state = sqlState(error);
       if (state === INSUFFICIENT_PRIVILEGE) throw AppError.forbidden("errors.readOnlyAccount");
+      if (state === CHECK_VIOLATION) throw AppError.badRequest("errors.contractorContactNotValid");
       if (state === UNIQUE_VIOLATION) {
         throw AppError.unprocessable("errors.contractorNameTaken", { name: input.name });
       }
@@ -83,7 +91,7 @@ export class ContractorsService {
       throw AppError.forbidden("errors.blacklistAdminOnly");
     }
 
-    const values = pruned({
+    const values: Record<string, unknown> = pruned({
       name: input.name,
       vatNumber: input.vatNumber,
       registrationNo: input.registrationNo,
@@ -91,6 +99,23 @@ export class ContractorsService {
       sapVendorId: input.sapVendorId,
       blacklisted: input.blacklisted,
     });
+    // RULE (owner, UAT 25/11/2026): a contact a user changes becomes theirs
+    // (MANUAL), and the eFinance sync leaves it alone from then on. A value
+    // sent unchanged is not a change, so saving the form for a VAT number
+    // does not take an eFinance contact away from eFinance.
+    let contactChanged = false;
+    for (const key of ["contactName", "contactEmail", "contactPhone"] as const) {
+      if (input[key] === undefined) continue;
+      const next = blankToNull(input[key]);
+      if (next !== (existing[key] ?? null)) {
+        values[key] = next;
+        contactChanged = true;
+      }
+    }
+    if (contactChanged) {
+      values.contactSource = "MANUAL";
+      values.contactSyncedAt = null;
+    }
     if (Object.keys(values).length === 0) return existing;
 
     try {
@@ -109,6 +134,7 @@ export class ContractorsService {
       if (error instanceof AppError) throw error;
       const state = sqlState(error);
       if (state === INSUFFICIENT_PRIVILEGE) throw AppError.forbidden("errors.readOnlyAccount");
+      if (state === CHECK_VIOLATION) throw AppError.badRequest("errors.contractorContactNotValid");
       if (state === UNIQUE_VIOLATION) {
         throw AppError.unprocessable("errors.contractorNameTaken", { name: input.name ?? "" });
       }
@@ -140,7 +166,18 @@ export function toContractor(row: typeof schema.contractor.$inferSelect): Contra
     category: row.category,
     sapVendorId: row.sapVendorId,
     blacklisted: row.blacklisted,
+    contactName: row.contactName,
+    contactEmail: row.contactEmail,
+    contactPhone: row.contactPhone,
+    contactSource: row.contactSource,
+    contactSyncedAt: row.contactSyncedAt ? row.contactSyncedAt.toISOString() : null,
   };
+}
+
+/** A blank contact field is no contact field. */
+function blankToNull(value: string | null | undefined): string | null {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : null;
 }
 
 /** Drop the keys the caller did not send, so a PATCH touches only what it names. */

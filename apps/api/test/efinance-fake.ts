@@ -97,7 +97,20 @@ export class FakeEFinance {
     { active: true, category: "Εξοπλισμός", code: "7501", description: "MACHINERY", name: "Μηχανήματα και εξοπλισμός", kind: "capex" },
     { active: false, category: "Οχήματα", code: "7553", description: "MOTORCYCLES", kind: "capex" },
   ];
-  vendors = [
+  // 0032: `email` and `phone` are what eCapital asked eFinance to add
+  // (docs/integration/2026-11-25-to-efinance-vendor-contact-fields.md);
+  // `iban` stands for any field eFinance might send that eCapital must drop.
+  vendors: Array<{
+    vendor_code: string;
+    name: string;
+    vat: string | null;
+    blocked: boolean;
+    active: boolean;
+    sap_batch: string;
+    email?: string | null;
+    phone?: string | null;
+    iban?: string;
+  }> = [
     { vendor_code: "100123", name: "ΚΑΤΑΣΚΕΥΑΣΤΙΚΗ ΑΛΦΑ ΛΤΔ", vat: "CY10012300A", blocked: false, active: true, sap_batch: "2026-09" },
     { vendor_code: "100124", name: "Ηλεκτρομηχανική Βήτα", vat: null, blocked: false, active: true, sap_batch: "2026-09" },
     { vendor_code: "100125", name: "Gamma Medical Ltd", vat: "CY10012500C", blocked: true, active: true, sap_batch: "2026-09" },

@@ -22,6 +22,7 @@ import {
 import {
   Rfi,
   RfiAnswer,
+  RfiClose,
   RfiCreate,
   RfiDocument,
   RfiUpdate,
@@ -158,36 +159,52 @@ export class RfisController {
   /** RULE (ADR-0017): the answerer may be the raiser; see the service. */
   @Post("contracts/:id/rfis/:rid/answer")
   @HttpCode(200)
-  @ApiOperation({ summary: "Answer an open RFI" })
+  @ApiOperation({ summary: "Answer an open RFI, with the day the answer arrived" })
   @ApiParam({ name: "id", schema: { type: "string", format: "uuid" } })
   @ApiParam({ name: "rid", schema: { type: "string", format: "uuid" } })
   @ApiBody({ schema: jsonSchema(RfiAnswer) as never })
-  @ApiZodResponse(200, Rfi, "The RFI, now ANSWERED, with the answer and who gave it")
-  @ApiZodError(400, "The body carries no answer")
+  @ApiZodResponse(200, Rfi, "The RFI, now ANSWERED, with the answer, the day and who recorded it")
+  @ApiZodError(400, "The body carries no answer, or a day after today")
   @ApiZodError(403, "A read-only account, or a role that does not run projects")
   @ApiZodError(404, "No such contract or RFI")
-  @ApiZodError(422, "The RFI has already been answered")
+  @ApiZodError(422, "The RFI has already been answered or closed, or the day is before it was raised")
   answer(
     @Param("id") id: string,
     @Param("rid") rid: string,
     @Body() body: unknown,
   ): Promise<Rfi> {
     const parsed = RfiAnswer.safeParse(body);
-    if (!parsed.success) throw AppError.badRequest("errors.rfiAnswerNotValid");
+    if (!parsed.success) {
+      if (isOnlyFutureDateIssue(parsed.error)) throw AppError.badRequest("errors.dateInFuture");
+      throw AppError.badRequest("errors.rfiAnswerNotValid");
+    }
     return this.rfis.answer(id, rid, parsed.data, new Date());
   }
 
+  /**
+   * RULE (owner, UAT 25/11/2026): with or without an answer. Without one,
+   * the closing note is required; see the service. An empty body is a close
+   * with no note.
+   */
   @Post("contracts/:id/rfis/:rid/close")
   @HttpCode(200)
-  @ApiOperation({ summary: "Close an answered RFI" })
+  @ApiOperation({ summary: "Close an RFI, answered or not, with an optional closing note" })
   @ApiParam({ name: "id", schema: { type: "string", format: "uuid" } })
   @ApiParam({ name: "rid", schema: { type: "string", format: "uuid" } })
-  @ApiZodResponse(200, Rfi, "The RFI, now CLOSED")
+  @ApiBody({ schema: jsonSchema(RfiClose) as never, required: false })
+  @ApiZodResponse(200, Rfi, "The RFI, now CLOSED, with who closed it, when and why")
+  @ApiZodError(400, "A closing note over 4,000 characters")
   @ApiZodError(403, "A read-only account, or a role that does not run projects")
   @ApiZodError(404, "No such contract or RFI")
-  @ApiZodError(422, "The RFI has not been answered yet, or is closed already")
-  close(@Param("id") id: string, @Param("rid") rid: string): Promise<Rfi> {
-    return this.rfis.close(id, rid, new Date());
+  @ApiZodError(422, "The RFI is closed already, or it has no answer and no closing note")
+  close(
+    @Param("id") id: string,
+    @Param("rid") rid: string,
+    @Body() body: unknown,
+  ): Promise<Rfi> {
+    const parsed = RfiClose.safeParse(body ?? {});
+    if (!parsed.success) throw AppError.badRequest("errors.rfiCloseNotValid");
+    return this.rfis.close(id, rid, parsed.data, new Date());
   }
 
   // ---------------------------------------- evidence (owner, 25/11/2026) --

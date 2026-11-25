@@ -153,6 +153,73 @@ describe("/contractors", () => {
     expect(missing.body.key).toBe("errors.contractorNotFound");
   });
 
+  // ---------------------------------------- contact (owner, UAT 25/11/2026) --
+
+  it("keeps a contact person, e-mail and telephone typed by the head of estates as MANUAL", async () => {
+    const estates = await tokenFor(app, USERS.estatesNicosia);
+    const created = await request(app.getHttpServer())
+      .post("/contractors")
+      .set(bearer(estates))
+      .send({
+        ...body(`Ανάδοχος με επαφή ${Date.now()}`),
+        contactName: "Μαρία Ιωάννου",
+        contactEmail: " maria@example.com.cy ",
+        contactPhone: "+357 22 123456",
+      });
+    expect(created.status).toBe(201);
+    const contractor = Contractor.parse(created.body);
+    expect(contractor).toMatchObject({
+      contactName: "Μαρία Ιωάννου",
+      contactEmail: "maria@example.com.cy",
+      contactPhone: "+357 22 123456",
+      contactSource: "MANUAL",
+      contactSyncedAt: null,
+    });
+
+    // Created without one, a contractor has an empty MANUAL contact.
+    const plain = await request(app.getHttpServer())
+      .post("/contractors")
+      .set(bearer(estates))
+      .send(body(`Ανάδοχος χωρίς επαφή ${Date.now()}`));
+    expect(Contractor.parse(plain.body)).toMatchObject({
+      contactName: null,
+      contactEmail: null,
+      contactPhone: null,
+      contactSource: "MANUAL",
+    });
+
+    const changed = await request(app.getHttpServer())
+      .patch(`/contractors/${contractor.id}`)
+      .set(bearer(estates))
+      .send({ contactPhone: "22 654321", contactEmail: null });
+    expect(changed.status).toBe(200);
+    expect(Contractor.parse(changed.body)).toMatchObject({
+      contactName: "Μαρία Ιωάννου",
+      contactEmail: null,
+      contactPhone: "22 654321",
+    });
+
+    // The engineer reads it and may not change it.
+    const engineer = await tokenFor(app, USERS.engineerLarnaca);
+    const refused = await request(app.getHttpServer())
+      .patch(`/contractors/${contractor.id}`)
+      .set(bearer(engineer))
+      .send({ contactPhone: "22 000000" });
+    expect(refused.status).toBe(403);
+  });
+
+  it("refuses an e-mail or a telephone that is not one", async () => {
+    const token = await tokenFor(app, USERS.admin);
+    for (const contact of [{ contactEmail: "όχι διεύθυνση" }, { contactPhone: "καλέστε" }, { contactPhone: "12" }]) {
+      const response = await request(app.getHttpServer())
+        .post("/contractors")
+        .set(bearer(token))
+        .send({ ...body(`Λάθος επαφή ${Date.now()}`), ...contact });
+      expect(response.status).toBe(400);
+      expect(response.body.key).toBe("errors.contractorContactNotValid");
+    }
+  });
+
   it("refuses a caller with no token", async () => {
     const response = await request(app.getHttpServer()).get("/contractors");
     expect(response.status).toBe(401);

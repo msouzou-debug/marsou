@@ -549,6 +549,14 @@ export const contractor = ecapital.table(
     category: contractorCategory("category").notNull().default("OTHER"),
     sapVendorId: text("sap_vendor_id"),
     blacklisted: boolean("blacklisted").notNull().default(false),
+    // 0032, owner UAT 25/11/2026: who to write to. 'MANUAL' (a user typed
+    // it) is never overwritten by the eFinance sync; 'EFINANCE' is kept up
+    // to date by it. No bank details, ever.
+    contactName: text("contact_name"),
+    contactEmail: text("contact_email"),
+    contactPhone: text("contact_phone"),
+    contactSource: text("contact_source").$type<"MANUAL" | "EFINANCE">().notNull().default("MANUAL"),
+    contactSyncedAt: timestamp("contact_synced_at", { withTimezone: true }),
     createdAt,
     updatedAt,
   },
@@ -870,6 +878,13 @@ export const rfi = ecapital.table(
     recipientName: text("recipient_name"),
     recipientEmail: text("recipient_email"),
     sentOn: date("sent_on"),
+    // 0032, owner UAT 25/11/2026: the day the answer arrived, and who closed
+    // the RFI, when and why. An RFI may close without an answer, and then
+    // the note is required (CHECK rfi_closed_answer_or_note).
+    answeredOn: date("answered_on"),
+    closedBy: uuid("closed_by").references(() => appUser.id),
+    closedAt: timestamp("closed_at", { withTimezone: true }),
+    closingNote: text("closing_note"),
     createdAt,
     updatedAt,
   },
@@ -2051,6 +2066,9 @@ export const efinanceVendor = ecapital.table("efinance_vendor", {
   blocked: boolean("blocked").notNull().default(false),
   active: boolean("active").notNull().default(true),
   sapBatch: text("sap_batch"),
+  // 0032: SAP's address e-mail and telephone, once eFinance sends them.
+  email: text("email"),
+  phone: text("phone"),
   syncedAt: timestamp("synced_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

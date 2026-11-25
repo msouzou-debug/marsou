@@ -15,6 +15,11 @@
  * | onClose      | () => void          |                                                                    |
  * | onSave       | (values, blacklisted?) => void | `blacklisted` only carries a value when the toggle is shown. |
  * | vendorSearch | (q: string) => Promise<EFinanceVendor[]>? | ADR-0029: `GET /efinance/vendors?q=` for the «Κωδικός SAP» picker. Omit it and the field is the plain text input it always was. |
+ *
+ * Owner UAT 25/11/2026: «Στοιχεία επικοινωνίας» — a contact person, an
+ * e-mail and a telephone, which prefill a new RFI's recipient. A contact
+ * filled from eFinance says so under the fields; changing it makes it the
+ * user's own, which the eFinance sync never overwrites. No bank details.
  */
 import { useState } from "react";
 import { Controller, useForm } from "react-hook-form";
@@ -23,6 +28,7 @@ import { LoaderCircle, X } from "lucide-react";
 import { ContractorCategory, type Contractor, type EFinanceVendor } from "@ecapital/shared";
 import { VendorPicker } from "@/components/vendor-picker";
 import { zodResolver } from "@/lib/zod-resolver";
+import { formatDate } from "@/lib/format";
 import { ContractorFormSchema, type ContractorFormValues } from "./schema";
 
 export interface ContractorSheetProps {
@@ -36,8 +42,8 @@ export interface ContractorSheetProps {
   vendorSearch?: (q: string) => Promise<EFinanceVendor[]>;
 }
 
-function blankToNull(value: string): string | null {
-  return value === "" ? null : value;
+function blankToNull(value: string | null): string | null {
+  return value === null || value.trim() === "" ? null : value;
 }
 
 export function ContractorSheet({ open, contractor, isAdmin, saving = false, apiError, onClose, onSave, vendorSearch }: ContractorSheetProps) {
@@ -58,6 +64,9 @@ export function ContractorSheet({ open, contractor, isAdmin, saving = false, api
       registrationNo: contractor?.registrationNo ?? null,
       category: contractor?.category ?? "BUILDING",
       sapVendorId: contractor?.sapVendorId ?? null,
+      contactName: contractor?.contactName ?? null,
+      contactEmail: contractor?.contactEmail ?? null,
+      contactPhone: contractor?.contactPhone ?? null,
     },
   });
 
@@ -88,6 +97,7 @@ export function ContractorSheet({ open, contractor, isAdmin, saving = false, api
 
       <div className="flex-1 overflow-auto p-s-5">
         <form
+          noValidate
           onSubmit={handleSubmit((values) => onSave(values, isAdmin ? blacklisted : undefined))}
           className="flex flex-col gap-s-4"
         >
@@ -165,6 +175,72 @@ export function ContractorSheet({ open, contractor, isAdmin, saving = false, api
             />
             {vendorSearch && <p className="text-fs-14 text-k-text">{t("components.vendor-picker.hint")}</p>}
           </div>
+
+          <fieldset className="flex flex-col gap-s-3 rounded-k border border-k-grey p-s-3">
+            <legend className="px-s-1 text-fs-14 font-bold text-k-blue-deep">{t("screens.s24.contactTitle")}</legend>
+            <p className="text-fs-14 text-k-text">{t("screens.s24.contactHint")}</p>
+            <div className="flex flex-col gap-s-1">
+              <label htmlFor="cs-contact-name" className="text-fs-14 text-k-text">
+                {tf("contactName")}
+              </label>
+              <input
+                id="cs-contact-name"
+                type="text"
+                autoComplete="off"
+                {...register("contactName", { setValueAs: blankToNull })}
+                aria-invalid={errors.contactName ? "true" : undefined}
+                className="h-11 rounded-k border border-k-grey bg-k-white px-s-3 text-fs-16 text-k-ink"
+              />
+              {fieldError("contactName") && (
+                <p role="alert" className="text-fs-14 text-k-red">
+                  {fieldError("contactName")}
+                </p>
+              )}
+            </div>
+            <div className="flex flex-col gap-s-1">
+              <label htmlFor="cs-contact-email" className="text-fs-14 text-k-text">
+                {tf("contactEmail")}
+              </label>
+              <input
+                id="cs-contact-email"
+                type="email"
+                autoComplete="off"
+                {...register("contactEmail", { setValueAs: blankToNull })}
+                aria-invalid={errors.contactEmail ? "true" : undefined}
+                className="h-11 rounded-k border border-k-grey bg-k-white px-s-3 text-fs-16 text-k-ink"
+              />
+              {fieldError("contactEmail") && (
+                <p role="alert" className="text-fs-14 text-k-red">
+                  {fieldError("contactEmail")}
+                </p>
+              )}
+            </div>
+            <div className="flex flex-col gap-s-1">
+              <label htmlFor="cs-contact-phone" className="text-fs-14 text-k-text">
+                {tf("contactPhone")}
+              </label>
+              <input
+                id="cs-contact-phone"
+                type="tel"
+                autoComplete="off"
+                {...register("contactPhone", { setValueAs: blankToNull })}
+                aria-invalid={errors.contactPhone ? "true" : undefined}
+                className="num h-11 rounded-k border border-k-grey bg-k-white px-s-3 text-fs-16 text-k-ink"
+              />
+              {fieldError("contactPhone") && (
+                <p role="alert" className="text-fs-14 text-k-red">
+                  {fieldError("contactPhone")}
+                </p>
+              )}
+            </div>
+            {contractor?.contactSource === "EFINANCE" && (
+              <p className="text-fs-14 text-k-text">
+                {contractor.contactSyncedAt
+                  ? t("screens.s24.contactFromEfinanceOn", { date: formatDate(contractor.contactSyncedAt) })
+                  : t("screens.s24.contactFromEfinance")}
+              </p>
+            )}
+          </fieldset>
 
           {/* RULE (ADR-0015, decided 19/09/2026): only an administrator sees
               this toggle at all. */}

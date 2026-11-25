@@ -9,6 +9,8 @@ import {
   projectedLines,
   summaryOf,
   vatFraction,
+  vendorEmail,
+  vendorPhone,
 } from "./efinance-rows";
 
 const invoice = (ledger: EFinanceRawInvoice["ledger"], overrides: Partial<EFinanceRawInvoice> = {}): EFinanceRawInvoice => ({
@@ -109,5 +111,24 @@ describe("the eFinance figures", () => {
     expect(toAmount("-12.50")).toBe(-12.5);
     expect(toAmount(null)).toBeNull();
     expect(isoUtc(new Date("2026-09-20T08:00:00.123Z"))).toBe("2026-09-20T08:00:00+00:00");
+  });
+});
+
+describe("vendor contact fields (owner, UAT 25/11/2026)", () => {
+  it("keeps an address, lower-cased, and drops anything that is not one", () => {
+    expect(vendorEmail(" Info@Example.COM.cy ")).toBe("info@example.com.cy");
+    expect(vendorEmail("a@b.cy; c@d.cy")).toBeNull();
+    expect(vendorEmail("Γραφείο")).toBeNull();
+    expect(vendorEmail("")).toBeNull();
+    expect(vendorEmail(null)).toBeNull();
+    expect(vendorEmail(undefined)).toBeNull();
+  });
+
+  it("keeps a telephone as written and drops anything that is not one", () => {
+    expect(vendorPhone(" +357  22 123456 ")).toBe("+357 22 123456");
+    expect(vendorPhone("(22) 123-456")).toBe("(22) 123-456");
+    expect(vendorPhone("καλέστε")).toBeNull();
+    expect(vendorPhone("12")).toBeNull();
+    expect(vendorPhone(null)).toBeNull();
   });
 });

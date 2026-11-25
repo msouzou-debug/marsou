@@ -16,6 +16,12 @@ const data: Contractor[] = [
     category: "BUILDING",
     sapVendorId: "V-100101",
     blacklisted: false,
+    // Owner UAT 25/11/2026: who to write to.
+    contactName: "Μαρία Ιωάννου",
+    contactEmail: "m.ioannou@kyriakou.example",
+    contactPhone: "+357 22 123456",
+    contactSource: "MANUAL",
+    contactSyncedAt: null,
   },
   {
     id: "contractor-2",

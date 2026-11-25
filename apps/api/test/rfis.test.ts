@@ -165,14 +165,126 @@ describe("RFIs on a contract", () => {
     expect(Rfi.parse(closed.body).status).toBe("CLOSED");
   });
 
-  it("refuses to close an RFI nobody has answered", async () => {
+  it("closes an RFI nobody has answered only with a closing note, and records who and when", async () => {
+    // RULE (owner, UAT 25/11/2026): closed with or without an answer; with
+    // none, the note says why.
     const { contractId, rfi } = await raised(`rfi-early-${Date.now()}`);
     const token = await tokenFor(app, USERS.estatesNicosia);
     const refused = await request(app.getHttpServer())
       .post(`/contracts/${contractId}/rfis/${rfi.id}/close`)
       .set(bearer(token));
     expect(refused.status).toBe(422);
-    expect(refused.body.key).toBe("errors.rfiNotAnswered");
+    expect(refused.body.key).toBe("errors.rfiCloseNoteNeeded");
+    const blank = await request(app.getHttpServer())
+      .post(`/contracts/${contractId}/rfis/${rfi.id}/close`)
+      .set(bearer(token))
+      .send({ closingNote: "   " });
+    expect(blank.status).toBe(422);
+    expect(blank.body.key).toBe("errors.rfiCloseNoteNeeded");
+    const tooLong = await request(app.getHttpServer())
+      .post(`/contracts/${contractId}/rfis/${rfi.id}/close`)
+      .set(bearer(token))
+      .send({ closingNote: "α".repeat(4001) });
+    expect(tooLong.status).toBe(400);
+    expect(tooLong.body.key).toBe("errors.rfiCloseNotValid");
+
+    const closed = await request(app.getHttpServer())
+      .post(`/contracts/${contractId}/rfis/${rfi.id}/close`)
+      .set(bearer(token))
+      .send({ closingNote: "Διευθετήθηκε στο εργοτάξιο με τον μελετητή." });
+    expect(closed.status).toBe(200);
+    const after = Rfi.parse(closed.body);
+    expect(after.status).toBe("CLOSED");
+    expect(after.answerEl).toBeNull();
+    expect(after.closingNote).toBe("Διευθετήθηκε στο εργοτάξιο με τον μελετητή.");
+    expect(after.closedById).toBe(after.raisedById);
+    expect(after.closedByName).toBe("Ανδρέας Παπαδόπουλος");
+    expect(after.closedAt).not.toBeNull();
+
+    // Closed is closed: no answer, no edit, no second close.
+    const answer = await request(app.getHttpServer())
+      .post(`/contracts/${contractId}/rfis/${rfi.id}/answer`)
+      .set(bearer(token))
+      .send({ answerEl: "Αργά." });
+    expect(answer.status).toBe(422);
+    expect(answer.body.key).toBe("errors.rfiAlreadyClosed");
+    const edit = await request(app.getHttpServer())
+      .patch(`/contracts/${contractId}/rfis/${rfi.id}`)
+      .set(bearer(token))
+      .send({ questionEl: "Άλλη ερώτηση" });
+    expect(edit.status).toBe(422);
+    expect(edit.body.key).toBe("errors.rfiClosedNoEdit");
+  });
+
+  it("closes an answered RFI with or without a note", async () => {
+    const token = await tokenFor(app, USERS.estatesNicosia);
+    for (const note of [undefined, "Η απάντηση εφαρμόστηκε."]) {
+      const { contractId, rfi } = await raised(`rfi-note-${Date.now()}-${note ? 1 : 0}`);
+      await request(app.getHttpServer())
+        .post(`/contracts/${contractId}/rfis/${rfi.id}/answer`)
+        .set(bearer(token))
+        .send({ answerEl: "Ναι." })
+        .expect(200);
+      const closed = await request(app.getHttpServer())
+        .post(`/contracts/${contractId}/rfis/${rfi.id}/close`)
+        .set(bearer(token))
+        .send(note ? { closingNote: note } : {});
+      expect(closed.status).toBe(200);
+      expect(Rfi.parse(closed.body).closingNote).toBe(note ?? null);
+    }
+  });
+
+  it("records the day the answer arrived: today by default, never after today or before it was raised", async () => {
+    const { contractId, rfi } = await raised(`rfi-answered-on-${Date.now()}`);
+    const token = await tokenFor(app, USERS.estatesNicosia);
+    const today = nicosiaDateOf(new Date());
+    const tomorrow = nicosiaDateOf(new Date(Date.now() + 86_400_000));
+    const future = await request(app.getHttpServer())
+      .post(`/contracts/${contractId}/rfis/${rfi.id}/answer`)
+      .set(bearer(token))
+      .send({ answerEl: "Ναι.", answeredOn: tomorrow });
+    expect(future.status).toBe(400);
+    expect(future.body.key).toBe("errors.dateInFuture");
+
+    // Raised three days ago, in Postgres: the day before that is refused,
+    // the day it was raised is fine.
+    await client.query(`update ecapital.rfi set raised_at = raised_at - interval '3 days' where id = $1`, [rfi.id]);
+    const raisedOn = nicosiaDateOf(new Date(Date.now() - 3 * 86_400_000));
+    const dayBefore = nicosiaDateOf(new Date(Date.now() - 4 * 86_400_000));
+    const early = await request(app.getHttpServer())
+      .post(`/contracts/${contractId}/rfis/${rfi.id}/answer`)
+      .set(bearer(token))
+      .send({ answerEl: "Ναι.", answeredOn: dayBefore });
+    expect(early.status).toBe(422);
+    expect(early.body.key).toBe("errors.rfiAnsweredBeforeRaised");
+
+    const ok = await request(app.getHttpServer())
+      .post(`/contracts/${contractId}/rfis/${rfi.id}/answer`)
+      .set(bearer(token))
+      .send({ answerEl: "Ναι.", answeredOn: raisedOn });
+    expect(ok.status).toBe(200);
+    const after = Rfi.parse(ok.body);
+    expect(after.answeredOn).toBe(raisedOn);
+    // The moment it was typed in stays the record.
+    expect(nicosiaDateOf(after.answeredAt ?? "")).toBe(today);
+
+    const { contractId: other, rfi: plain } = await raised(`rfi-answered-today-${Date.now()}`);
+    const byDefault = await request(app.getHttpServer())
+      .post(`/contracts/${other}/rfis/${plain.id}/answer`)
+      .set(bearer(token))
+      .send({ answerEl: "Ναι." });
+    expect(Rfi.parse(byDefault.body).answeredOn).toBe(today);
+  });
+
+  it("refuses a closing note with no answer at the database too", async () => {
+    // ADR-0015's reason: the CHECK says the same to every code path.
+    const { rfi } = await raised(`rfi-check-${Date.now()}`);
+    await expect(
+      client.query(`update ecapital.rfi set status = 'CLOSED', closed_at = now() where id = $1`, [rfi.id]),
+    ).rejects.toThrow(/rfi_closed_answer_or_note/);
+    await expect(
+      client.query(`update ecapital.rfi set closing_note = 'x' where id = $1`, [rfi.id]),
+    ).rejects.toThrow(/rfi_closing_only_when_closed/);
   });
 
   it("refuses a second answer and a second close", async () => {
@@ -240,6 +352,48 @@ describe("RFIs on a contract", () => {
       [rfi.id],
     );
     expect(await bandOf(contractId, rfi.id)).toBe("GREEN");
+  });
+
+  it("stops the clock at the day the answer arrived, and at the close of an unanswered RFI", async () => {
+    const token = await tokenFor(app, USERS.estatesNicosia);
+    // Raised five days ago with a three-day promise; the answer arrived on
+    // the day it was raised and was typed in today. Against the typing it
+    // is BREACHED; against the day it arrived it was well inside.
+    const { contractId, rfi } = await raised(`rfi-stop-day-${Date.now()}`);
+    await client.query(
+      `update ecapital.rfi
+          set raised_at = now() - interval '5 days',
+              sla_due_at = now() - interval '2 days',
+              sla_hours = 72
+        where id = $1`,
+      [rfi.id],
+    );
+    const raisedOn = nicosiaDateOf(new Date(Date.now() - 5 * 86_400_000));
+    await request(app.getHttpServer())
+      .post(`/contracts/${contractId}/rfis/${rfi.id}/answer`)
+      .set(bearer(token))
+      .send({ answerEl: "Ναι.", answeredOn: raisedOn })
+      .expect(200);
+    expect(await bandOf(contractId, rfi.id)).not.toBe("BREACHED");
+
+    // Closed without an answer while GREEN, then the promise runs out: the
+    // band stays the one it was closed in.
+    const { contractId: other, rfi: moot } = await raised(`rfi-stop-close-${Date.now()}`);
+    await request(app.getHttpServer())
+      .post(`/contracts/${other}/rfis/${moot.id}/close`)
+      .set(bearer(token))
+      .send({ closingNote: "Δεν χρειάζεται πια." })
+      .expect(200);
+    // Due three days ago, closed seven days ago with four of its seven days
+    // still to run (57 %).
+    await client.query(
+      `update ecapital.rfi
+          set sla_due_at = now() - interval '3 days', sla_hours = 168,
+              closed_at = now() - interval '7 days'
+        where id = $1`,
+      [moot.id],
+    );
+    expect(await bandOf(other, moot.id)).toBe("GREEN");
   });
 
   it("never blocks on a breach: a breached RFI is still answered and closed", async () => {
