@@ -274,16 +274,24 @@ function samplePdf() {
     await shot(p, 'a15-manuals-admin', { sel: 'main h1', to: 'main a[href*="/manuals/"]:last-of-type', pad: 16 });
     await p.goto(BASE + '/settings/users');
     await shot(p, 'a02-settings', { sel: '#ehire-side img', to: '#ehire-side details:has(a[href*="/settings/users"])', pad: 0 });
-    // A new temporary password: open the control under one user's row
-    const pwRow = p.locator('details:has(form[action*="/password"])').nth(1);
-    await pwRow.locator('summary').click();
-    await pwRow.evaluate((d) => d.setAttribute('data-shot', '1'));
-    await p.evaluate(() => { const d = document.querySelector('details[data-shot]'); d.previousElementSibling.setAttribute('data-shot-row', '1'); });
-    await shot(p, 'a16-users-password', { sel: 'form[data-shot-row]', to: 'details[data-shot]' });
+    // The users list from the filters down: each person's roles as pills
+    await shot(p, 'a05-users', { sel: 'form[role=search]', to: '.ehire-rows', maxH: 900 });
+    // One person's page: the account panel with the new-password control open, then the roles panels with
+    // "Add a role" set to a single-holder role, so the Directorate, substitute and replace fields show
+    const person = async (username) => {
+      await p.goto(BASE + '/settings/users');
+      await p.locator('.ehire-row', { hasText: username }).locator('a').first().click();
+      await settle(p);
+    };
+    await person('nic.accountant');
+    await p.locator('section[aria-labelledby=sec-account] details > summary').click();
+    await shot(p, 'a16-users-password', { sel: '.ehire-pagehead', to: 'section[aria-labelledby=sec-account]' });
+    await p.selectOption('#add-role', 'dir_accountant');
+    await shot(p, 'a20-person-roles', { sel: 'section[aria-labelledby=sec-roles]', to: 'section[aria-labelledby=sec-add]' });
     await p.goto(BASE + '/settings/roles');
     await shot(p, 'a17-roles-others', { sel: 'section[aria-labelledby=roles-other]' });
     for (const [url, name, top] of [['/settings/directorate', 'a03-directorates', 640], ['/settings/position', 'a18-positions', 640], ['/settings/cost_centre?directorate=1', 'a19-cost-centres', 720], ['/settings/facility', 'a04-facilities', 640],
-      ['/settings/users', 'a05-users', 700], ['/settings/roles', 'a06-roles', 800], ['/settings/holidays', 'a07-holidays', 720],
+      ['/settings/roles', 'a06-roles', 900], ['/settings/holidays', 'a07-holidays', 720],
       ['/settings/timings', 'a08-timings', 720], ['/settings/outbox', 'a09-outbox', 640]]) {
       await p.goto(BASE + url);
       await shot(p, name, { top });
@@ -314,6 +322,13 @@ function samplePdf() {
     await shot(p, 'a13-import-preview', { sel: 'main', maxH: 560 });
     await p.goto(BASE + '/audit');
     await shot(p, 'a14-audit', { top: 760 });
+    // Last, because it changes who holds what: switch off a Κάτοχος who has a waiting task. The page says how many
+    // tasks moved and to whom, and the roles page lists the role in its top panel.
+    await person('nic.hr');
+    await p.locator('form[action$="/toggle"] button[type=submit]').click();
+    await shot(p, 'a21-person-deactivated', { sel: 'main .alert', to: 'section[aria-labelledby=sec-account]' });
+    await p.goto(BASE + '/settings/roles');
+    await shot(p, 'a22-roles-empty', { sel: 'section[aria-labelledby=roles-empty]' });
     await p.context().close();
   }
   await browser.close();

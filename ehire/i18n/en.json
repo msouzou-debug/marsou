@@ -613,7 +613,7 @@
   "settings.remove": "Remove",
   "settings.returned_timeout_days": "Withdraw a returned request after (working days)",
   "settings.roles": "Role holders and substitutes",
-  "settings.roles.empty_hint": "These roles have no active holder. New tasks for them have nobody to go to.",
+  "settings.roles.empty_hint": "These roles have no active holder. Their tasks go to the substitute. With no substitute, they wait with nobody.",
   "settings.roles.empty_none": "Every role has an active holder.",
   "settings.roles.empty_title": "Roles with no holder",
   "settings.roles.holder_inactive": "Inactive holder",
