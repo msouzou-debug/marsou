@@ -11,7 +11,7 @@ Standing rules and decisions for this project. Read at the start of every sessio
 - Excel outputs: live formulas, auditable.
 - Commands first, always: when a reply involves something to run, put the exact commands at the top, in copy-ready blocks, before any explanation. Marios runs server work from PowerShell on his machine, so give each step as one line of the form `ssh -t administrator@10.227.56.22 "sudo bash /tmp/<script>.sh"`, with files copied to `/tmp` on the server by `scp` first. (Marios, 19/11/2026.)
 
-## Greek terms approved by Marios, 13/11 to 24/11/2026 (also in the `okypy-greek-terms` skill)
+## Greek terms approved by Marios, 13/11 to 26/11/2026 (also in the `okypy-greek-terms` skill)
 
 | Avoid | Use |
 |---|---|
@@ -55,6 +55,8 @@ Standing rules and decisions for this project. Read at the start of every sessio
 | Working days | εργάσιμες ημέρες |
 | eFinance link (approved 23/11/2026): budget, spent, committed, available balance, budget line | Προϋπολογισμός · Δαπάνες · Δεσμεύσεις · Διαθέσιμο υπόλοιπο · Γραμμή προϋπολογισμού |
 | eFinance link (approved 23/11/2026): panel heading, as-of line, sync button, settings title | Στοιχεία από το eFinance · Στοιχεία της {date} · Συγχρονισμός τώρα · Σύνδεση με το eFinance |
+| Users and roles (approved 26/11/2026): user page, covering for, roles with no holder, inactive holder | Σελίδα χρήστη · Αναπληρώνει: {who} · Ρόλοι χωρίς Κάτοχο · Ανενεργός Κάτοχος |
+| Users and roles (approved 26/11/2026): replace the current holder, stop covering, no role | Αντικατάσταση του τρέχοντος Κατόχου · Διακοπή αναπλήρωσης · Χωρίς ρόλο |
 
 The full glossary lives in the skill. When the owner fixes or approves a term: update the skill, send the owner the updated skill file, and add the row here.
 
@@ -180,7 +182,7 @@ The full glossary lives in the skill. When the owner fixes or approves a term: u
 - 26/11/2026: built for rc13 (contract 02, rule C8): person page `/settings/users/<id>` (account, roles held with substitute per row, whom they cover for, add a role with a replace tick box); Users list with role pills and filters; shared write functions in `ehire/services/role_admin.py` so the person page and the roles page cannot disagree; `ehire/services/reassign.py` moves waiting tasks after any change of Κάτοχος or substitute, a deactivation, an activation or an import (a task stays with someone who is still the Κάτοχος or substitute; nobody left means unassigned and the administrators are told); a switched-off line manager is never given a task; the roles page lists roles with no active Κάτοχος; the reassign button and its route are gone.
 - 26/11/2026: release `ehire-1.0.0-rc13` built from commit b0468ff with the full suite passing (1,288 tests) and verified with its checksum (f3626192f22075fa5c03eb9369778439e4b6d1156220970e080c2da93a9a224d, 214 files). Same packages as rc6 to rc12; no migration (schema stays at version 7). The rc12 to rc13 upgrade was rehearsed here in a test folder. Sent to Marios as `ehire-install-rc13.zip` with `eHire-manuals-rc13.zip` (administrator guide sections 4 and 5 rewritten; UAT workbook unchanged).
 - 26/11/2026, Marios: eCapital's UAT workbook (one sheet per role, positive and refusal cases) is for reference only; eHire's UAT workbook keeps its layout. It still has no cases for the rc9 to rc13 additions.
-- Greek wording proposed on 26/11 for rc13, awaiting Marios's approval: «Σελίδα χρήστη» (link to a person's page), «Αναπληρώνει: {who}», «Ρόλοι χωρίς Κάτοχο», «Ανενεργός Κάτοχος», «Αντικατάσταση του τρέχοντος Κατόχου», «Διακοπή αναπλήρωσης», «Χωρίς ρόλο».
+- 26/11/2026: rc13 is installed on the server (Marios confirmed it worked). Marios approved the seven Greek terms of rc13 (rows in the table above); the skill file was updated and sent.
 
 ## Status
 
