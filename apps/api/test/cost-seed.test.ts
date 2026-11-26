@@ -88,14 +88,21 @@ describe("the cost seed", () => {
   });
 
   it("has two live warnings that survive being looked at", async () => {
-    // The seeded project, named by the two rules it was built to fire. Other
-    // suites write warnings of their own to this database, so the query says
-    // which project it means rather than taking whichever has the most.
+    // The seeded project, picked the way `seedWarnings` picks it: the project
+    // of the first seeded contract by ref. Other suites leave warnings of their
+    // own in this database, and seed-site.test.ts re-runs the seed, which
+    // rewrites the budget lines of their fixture projects without
+    // re-evaluating them. «Any project with both warnings» could land on one
+    // of those, whose stale rows no longer survive a read. Seeded contracts are
+    // numbered ΤΥ/2026/nnn; test fixtures use ΤΥ/ΔΟΚ/… (test/contract-support.ts).
     const { rows } = await db.query<{ project_id: string; n: number }>(
-      `select project_id, count(*)::int as n from ecapital.cost_warning
-        where dismissed_at is null
-          and key in ('commitmentOverYearBudget', 'forecastOverApproved')
-        group by project_id having count(*) = 2 limit 1`,
+      `select w.project_id, count(*)::int as n from ecapital.cost_warning w
+        where w.dismissed_at is null
+          and w.key in ('commitmentOverYearBudget', 'forecastOverApproved')
+          and w.project_id = (select c.project_id from ecapital.contract c
+                               where c.contract_no like 'ΤΥ/2026/%'
+                               order by c.ref limit 1)
+        group by w.project_id`,
     );
     expect(rows).toHaveLength(1);
     expect(rows[0].n).toBe(2);
