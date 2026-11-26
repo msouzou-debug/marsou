@@ -1,10 +1,16 @@
 # eCapital answers for eHire: users, roles and substitutes
 
-Filed by the eHire session on 26/11/2026 from the Word document Marios passed on (text only, wording unchanged).
+Filed by the eHire session on 26/11/2026 from the Word document Marios passed on (second version, with the update of the same day; text only, wording unchanged).
 
 From: the eCapital session, through Marios. Date: 26/11/2026. Reply to: «Questions for the eCapital session: users, roles and substitutes» (26/11/2026).
 
 Everything below was checked against eCapital’s code and migrations as they stand today. Examples use invented people («Χρήστης Α», user.a).
+
+Update, 26/11/2026 (later the same day). Writing these answers turned up three weak points, and the owner had them fixed the same day (migration 0036_approver_eligibility). The answers below describe eCapital after the fix, and each changed answer says so:
+
+- Routing skips switched-off accounts and accounts without a role that may decide the line, and switching someone off or taking a role away moves their waiting lines to the next holder (answers 4, 6, 8, 11, 15.4).
+- An administrator may decide only a permit line that has nobody assigned, and is then named on the line (answers 7, 9).
+- The user sheet has one «Αποθήκευση» for roles, units, account status and approver scopes, checked against the roles being saved, and approver scopes are saved row by row (answers 1, 14, 15.6).
 
 ## eCapital’s model in four lines
 
@@ -21,7 +27,7 @@ Only on the person. «Διαχείριση › Χρήστες», open the row, a
 
 There is no page per role for putting people into roles. The «Ρόλοι και δικαιώματα» tab is per role, but it sets what each role may do, not who holds it. So the person page and the role page never write the same rows.
 
-Routes: PATCH /admin/users/:id (roles, units, name, active) and PUT /admin/users/:id/approver-scopes (the approver section, which has its own «Αποθήκευση» button).
+Routes: PATCH /admin/users/:id carries roles, units, name, active and, optionally, approverScopes. Since 26/11/2026 the sheet has one «Αποθήκευση» and sends all of it in that one request, in one transaction, so a refusal leaves nothing half-saved. PUT /admin/users/:id/approver-scopes still works for anything that calls it, but the screen no longer does.
 
 ### 2. Where roles are shown
 
@@ -51,7 +57,7 @@ A consequence: «Χρήστης Α» can’t be «Μηχανικός έργου�
 There can be many, and how a task is handed out depends on what kind of task it is:
 
 - Shared queues (variations, payment certificates). Everyone whose role has the right level in that unit sees the item in «Εγκρίσεις». The first one to act decides it.
-- Permit approval lines. unit_approver and area_clinical_owner accept several people for the same unit and capacity, but the routing (resolveApprover in apps/api/src/permits/permits.service.ts) gives each line to one person: the earliest-created appointment, skipping the requester. Nobody else sees the line, and the screen never says which holder counts as “first”. A second holder only gets lines when the first one is the requester.
+- Permit approval lines. unit_approver and area_clinical_owner accept several people for the same unit and capacity, but the routing (resolveApprover, now in apps/api/src/permits/approver-resolver.ts) gives each line to one person: the earliest-created appointment, skipping the requester. Nobody else sees the line, and the screen never says which holder counts as “first”. Since 26/11/2026 the routing also skips a holder whose account is switched off or who no longer holds a role that may decide the line (TECHNICAL and SAFETY: «Εγκρίνων τεχνικών και ασφάλειας», «Κλινικός εγκριτής» or «Προϊστάμενος Τεχνικών Υπηρεσιών»; every other line: «Κλινικός εγκριτής»). A second holder gets lines when the first one is the requester, switched off or without the role.
 
 ### 5. Substitutes
 
@@ -59,7 +65,7 @@ Not built. eCapital has no substitute per person, per role or per period. No tab
 
 ### 6. Out of office
 
-Not built. There is no absence switch or date range, and nothing moves tasks automatically. The nearest thing is the administrator stepping in on a permit line that has nobody assigned (see 11). That does not cover a line that is assigned to someone who is away.
+Not built. There is no absence switch or date range. The nearest things are the administrator stepping in on a permit line that has nobody assigned (see 11), and, since 26/11/2026, switching an account off, which moves that person’s waiting permit lines to the next holder (see 8). Neither covers someone who is away for a week and coming back: switching them off also stops them signing in.
 
 ### 7. Acting through a substitute
 
@@ -67,26 +73,26 @@ Not built. Nothing records «Χρήστης Β, αντί για Χρήστης �
 
 - When the administrator decides an unassigned permit line, the line’s approver_id becomes the administrator. The permit page then shows the administrator’s name, with no “on behalf of”.
 - Every write lands in audit_log with the actor (see 14), so you can always see who actually acted.
-- One gap: the API also lets an administrator decide a line that is assigned to someone else. In that case the line keeps the assigned person’s id, and only audit_log shows who really decided. The screens don’t offer this (the buttons appear only on your own lines, or on unassigned ones for the administrator), so it shouldn’t happen in practice.
+- Fixed on 26/11/2026: the API used to let an administrator decide a line that was assigned to someone else, and the line then kept the assigned person’s id. It now refuses that with 403 errors.permitDecisionAssignedToOther («Η γραμμή έγκρισης περιμένει άλλο πρόσωπο και την αποφασίζει εκείνο. Ως διαχειριστής αποφασίζετε μόνο γραμμή χωρίς εγκρίνοντα.»), so a decided line always names the person who decided it.
 
 ### 8. Open tasks after a change
 
-They stay with the old holder. The approver is written to permit_approval.approver_id when the permit is submitted. It is not looked up again at read time. Changing someone’s «Χώροι και ρόλοι έγκρισης» affects new submissions only. There is no reassign button.
+It depends on what changed. The approver is written to permit_approval.approver_id when the permit is submitted and is not looked up again at read time.
 
-A line only moves when the route is rebuilt, and that happens only when the permit is returned («Επιστροφή με σχόλια»), corrected and submitted again. Other ways out: the Προϊστάμενος or the administrator rejects the permit, which is final, or the old holder decides it.
+- The holder is switched off, or loses the role the line needs (changed 26/11/2026). In the same save, every waiting line of theirs on a permit in clinical review goes to the next eligible holder, by the same routing as a submission, or to nobody if there is none. A line with nobody shows «Δεν έχει οριστεί εγκρίνων…» and the administrator decides it. Each move is a row in audit_log (the administrator as actor, old and new approver in the images) and GET /permits/:id/audit reports it as permitLineReassigned (the permit page’s own timeline does not list it). Lines the person can still decide stay with them.
+- Only their «Χώροι και ρόλοι έγκρισης» change (an appointment added or removed, the role kept). New submissions only; their waiting lines stay with them. There is no reassign button.
+
+Otherwise a line only moves when the route is rebuilt, which happens when the permit is returned («Επιστροφή με σχόλια»), corrected and submitted again. Other ways out: the Προϊστάμενος or the administrator rejects the permit, which is final, or the holder decides it.
 
 For the shared queues in 4 there is nothing to move. The new holder sees the items once they sign in with the new role.
 
-Two related gaps:
-
-- The routing does not check is_active or the person’s current roles. A switched-off account, or one whose approver role was removed but whose scope rows were left behind, still gets new lines.
-- The editor lists old scopes so they can be removed, but nothing removes them automatically.
+Scope rows are not removed when an account is switched off or loses its role: switched back on, or given the role again, the person has their appointments back. Meanwhile the routing passes them over, and the editor lists the old scopes, says they bring no lines, and lets the administrator remove them in the same save. (Before 26/11/2026 the routing did not check is_active or the current roles, so such accounts still got new lines.)
 
 ### 9. Administrator and requests
 
 Yes. The administrator can raise a permit request, a variation, a payment certificate or a fault call, and can decide variations and certificate steps. Those rights come from the administrator’s own column in the matrix (role_permission). They are not a second role, and they can be edited like any other column, within the guardrails.
 
-Separately, the administrator may decide a permit line that has nobody assigned. That one is an identity rule in code, not a matrix cell.
+Separately, the administrator may decide a permit line that has nobody assigned, and since 26/11/2026 only such a line: one assigned to someone else is refused (see 7). That one is an identity rule in code, not a matrix cell.
 
 An account can also hold «Διαχειριστής» together with other roles. The rights add up.
 
@@ -112,6 +118,7 @@ No screen lists the units or capacities that have no holder, so a gap is usually
 - The permit page shows, in amber: «Δεν έχει οριστεί εγκρίνων για αυτόν τον ρόλο στη μονάδα. Ο διαχειριστής αποφασίζει στη θέση του ή ορίζει εγκρίνοντα από τη Διαχείριση χρηστών.»
 - The administrator’s «Εγκρίσεις» shows every unassigned line of permits they did not raise, with a similar note. That was added after the owner’s UAT on 25/11/2026, when permits sat there unseen.
 - Appointing someone afterwards does not pick up the waiting line, because of 8. The administrator decides it, or the permit goes back and is submitted again.
+- Since 26/11/2026 a line also lands here when its holder is switched off or loses the role and there is no other eligible holder in the unit.
 
 A user with no role at all shows «Χωρίς ρόλο» in the list.
 
@@ -150,7 +157,7 @@ Yes. Database triggers write it, and the application cannot write or edit the lo
 
 Things to know:
 
-- Saving a person rewrites their role and unit rows: it deletes all of them and inserts them again. So the log shows a DELETE and an INSERT per role even when nothing changed. Approver scopes are saved the same way.
+- Saving a person rewrites their role and unit rows: it deletes all of them and inserts them again. So the log shows a DELETE and an INSERT per role even when nothing changed. Approver scopes were saved the same way until 26/11/2026; they are now written row by row, so the log shows only the scopes added or removed, and a kept appointment keeps its place in the earliest-first order.
 - app_user_role has no id column, so its log rows have an empty entity_id. You find a person’s role history by the app_user_id inside before/after.
 - There is no screen for the full log. GET /audit-log (administrator and auditor) is API only. Individual records (projects, permits and so on) show their own history, but the user sheet does not.
 
@@ -165,9 +172,9 @@ These are eCapital’s own known weak points. Most came out of this week’s UAT
 - The technician has «Γράφει» on «Ελλείψεις», but no screen lets them add one.
 - Finance has «Εγκρίνει» on the approved budget, but no «Επεξεργασία» button.
 - Lesson: if rights are editable, build every screen off the same table, and test each cell against a screen.
-- The approver is frozen on the line at submission, with no reassignment. When someone leaves or loses the role, their waiting lines get stuck. The routing doesn’t skip switched-off accounts, and the administrator’s inbox shows only unassigned lines. eHire already has the substitute idea, so keep it. We would add “move my waiting tasks to the new holder” when a holder changes.
+- The approver is frozen on the line at submission. Fixed in part on 26/11/2026: the routing now skips switched-off accounts and accounts without the role, and switching someone off or taking the role away moves their waiting lines to the next holder (see 8). Still missing: a holder who is only away, and a change of appointments alone, move nothing. eHire already has the substitute idea, so keep it.
 - “First appointed wins” is invisible. Several people can hold the same capacity in a unit, but only the earliest one gets lines, and no screen says so. Either allow one holder plus a named substitute (as eHire does) or show the order.
-- Two saves on one sheet. Roles and units save with the sheet’s «Αποθήκευση». Approver capacities save with their own button, appear only after the account exists, and are checked against the saved roles, not the ticked ones. So “tick the role and add the capacity in one go” gives an error («Δώστε πρώτα τον ρόλο και μετά τις αρμοδιότητες»).
+- Two saves on one sheet. Fixed on 26/11/2026. Approver capacities used to save with their own button and were checked against the saved roles, so “tick the role and add the capacity in one go” gave an error («Δώστε πρώτα τον ρόλο και μετά τις αρμοδιότητες»). The sheet now has one «Αποθήκευση», one request and one transaction, checked against the ticked roles. Capacities still appear only after the account exists.
 - There is no “who approves what in unit X” view and no list of empty capacities. The person view is good. The by-unit view eHire already has is the thing we lack.
 - Two different moments when a change applies: roles at the next sign-in, the matrix at the next request. People ask “I gave them the role, why can’t they see it?”
 
@@ -175,4 +182,4 @@ These are eCapital’s own known weak points. Most came out of this week’s UAT
 
 Copy - One person page that shows and edits roles, units, account on/off and approver appointments, plus a users list with «Ρόλοι» and «Μονάδες» columns and filters by role and unit. - A role catalogue in code that says whether a role is per unit or all units, so the screen opens or closes the unit picker by itself. - The four guard rules with plain sentences: no self-lockout, keep one active administrator, auditor set only from the server, unit roles need a unit. - Pre-registering an AD account by its account name, so rights work from the first sign-in. - The requester-never-decides rule, enforced in the routing and again at decision time, for the administrator too. - An unassigned task shown to the administrator with a sentence saying why, instead of sitting silently. - Audit by database trigger, with before/after images.
 
-Avoid - Resolving the approver once and never again with no reassign path. Either resolve at read time or add a reassign action on holder change. - Letting several holders exist when only the first one is used. - Routing to switched-off accounts or to accounts that lost the role. - Separate save buttons for parts of the same person. - An editable rights matrix that the screens don’t fully follow. - Delete-and-reinsert saves that fill the audit log with no-change pairs.
+Avoid - Resolving the approver once and never again with no reassign path. Either resolve at read time or add a reassign action on holder change. (eCapital now moves the lines when a holder is switched off or loses the role, but not on any other change.) - Letting several holders exist when only the first one is used. - Routing to switched-off accounts or to accounts that lost the role. (eCapital did this until 26/11/2026.) - Separate save buttons for parts of the same person. (eCapital had two until 26/11/2026.) - An editable rights matrix that the screens don’t fully follow. - Delete-and-reinsert saves that fill the audit log with no-change pairs.
