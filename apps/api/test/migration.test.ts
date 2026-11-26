@@ -60,7 +60,8 @@ describe("migrations", () => {
     expect(result.applied).toContain("0030_rfi_recipient_and_sap_asset_class");
     expect(result.applied).toContain("0031_vat");
     expect(result.applied).toContain("0032_rfi_close_and_contractor_contact");
-    expect(result.lastMigrationId).toBe("0032_rfi_close_and_contractor_contact");
+    expect(result.applied).toContain("0034_site_instruction_mail");
+    expect(result.lastMigrationId).toBe("0034_site_instruction_mail");
 
     const client = new Client({ connectionString: targetUrl });
     await client.connect();
@@ -840,6 +841,8 @@ describe("migrations", () => {
    * this database: it adds the RFI evidence kind, the `rfi_document` module
    * (keeping `claim_document`) and the one narrow `document_insert_rfi`
    * policy, so the replay is 0029 then 0030, as a fresh install runs them.
+   * 0034 (owner request 26/11/2026) does the same for a site instruction's
+   * correspondence, keeping every module before it, so it closes the replay.
    */
   it("0029 adds the claim paper kinds and module, touches no policy, and is idempotent", async () => {
     const client = new Client({ connectionString: targetUrl });
@@ -848,8 +851,10 @@ describe("migrations", () => {
       const files = readMigrations();
       const file = files.find((m) => m.id === "0029_claim_documents");
       const next = files.find((m) => m.id === "0030_rfi_recipient_and_sap_asset_class");
+      const last = files.find((m) => m.id === "0034_site_instruction_mail");
       expect(file).toBeDefined();
       expect(next).toBeDefined();
+      expect(last).toBeDefined();
 
       const state = async () => {
         const { rows: labels } = await client.query<{ enumlabel: string }>(
@@ -870,17 +875,20 @@ describe("migrations", () => {
       };
 
       const before = await state();
-      expect(before.labels.slice(-4)).toEqual([
+      expect(before.labels.slice(-5)).toEqual([
         "CLAIM_LETTER",
         "CLAIM_REPLY",
         "CLAIM_LEGAL_LETTER",
         "RFI_EVIDENCE",
+        "SITE_INSTRUCTION_EVIDENCE",
       ]);
       expect(before.check).toContain("claim_document");
       expect(before.check).toContain("rfi_document");
+      expect(before.check).toContain("site_instruction_document");
       expect(before.check).toContain("work_order_document");
       expect(before.policies.map((p) => p.policyname)).toEqual([
         "document_insert_rfi",
+        "document_insert_site_instruction",
         "document_insert_work_order",
         "document_read",
         "document_write",
@@ -888,6 +896,7 @@ describe("migrations", () => {
 
       await client.query(file!.sql);
       await client.query(next!.sql);
+      await client.query(last!.sql);
       expect(await state()).toEqual(before);
     } finally {
       await client.end();
@@ -1187,8 +1196,72 @@ describe("migrations", () => {
     expect(names).not.toContain("rfi_answered_before_closed");
     // R09: only a cost-impact instruction turns into a variation.
     expect(names).toContain("site_instruction_variation_needs_cost_impact");
+    // Owner request 26/11/2026 (0034): an instruction is sent no earlier than
+    // it was issued, to a name and an address of a sane shape.
+    expect(names).toContain("site_instruction_sent_not_before_issued");
+    expect(names).toContain("site_instruction_recipient_name_length");
+    expect(names).toContain("site_instruction_recipient_email_shape");
     // R35: funded means a capital project is paying for it.
     expect(names).toContain("defect_funded_needs_project");
+  });
+
+  /**
+   * Owner request 26/11/2026, 0034. A second run changes nothing: the three
+   * columns, the evidence kind, the one insert policy and the module list
+   * are the same afterwards, and the module list still names every module
+   * before it.
+   */
+  it("0034 gives site instructions a recipient, a sent day and their own evidence, and is idempotent", async () => {
+    const client = new Client({ connectionString: targetUrl });
+    await client.connect();
+    try {
+      const file = readMigrations().find((m) => m.id === "0034_site_instruction_mail");
+      expect(file).toBeDefined();
+      const state = async () => {
+        const { rows: columns } = await client.query<{ column_name: string; is_nullable: string }>(
+          `select column_name, is_nullable from information_schema.columns
+            where table_schema = 'ecapital' and table_name = 'site_instruction'
+              and column_name in ('recipient_name', 'recipient_email', 'sent_on') order by column_name`,
+        );
+        const { rows: check } = await client.query<{ def: string }>(
+          `select pg_get_constraintdef(c.oid) as def from pg_constraint c
+            where c.conname = 'dms_outbox_module_known'`,
+        );
+        const { rows: policy } = await client.query<{ cmd: string; with_check: string }>(
+          `select cmd, with_check from pg_policies where schemaname = 'ecapital'
+              and tablename = 'document' and policyname = 'document_insert_site_instruction'`,
+        );
+        return { columns, check: check[0]?.def ?? "", policy };
+      };
+      const before = await state();
+      expect(before.columns).toEqual([
+        { column_name: "recipient_email", is_nullable: "YES" },
+        { column_name: "recipient_name", is_nullable: "YES" },
+        { column_name: "sent_on", is_nullable: "YES" },
+      ]);
+      for (const module of [
+        "award",
+        "business_case",
+        "variation",
+        "permit",
+        "payment_cert",
+        "asset_document",
+        "work_order_document",
+        "claim_document",
+        "rfi_document",
+        "site_instruction_document",
+      ]) {
+        expect(before.check).toContain(`'${module}'`);
+      }
+      expect(before.policy).toHaveLength(1);
+      expect(before.policy[0].cmd).toBe("INSERT");
+      expect(before.policy[0].with_check).toContain("can_manage_site_log");
+
+      await client.query(file!.sql);
+      expect(await state()).toEqual(before);
+    } finally {
+      await client.end();
+    }
   });
 
   it("gives a technician the two defect sources the field produces and no others", async () => {
@@ -1302,9 +1375,11 @@ describe("migrations", () => {
       // 0022 (ADR-0031 §11) adds one narrow INSERT-only policy: a
       // work-order document, by whoever may work the order. 0030 adds its
       // twin for an RFI's evidence, by whoever may write the RFI log
-      // (owner decision 25/11/2026). Nothing else.
+      // (owner decision 25/11/2026), and 0034 the same for a site
+      // instruction's correspondence (owner request 26/11/2026). Nothing else.
       expect(doc.map((d) => d.policyname)).toEqual([
         "document_insert_rfi",
+        "document_insert_site_instruction",
         "document_insert_work_order",
         "document_read",
         "document_write",
@@ -1313,11 +1388,15 @@ describe("migrations", () => {
       expect(doc[0].with_check).toContain("RFI_EVIDENCE");
       expect(doc[0].with_check).toContain("can_manage_site_log");
       expect(doc[0].qual).toBeNull();
-      expect(doc[1].with_check).toContain("work_order");
-      expect(doc[1].with_check).toContain("can_work_work_order");
+      expect(doc[1].with_check).toContain("'site_instruction'");
+      expect(doc[1].with_check).toContain("SITE_INSTRUCTION_EVIDENCE");
+      expect(doc[1].with_check).toContain("can_manage_site_log");
       expect(doc[1].qual).toBeNull();
-      expect(doc[2].qual).toContain("can_read_unit");
-      expect(doc[3].with_check).toContain("can_manage_document");
+      expect(doc[2].with_check).toContain("work_order");
+      expect(doc[2].with_check).toContain("can_work_work_order");
+      expect(doc[2].qual).toBeNull();
+      expect(doc[3].qual).toContain("can_read_unit");
+      expect(doc[4].with_check).toContain("can_manage_document");
     } finally {
       await client.end();
     }

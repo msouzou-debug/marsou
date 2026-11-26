@@ -118,6 +118,9 @@ export const SOURCE_MODULES = [
   // The sent e-mail of an RFI, or the reply to it (owner decision 25/11/2026:
   // eCapital sends no e-mail; the engineer files what Outlook sent).
   "rfi_document",
+  // The sent e-mail or letter of a site instruction (owner request
+  // 26/11/2026: the same facility as an RFI). 0034.
+  "site_instruction_document",
 ] as const;
 
 /** «ΤΥ, Αρχείο Τεχνικών Υπηρεσιών», numbering ΤΥ/2026/00001. */

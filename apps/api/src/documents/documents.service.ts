@@ -41,11 +41,13 @@ import {
   buildBusinessCaseMeta,
   buildClaimDocumentMeta,
   buildRfiDocumentMeta,
+  buildSiteInstructionDocumentMeta,
   buildVariationMeta,
   buildWorkOrderDocumentMeta,
   businessCaseSourceRef,
   claimDocumentSourceRef,
   rfiDocumentSourceRef,
+  siteInstructionDocumentSourceRef,
   variationSourceRef,
   workOrderDocumentSourceRef,
 } from "./dms-meta";
@@ -658,6 +660,88 @@ export class DocumentsService {
     });
   }
 
+  /**
+   * Owner request 26/11/2026: a site instruction is sent from Outlook like an
+   * RFI, and the sent message or the letter is filed here. The nth paper on
+   * the instruction, one transaction (ADR-0023). The `document` row is
+   * written under `document_insert_site_instruction` (0034): whoever may
+   * write the site instruction log may file its correspondence. An
+   * instruction the caller may not see never reaches here — the service
+   * answers 404 first.
+   */
+  async fileSiteInstructionDocument(
+    instruction: {
+      id: string;
+      contractId: string;
+      number: number;
+      textEl: string;
+      recipientName: string | null;
+      orgUnitId: string;
+    },
+    upload: UploadInput,
+  ): Promise<DocumentRecord> {
+    const tx = currentTx();
+    if (!tx) throw AppError.internal();
+
+    const [facts] = await tx.db
+      .select({
+        contractRef: schema.contract.ref,
+        unitCode: schema.orgUnit.code,
+        unitName: schema.orgUnit.nameEl,
+        contractorId: schema.contractor.id,
+        contractorName: schema.contractor.name,
+        contractorVat: schema.contractor.vatNumber,
+        contractorReg: schema.contractor.registrationNo,
+        contractorSap: schema.contractor.sapVendorId,
+      })
+      .from(schema.contract)
+      .innerJoin(schema.orgUnit, eq(schema.orgUnit.id, schema.contract.orgUnitId))
+      .innerJoin(schema.contractor, eq(schema.contractor.id, schema.contract.contractorId))
+      .where(eq(schema.contract.id, instruction.contractId))
+      .limit(1);
+    if (!facts) throw AppError.notFound("errors.contractNotFound");
+
+    const n = await this.nextVersion("site_instruction", instruction.id);
+    const stored = await this.store.put({
+      bytes: upload.bytes,
+      filename: upload.filename,
+      mime: upload.mime,
+      prefix: `site-instruction/${instruction.id}`,
+    });
+    const files = [mainFile(stored)];
+    const meta = buildSiteInstructionDocumentMeta(
+      {
+        instructionId: instruction.id,
+        contractId: instruction.contractId,
+        contractRef: facts.contractRef,
+        number: instruction.number,
+        textEl: instruction.textEl,
+        recipientName: instruction.recipientName,
+        n,
+        letterDate: nicosiaDateOf(),
+        contractor: contractorOf(facts),
+        unit: unitOf(facts.unitCode, facts.unitName),
+        approvals: await this.recordedBy("site_instruction", instruction.id),
+      },
+      files,
+      this.origin(),
+    );
+
+    return this.persist({
+      orgUnitId: instruction.orgUnitId,
+      entityType: "site_instruction",
+      entityId: instruction.id,
+      kind: "SITE_INSTRUCTION_EVIDENCE",
+      titleEl: upload.titleEl?.trim() || meta.subject,
+      sourceRef: siteInstructionDocumentSourceRef(instruction.id, n),
+      sourceModule: "site_instruction_document",
+      version: n,
+      stored,
+      meta,
+      files,
+    });
+  }
+
   /** Everything the three routes already hold, listed for a screen. */
   async listFor(entityType: string, entityId: string): Promise<DocumentRecord[]> {
     const tx = currentTx();
@@ -746,6 +830,7 @@ export class DocumentsService {
       | "ASSET_DOCUMENT"
       | "WORK_ORDER_DOCUMENT"
       | "RFI_EVIDENCE"
+      | "SITE_INSTRUCTION_EVIDENCE"
       | ClaimDocumentKindKey;
     titleEl: string;
     sourceRef: string;

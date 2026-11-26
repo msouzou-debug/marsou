@@ -7,6 +7,7 @@ import cashflowChart from "@/components/cashflow-chart/CashflowChart.preview";
 import closeoutChecklist from "@/components/closeout-checklist/CloseoutChecklist.preview";
 import conditionChip from "@/components/condition-chip/ConditionChip.preview";
 import confirmDialog from "@/components/confirm-dialog/ConfirmDialog.preview";
+import correspondence from "@/components/correspondence/Correspondence.preview";
 import controlsChecklist from "@/components/controls-checklist/ControlsChecklist.preview";
 import costBar from "@/components/cost-bar/CostBar.preview";
 import criticalityChip from "@/components/criticality-chip/CriticalityChip.preview";
@@ -89,6 +90,7 @@ const entries: PreviewEntry[] = [
   conditionChip,
   confirmDialog,
   controlsChecklist,
+  correspondence,
   costBar,
   criticalityChip,
   decisionPanel,

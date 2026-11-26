@@ -138,7 +138,4 @@ export function rfiEditFormSchema(raisedOn: string, today: string, recipientRequ
 }
 
 /** The evidence upload: a file, and a title of at least 3 characters when one is given. */
-export function evidenceTitleError(title: string): string | undefined {
-  const trimmed = title.trim();
-  return trimmed !== "" && trimmed.length < 3 ? "forms.titleTooShort" : undefined;
-}
+export { evidenceTitleError } from "@/lib/file-each";

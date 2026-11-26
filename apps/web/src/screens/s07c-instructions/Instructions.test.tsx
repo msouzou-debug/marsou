@@ -162,7 +162,7 @@ describe("Instructions — detail and edit (UAT 25/11/2026)", () => {
     await user.type(text, "Δύο σειρές ηχομονωτικών πάνελ.");
     fireEvent.change(issuedOn, { target: { value: "2026-07-01" } });
     await user.click(dialog.getByRole("button", { name: "Αποθήκευση" }));
-    expect(onUpdate).toHaveBeenCalledWith({ textEl: "Δύο σειρές ηχομονωτικών πάνελ.", costImpactFlag: true, issuedOn: "2026-07-01" });
+    expect(onUpdate).toHaveBeenCalledWith({ textEl: "Δύο σειρές ηχομονωτικών πάνελ.", costImpactFlag: true, issuedOn: "2026-07-01", recipientName: "", recipientEmail: "", sentOn: "" });
     expect(await screen.findByRole("dialog", { name: `Οδηγία εργοταξίου ${unlinked.number}` })).toBeInTheDocument();
   });
 

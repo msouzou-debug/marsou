@@ -227,11 +227,15 @@ export class RfisController {
    * (ADR-0023). Asked of the matrix before a byte is stored: whoever writes
    * the RFI log files its evidence, and the row policy says the same
    * (0030 `document_insert_rfi`).
+   *
+   * Owner request 26/11/2026: `defParamCharset: "utf8"` on every document
+   * upload. Browsers send the file name as UTF-8; multer's default (latin1)
+   * turned «Επιστολή.pdf» into mojibake in the database and on eArchive.
    */
   @Post("contracts/:id/rfis/:rid/documents")
   @HttpCode(201)
   @Needs("rfisInstructions", "WRITE")
-  @UseInterceptors(FileInterceptor("file", { limits: { fileSize: MAX_FILE_BYTES, files: 1 } }))
+  @UseInterceptors(FileInterceptor("file", { limits: { fileSize: MAX_FILE_BYTES, files: 1 }, defParamCharset: "utf8" }))
   @ApiConsumes("multipart/form-data")
   @ApiOperation({ summary: "File the sent e-mail, or the reply, against an RFI" })
   @ApiParam({ name: "id", schema: { type: "string", format: "uuid" } })

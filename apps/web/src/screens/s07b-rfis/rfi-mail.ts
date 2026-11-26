@@ -13,13 +13,21 @@
 // `MAILTO_BODY_LIMIT` characters: the question is shortened, with «…», so
 // that the lines after it — above all «quote the RFI number in your reply» —
 // always arrive.
+//
+// Owner request 26/11/2026: the same text also goes into the .eml draft that
+// «Αποθήκευση και αποστολή e-mail» downloads, with the files attached
+// (`@/lib/mail-draft`). The draft carries the same text as the link: one
+// message, whichever way it leaves.
 import { formatDate } from "@/lib/format";
+import { firstLine, shorten, type MailDraft } from "@/lib/mail-draft";
+
+export { mailtoHref } from "@/lib/mail-draft";
+export { contractFactsOf } from "@/lib/contract-recipient";
 
 export const MAILTO_BODY_LIMIT = 1800;
 /** The question's share of the subject line. */
 export const SUBJECT_QUESTION_LIMIT = 60;
 
-const ELLIPSIS = "…";
 const CRLF = "\r\n";
 
 export interface RfiMailFacts {
@@ -40,21 +48,16 @@ export type RfiMailTranslate = (
   values?: Record<string, string | number>,
 ) => string;
 
-export interface RfiMail {
-  to: string;
-  subject: string;
-  body: string;
-}
-
-function shorten(text: string, limit: number): string {
-  if (text.length <= limit) return text;
-  return `${text.slice(0, Math.max(0, limit - 1)).trimEnd()}${ELLIPSIS}`;
-}
+export type RfiMail = MailDraft;
 
 /** The first line of the question, on one line, for the subject. */
 export function shortQuestion(question: string, limit = SUBJECT_QUESTION_LIMIT): string {
-  const firstLine = question.trim().split(/\r?\n/)[0] ?? "";
-  return shorten(firstLine.replace(/\s+/g, " "), limit);
+  return firstLine(question, limit);
+}
+
+/** The draft's file name (owner decision 26/11/2026). */
+export function rfiEmlFilename(number: number): string {
+  return `RFI-${number}.eml`;
 }
 
 export function buildRfiMail(facts: RfiMailFacts, t: RfiMailTranslate): RfiMail {
@@ -87,13 +90,4 @@ export function buildRfiMail(facts: RfiMailFacts, t: RfiMailTranslate): RfiMail 
     body = compose(shorten(question, room));
   }
   return { to: facts.recipientEmail.trim(), subject, body };
-}
-
-/**
- * RFC 6068. Everything is percent-encoded but the `@` of the address, which
- * some mail programs do not decode in the address part.
- */
-export function mailtoHref(mail: RfiMail): string {
-  const to = encodeURIComponent(mail.to).replace(/%40/g, "@");
-  return `mailto:${to}?subject=${encodeURIComponent(mail.subject)}&body=${encodeURIComponent(mail.body)}`;
 }

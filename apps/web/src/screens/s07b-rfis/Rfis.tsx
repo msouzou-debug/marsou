@@ -33,9 +33,12 @@ import { PageTitle } from "@/components/app-shell";
 import { SlaChip } from "@/components/sla-chip";
 import { Table, type TableColumn } from "@/components/table";
 import { formatDate } from "@/lib/format";
+import { recipientDefaultsOf } from "@/lib/contract-recipient";
+import type { FilingReport } from "@/lib/file-each";
 import { ContractTabs } from "@/screens/s07-contract/ContractTabs";
 import type { RfiAnswerFormValues, RfiEditFormValues, RfiFormValues } from "./schema";
-import { RfiSheet } from "./RfiSheet";
+import { contractFactsOf } from "./rfi-mail";
+import { RfiSheet, type RfiSaveOptions } from "./RfiSheet";
 
 export type RfisScreenState = "default" | "loading" | "empty" | "error" | "noPermission" | "offline";
 
@@ -50,9 +53,10 @@ export interface RfisProps {
   onSelect: (id: string | "new" | null) => void;
   sheetSaving?: boolean;
   sheetApiError?: string;
-  onCreate: (values: RfiFormValues) => void;
-  /** `POST .../answer`; resolves true once saved (owner, UAT 25/11/2026). */
-  onAnswer: (values: RfiAnswerFormValues) => Promise<boolean> | void;
+  /** Owner request 26/11/2026: with the files to file and whether to make the Outlook draft. */
+  onCreate: (values: RfiFormValues, options: RfiSaveOptions) => void;
+  /** `POST .../answer`, then the contractor's letter; resolves true once the answer is saved (owner, UAT 25/11/2026). */
+  onAnswer: (values: RfiAnswerFormValues, files: File[]) => Promise<boolean> | void;
   /** `POST .../close` with the closing note; resolves true once closed. */
   onCloseRfi: (closingNote: string) => Promise<boolean> | void;
   /** UAT 25/11/2026: `PATCH .../rfis/:rid`; resolves true once saved. Omitted (or offline), no «Επεξεργασία». */
@@ -65,6 +69,8 @@ export interface RfisProps {
   onUpload?: (file: File, titleEl: string) => Promise<boolean>;
   uploading?: boolean;
   uploadError?: string;
+  /** Owner request 26/11/2026: the files a form could not file after the save, and the Outlook draft. */
+  filingReport?: FilingReport;
 }
 
 export function Rfis({
@@ -87,6 +93,7 @@ export function Rfis({
   onUpload,
   uploading = false,
   uploadError,
+  filingReport,
 }: RfisProps) {
   const t = useTranslations();
 
@@ -152,16 +159,7 @@ export function Rfis({
   const selectedRfi = selectedId && selectedId !== "new" ? rows.find((r) => r.id === selectedId) : undefined;
   const sheetOpen = selectedId !== undefined && selectedId !== null;
   // Owner UAT 25/11/2026: the contractor's contact, for the new form only.
-  const contractorContact = contract?.contractor;
-  const recipientDefaults =
-    contractorContact && (contractorContact.contactName || contractorContact.contactEmail)
-      ? {
-          name: contractorContact.contactName
-            ? `${contractorContact.contactName}, ${contractorContact.name}`
-            : contractorContact.name,
-          email: contractorContact.contactEmail ?? "",
-        }
-      : undefined;
+  const recipientDefaults = recipientDefaultsOf(contract);
 
   return (
     <>
@@ -219,20 +217,12 @@ export function Rfis({
           onCloseRfi={onCloseRfi}
           onUpdate={state === "offline" ? undefined : onUpdate}
           onMarkSent={state === "offline" ? undefined : onMarkSent}
-          contractFacts={
-            contract
-              ? {
-                  contractNo: contract.contractNo,
-                  contractorName: contract.contractorName,
-                  projectCode: contract.project?.code,
-                  projectTitle: contract.project?.titleEl,
-                }
-              : undefined
-          }
+          contractFacts={contract ? contractFactsOf(contract) : undefined}
           documents={documents}
           onUpload={state === "offline" ? undefined : onUpload}
           uploading={uploading}
           uploadError={uploadError}
+          filingReport={filingReport}
           recipientDefaults={recipientDefaults}
         />
       )}

@@ -6854,7 +6854,8 @@
                         "CLAIM_LETTER",
                         "CLAIM_REPLY",
                         "CLAIM_LEGAL_LETTER",
-                        "RFI_EVIDENCE"
+                        "RFI_EVIDENCE",
+                        "SITE_INSTRUCTION_EVIDENCE"
                       ]
                     },
                     "titleEl": {
@@ -7182,7 +7183,8 @@
                           "CLAIM_LETTER",
                           "CLAIM_REPLY",
                           "CLAIM_LEGAL_LETTER",
-                          "RFI_EVIDENCE"
+                          "RFI_EVIDENCE",
+                          "SITE_INSTRUCTION_EVIDENCE"
                         ]
                       },
                       "titleEl": {
@@ -7430,7 +7432,8 @@
                         "CLAIM_LETTER",
                         "CLAIM_REPLY",
                         "CLAIM_LEGAL_LETTER",
-                        "RFI_EVIDENCE"
+                        "RFI_EVIDENCE",
+                        "SITE_INSTRUCTION_EVIDENCE"
                       ]
                     },
                     "titleEl": {
@@ -7758,7 +7761,8 @@
                           "CLAIM_LETTER",
                           "CLAIM_REPLY",
                           "CLAIM_LEGAL_LETTER",
-                          "RFI_EVIDENCE"
+                          "RFI_EVIDENCE",
+                          "SITE_INSTRUCTION_EVIDENCE"
                         ]
                       },
                       "titleEl": {
@@ -8006,7 +8010,8 @@
                         "CLAIM_LETTER",
                         "CLAIM_REPLY",
                         "CLAIM_LEGAL_LETTER",
-                        "RFI_EVIDENCE"
+                        "RFI_EVIDENCE",
+                        "SITE_INSTRUCTION_EVIDENCE"
                       ]
                     },
                     "titleEl": {
@@ -8334,7 +8339,8 @@
                           "CLAIM_LETTER",
                           "CLAIM_REPLY",
                           "CLAIM_LEGAL_LETTER",
-                          "RFI_EVIDENCE"
+                          "RFI_EVIDENCE",
+                          "SITE_INSTRUCTION_EVIDENCE"
                         ]
                       },
                       "titleEl": {
@@ -8601,7 +8607,8 @@
                         "CLAIM_LETTER",
                         "CLAIM_REPLY",
                         "CLAIM_LEGAL_LETTER",
-                        "RFI_EVIDENCE"
+                        "RFI_EVIDENCE",
+                        "SITE_INSTRUCTION_EVIDENCE"
                       ]
                     },
                     "titleEl": {
@@ -9127,7 +9134,8 @@
                               "asset_document",
                               "work_order_document",
                               "claim_document",
-                              "rfi_document"
+                              "rfi_document",
+                              "site_instruction_document"
                             ]
                           },
                           "status": {
@@ -9354,7 +9362,8 @@
                         "asset_document",
                         "work_order_document",
                         "claim_document",
-                        "rfi_document"
+                        "rfi_document",
+                        "site_instruction_document"
                       ]
                     },
                     "status": {
@@ -56335,6 +56344,24 @@
                           "string",
                           "null"
                         ]
+                      },
+                      "recipientName": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "recipientEmail": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "sentOn": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
                       }
                     },
                     "required": [
@@ -56468,6 +56495,37 @@
                   },
                   "issuedOn": {
                     "type": "string"
+                  },
+                  "recipientName": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 200
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "recipientEmail": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 254,
+                        "format": "email",
+                        "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "sentOn": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   }
                 },
                 "required": [
@@ -56521,6 +56579,24 @@
                         "string",
                         "null"
                       ]
+                    },
+                    "recipientName": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "recipientEmail": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "sentOn": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     }
                   },
                   "required": [
@@ -56541,7 +56617,7 @@
             }
           },
           "400": {
-            "description": "The body is not a valid instruction, or its issue day is after today",
+            "description": "The body is not a valid instruction, a bad address, or an issue or sent day after today",
             "content": {
               "application/json": {
                 "schema": {
@@ -56635,6 +56711,38 @@
                 }
               }
             }
+          },
+          "422": {
+            "description": "The sent day is before the day the instruction was issued",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
           }
         },
         "security": [
@@ -56697,6 +56805,37 @@
                   },
                   "issuedOn": {
                     "type": "string"
+                  },
+                  "recipientName": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 200
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "recipientEmail": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 254,
+                        "format": "email",
+                        "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "sentOn": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   }
                 },
                 "additionalProperties": false
@@ -56746,6 +56885,24 @@
                         "string",
                         "null"
                       ]
+                    },
+                    "recipientName": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "recipientEmail": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "sentOn": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     }
                   },
                   "required": [
@@ -56766,7 +56923,7 @@
             }
           },
           "400": {
-            "description": "The body is not a valid change, or its issue day is after today",
+            "description": "The body is not a valid change, a bad address, or an issue or sent day after today",
             "content": {
               "application/json": {
                 "schema": {
@@ -56862,7 +57019,7 @@
             }
           },
           "422": {
-            "description": "The instruction has already been turned into a variation",
+            "description": "The instruction has already been turned into a variation, or the sent day is before the issue day",
             "content": {
               "application/json": {
                 "schema": {
@@ -57167,6 +57324,449 @@
           }
         ],
         "summary": "Turn a cost-impact instruction into a draft variation",
+        "tags": [
+          "site log"
+        ]
+      }
+    },
+    "/contracts/{id}/site-instructions/{sid}/documents": {
+      "get": {
+        "operationId": "SiteInstructionsController_documents",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "sid",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "el"
+            },
+            "description": "el or en. Greek when the header is absent."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The instruction's papers, newest first",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string"
+                      },
+                      "titleEl": {
+                        "type": "string"
+                      },
+                      "filename": {
+                        "type": "string"
+                      },
+                      "mime": {
+                        "type": "string"
+                      },
+                      "size": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      "protocolNumber": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "uploadedByName": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "createdAt": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "titleEl",
+                      "filename",
+                      "mime",
+                      "size",
+                      "protocolNumber",
+                      "uploadedByName",
+                      "createdAt"
+                    ],
+                    "additionalProperties": false
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No token, or a token that does not verify",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such contract or instruction, or none the caller may see",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "The sent e-mails and letters filed against a site instruction, newest first",
+        "tags": [
+          "site log"
+        ]
+      },
+      "post": {
+        "operationId": "SiteInstructionsController_addDocument",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "sid",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "el"
+            },
+            "description": "el or en. Greek when the header is absent."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "file"
+                ],
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "The sent e-mail (.msg, .eml or .pdf), the letter, or the contractor's reply."
+                  },
+                  "titleEl": {
+                    "type": "string",
+                    "description": "The title on the folder. Left out, the subject line is used."
+                  },
+                  "mime": {
+                    "type": "string",
+                    "enum": [
+                      "application/pdf",
+                      "application/zip",
+                      "text/html",
+                      "text/plain",
+                      "text/csv",
+                      "image/png",
+                      "image/jpeg",
+                      "image/tiff",
+                      "image/gif",
+                      "image/webp",
+                      "application/msword",
+                      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                      "application/vnd.ms-excel",
+                      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                      "application/vnd.ms-powerpoint",
+                      "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+                      "message/rfc822",
+                      "application/vnd.ms-outlook"
+                    ],
+                    "description": "Overrides the browser's guess. eArchive's whitelist, nothing else. A .msg or .eml file is filed by its extension whatever this says."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The paper, filed against the instruction and queued for eArchive",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "titleEl": {
+                      "type": "string"
+                    },
+                    "filename": {
+                      "type": "string"
+                    },
+                    "mime": {
+                      "type": "string"
+                    },
+                    "size": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "protocolNumber": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "uploadedByName": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "createdAt": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "titleEl",
+                    "filename",
+                    "mime",
+                    "size",
+                    "protocolNumber",
+                    "uploadedByName",
+                    "createdAt"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "No file, a title under 3 characters, or a file name that is not usable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "A role that does not write site instructions, or a unit the caller may not write",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such contract or instruction, or none the caller may see",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "A file type eArchive does not accept, or one over 50 MB",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "File the sent e-mail, the letter or the reply against a site instruction",
         "tags": [
           "site log"
         ]

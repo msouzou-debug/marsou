@@ -53,14 +53,31 @@ const SAFE_KEY = /^[A-Za-z0-9][A-Za-z0-9._/-]*$/;
  * A file name a person can read in a directory listing and a file system will
  * accept. The original name is kept in the database and in `meta.filename`;
  * this is only what the bytes are called on disk.
+ *
+ * RULE (owner request 26/11/2026, found filing «Επιστολή προς ανάδοχο.pdf»):
+ * the key is ASCII letters, digits, `.`, `_` and `-` only (`SAFE_KEY`), so a
+ * Greek name or a space is written as `_` and the extension is kept. Before
+ * this, any name with a space or a Greek letter was refused as
+ * errors.documentNameNotValid, which is most of what ΟΚΥπΥ's letters are
+ * called. Nobody reads the key: the screens and eArchive get the original.
  */
 export function safeFilename(filename: string): string {
   const cleaned = filename
     .replace(/[\\/]/g, "-")
     .replace(/[\u0000-\u001f\u007f]/g, "")
-    .replace(/\s+/g, " ")
     .trim();
-  return cleaned.length ? cleaned.slice(0, 120) : "document";
+  const extension = /\.[A-Za-z0-9]{1,8}$/.exec(cleaned)?.[0] ?? "";
+  const stem = cleaned
+    .slice(0, cleaned.length - extension.length)
+    // Accented Latin letters lose the accent; anything else not in the key's
+    // alphabet becomes one `_` a run.
+    .normalize("NFKD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/[^A-Za-z0-9._-]+/g, "_")
+    .replace(/^[._-]+/, "")
+    .replace(/_+$/, "")
+    .slice(0, 110);
+  return `${/[A-Za-z0-9]/.test(stem) ? stem : "document"}${extension}`;
 }
 
 @Injectable()

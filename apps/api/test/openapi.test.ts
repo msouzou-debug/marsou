@@ -86,6 +86,7 @@ describe("openapi.json", () => {
       "/contracts/{id}/sections/{sid}",
       "/contracts/{id}/site-instructions",
       "/contracts/{id}/site-instructions/{sid}",
+      "/contracts/{id}/site-instructions/{sid}/documents",
       "/contracts/{id}/site-instructions/{sid}/variation",
       "/contracts/{id}/variations",
       "/contracts/{id}/variations/{vid}",
