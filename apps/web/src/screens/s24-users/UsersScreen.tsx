@@ -5,6 +5,8 @@
 // UsersScreen — the network-aware wrapper around `Users`. Owns the two
 // queries (`GET /admin/users`, `GET /admin/roles`), the filter state and the
 // create/update mutations (`POST /admin/users`, `PATCH /admin/users/:id`).
+// The approver scopes travel in the same PATCH (owner decision 26/11/2026):
+// one «Αποθήκευση», one request, one transaction.
 //
 // The four rules an administrator can break — their own lockout, the last
 // administrator, the auditor, a unit role with no unit — come back as 422
@@ -12,6 +14,7 @@
 // filter reads Accept-Language), so `sheetApiError` is shown as it arrives
 // rather than being re-translated from the key.
 import { useEffect, useState, type ReactNode } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import type { AdminUser, OrgUnit } from "@ecapital/shared";
 import { AdminUser as AdminUserSchema } from "@ecapital/shared";
 import { ApiError, apiMutate } from "@/data/client";
@@ -48,6 +51,7 @@ export function UsersScreen({ orgUnits, noPermission, localAccounts = false }: U
   const { data, error, isLoading, refetch } = useAdminUsers(filters);
   const catalogue = useRoleCatalogue();
   const online = useOnlineStatus();
+  const queryClient = useQueryClient();
   const [selectedId, setSelectedId] = useState<string | "new" | null>(null);
   const [saving, setSaving] = useState(false);
   const [apiError, setApiError] = useState<string | undefined>(undefined);
@@ -100,9 +104,11 @@ export function UsersScreen({ orgUnits, noPermission, localAccounts = false }: U
             roles: values.roles,
             orgUnitIds: values.orgUnitIds,
             active: values.active,
+            ...(values.approverScopes ? { approverScopes: values.approverScopes } : {}),
           },
           AdminUserSchema,
         );
+        await queryClient.invalidateQueries({ queryKey: ["approver-scopes", selectedId] });
       }
       setSelectedId(null);
       await refetch();

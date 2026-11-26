@@ -178,6 +178,7 @@
     "permitApprovalNotFound": "That approval line is not on this permit. Refresh the page and try again.",
     "permitAlreadyDecided": "That approval line has already been decided. Refresh the page to see who decided it and when.",
     "permitDecisionNotYours": "That approval line is waiting on somebody else. Your own lines are in Approvals.",
+    "permitDecisionAssignedToOther": "That approval line is waiting on someone else, and they decide it. As administrator you decide only a line with no approver.",
     "permitSelfApproval": "You cannot approve a permit you requested. Assign the approval to someone else.",
     "permitSettled": "The permit has been closed or rejected and cannot be changed. Raise a new shutdown request.",
     "calendarQueryNotValid": "The calendar criteria are not valid. Give a window as YYYY-MM-DD and try again.",
@@ -280,7 +281,7 @@
     "businessCaseMissing": "The project cannot leave the Idea phase without a filed business case. File it on the project and try again.",
     "tableExportNotValid": "The export is incomplete or goes over the 20,000-row limit. Narrow the table with the screen's filters and try again.",
     "bodyTooLarge": "You sent more than the system takes in one request. Narrow it down with the screen's filters and try again.",
-    "permitDecisionRoleMissing": "Your role does not let you decide this approval line. An administrator can assign it to someone else or decide it."
+    "permitDecisionRoleMissing": "Your role does not let you decide this approval line. Ask an administrator to assign it to someone else."
   },
   "exceptions": {
     "milestoneSlip": "Milestone {milestone} on {project} ({unit}) is {days} days behind its baseline date.",

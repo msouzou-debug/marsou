@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   allowedApproverScopeRoles,
+  approvalRoleHolders,
   approverScopesRefusal,
   mayHoldApproverScopes,
   type ApproverScopes,
@@ -59,5 +60,16 @@ describe("approver scope rules", () => {
   it("adds up the roles of an account that holds several", () => {
     expect(allowedApproverScopeRoles(["technical_approver", "clinical_approver"]).units).toHaveLength(5);
     expect(mayHoldApproverScopes(["technical_approver"])).toBe(true);
+  });
+
+  // Owner decision 26/11/2026: routing hands a line only to somebody whose
+  // role may decide it, read from the same two lists as the scopes.
+  it("names the account roles routing may hand each approval line to", () => {
+    for (const role of ["TECHNICAL", "SAFETY"] as const) {
+      expect(approvalRoleHolders(role)).toEqual(["technical_approver", "clinical_approver", "estates_head"]);
+    }
+    for (const role of ["WARD_MANAGER", "NURSING", "INFECTION_CONTROL", "HOSPITAL_DIRECTOR"] as const) {
+      expect(approvalRoleHolders(role)).toEqual(["clinical_approver"]);
+    }
   });
 });

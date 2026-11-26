@@ -585,6 +585,20 @@ export function allowedApproverScopeRoles(roles: readonly AppRole[]): {
   };
 }
 
+/**
+ * The account roles that may decide a line of this approval role, and so the
+ * only ones routing may hand it to (owner decision 26/11/2026, on top of
+ * ADR-0039). The same two lists as the scope rule above: a TECHNICAL or
+ * SAFETY line goes to a technical and safety approver, a clinical approver or
+ * an estates head; every other line to a clinical approver. The API reads it
+ * when it resolves an approver, when it moves the pending lines of somebody
+ * switched off or stripped of the role, and when it asks who may accept a
+ * handback (the three acceptance roles are clinical ones).
+ */
+export function approvalRoleHolders(role: ApprovalRole): readonly AppRole[] {
+  return role === "TECHNICAL" || role === "SAFETY" ? TECHNICAL_SCOPE_HOLDERS : CLINICAL_SCOPE_HOLDERS;
+}
+
 /** True when the account can be given any scope at all — what S24 shows the editor for. */
 export function mayHoldApproverScopes(roles: readonly AppRole[]): boolean {
   const allowed = allowedApproverScopeRoles(roles);

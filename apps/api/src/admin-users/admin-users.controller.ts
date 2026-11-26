@@ -98,16 +98,29 @@ export class AdminUsersController {
     return this.users.create(parsed.data);
   }
 
-  /** The four rules are in the service, each with its own sentence. */
+  /**
+   * The four rules are in the service, each with its own sentence.
+   *
+   * Owner decision 26/11/2026: the sheet's one «Αποθήκευση» sends the
+   * approver scopes here too (`approverScopes`, optional), checked against
+   * the roles of the same body and written in the same transaction. The
+   * account's pending approval lines it can no longer decide move to the next
+   * holder in that transaction as well.
+   */
   @Patch("users/:id")
-  @ApiOperation({ summary: "Change an account's roles, units, name or whether it is on" })
+  @ApiOperation({
+    summary: "Change an account's roles, units, name, whether it is on, and its approver scopes",
+  })
   @ApiParam({ name: "id", schema: { type: "string", format: "uuid" } })
   @ApiBody({ schema: jsonSchema(AdminUserUpdate) as never })
   @ApiZodResponse(200, AdminUser, "The account after the change")
   @ApiZodError(400, "The body is not a valid change")
   @ApiZodError(403, "The caller is not an administrator")
-  @ApiZodError(404, "No such account")
-  @ApiZodError(422, "errors.selfLockout, errors.lastAdmin, errors.auditorProtected or errors.unitRequired")
+  @ApiZodError(404, "No such account, or no such area or unit in the scopes")
+  @ApiZodError(
+    422,
+    "errors.selfLockout, errors.lastAdmin, errors.auditorProtected, errors.unitRequired, errors.approverScopesNeedRole or errors.approverScopesNeedTechnicalRole",
+  )
   update(@Param("id") id: string, @Body() body: unknown): Promise<AdminUser> {
     const parsed = AdminUserUpdate.safeParse(body);
     if (!parsed.success) throw AppError.badRequest("errors.adminUserNotValid");
@@ -151,7 +164,11 @@ export class AdminUsersController {
     return this.scopes.read(id);
   }
 
-  /** The whole picture in and the whole picture out, in one transaction. */
+  /**
+   * The whole picture in and the whole picture out, in one transaction.
+   * Kept for compatibility: the sheet now sends the scopes with the roles
+   * through `PATCH /admin/users/:id` (owner decision 26/11/2026).
+   */
   @Put("users/:id/approver-scopes")
   @ApiOperation({ summary: "Replace the areas and units this account approves for" })
   @ApiParam({ name: "id", schema: { type: "string", format: "uuid" } })

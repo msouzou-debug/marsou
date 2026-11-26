@@ -16,16 +16,17 @@
  * | apiError    | string?                | The API's own sentence for `errors.selfLockout`, `errors.lastAdmin`, `errors.auditorProtected` and `errors.unitRequired`, shown inline. |
  * | localAccounts | boolean?             | ADR-0030: the deployment signs people in with eCapital passwords, so an existing account gets the password block. |
  * | onClose     | () => void             |                                                                       |
- * | onSave      | (values) => void       |                                                                       |
+ * | onSave      | (values) => void       | `values.approverScopes` is there only when the approver section was changed. |
  *
  * Under each role checkbox, one line from `roleDescriptions.<role>` says
  * what the role gets, and «Τι βλέπει κάθε ρόλος» opens S24r's full table
  * in a new tab.
  *
- * Three rules are visible in the markup and marked `// RULE` below: the
+ * Four rules are visible in the markup and marked `// RULE` below: the
  * auditor checkbox is switched off with a title saying where the role does
  * come from, the unit list is switched off when every ticked role reaches all
- * units, and switching an account off asks first.
+ * units, switching an account off asks first, and the sheet has one
+ * «Αποθήκευση» for everything on it, the approver section included.
  *
  * States: default only. The sheet is handed its data; loading, error and
  * empty belong to the screen around it.
@@ -34,7 +35,14 @@ import { useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { LoaderCircle } from "lucide-react";
-import { mayHoldApproverScopes, type AdminUser, type AppRole, type OrgUnit, type RoleCatalogueEntry } from "@ecapital/shared";
+import {
+  mayHoldApproverScopes,
+  type AdminUser,
+  type AppRole,
+  type ApproverScopes,
+  type OrgUnit,
+  type RoleCatalogueEntry,
+} from "@ecapital/shared";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { ApproverScopesEditor } from "./ApproverScopesEditor";
 import { PasswordEditor } from "./PasswordEditor";
@@ -74,6 +82,9 @@ export function UserSheet({
   const [roles, setRoles] = useState<AppRole[]>(user?.roles ?? []);
   const [orgUnitIds, setOrgUnitIds] = useState<string[]>(user?.orgUnitIds ?? []);
   const [active, setActive] = useState(user?.active ?? true);
+  // The approver section's unsaved picture; null while it is untouched, so
+  // a save that did not change it does not send it.
+  const [approverScopes, setApproverScopes] = useState<ApproverScopes | null>(null);
   const [confirming, setConfirming] = useState(false);
   const [unitError, setUnitError] = useState(false);
 
@@ -88,7 +99,7 @@ export function UserSheet({
   }
 
   function values(): UserFormValues {
-    return { name, username, email, roles, orgUnitIds, active };
+    return { name, username, email, roles, orgUnitIds, active, ...(approverScopes ? { approverScopes } : {}) };
   }
 
   function submit(event: FormEvent) {
@@ -262,9 +273,19 @@ export function UserSheet({
               hold a scope — routing scopes have no meaning before the account
               exists or a role that decides a line is ticked. ADR-0039: the
               clinical approver, the technical and safety approver and the
-              estates head, each offered only the scopes their role allows. */}
-          {user && mayHoldApproverScopes(roles) && (
-            <ApproverScopesEditor userId={user.id} orgUnits={orgUnits} roles={roles} />
+              estates head, each offered only the scopes their role allows.
+              RULE (owner decision 26/11/2026): one «Αποθήκευση» below saves
+              this section with the roles, checked against the roles ticked
+              here; it stays open while a saved role is being unticked, so
+              its scopes can go in the same save. */}
+          {user && (mayHoldApproverScopes(roles) || mayHoldApproverScopes(user.roles)) && (
+            <ApproverScopesEditor
+              userId={user.id}
+              orgUnits={orgUnits}
+              roles={roles}
+              value={approverScopes}
+              onChange={setApproverScopes}
+            />
           )}
 
           {/* ADR-0030: only where the deployment signs people in with an

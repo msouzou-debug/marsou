@@ -146,7 +146,11 @@ export async function submit(
   return response.body as ShutdownPermit;
 }
 
-/** Approve every line, each as the person it is waiting on. */
+/**
+ * Approve every line, each as the person it is waiting on, and a line waiting
+ * on nobody as the administrator — the only lines the administrator may
+ * decide (owner decision 26/11/2026).
+ */
 export async function approveEveryLine(
   app: INestApplication,
   permitId: string,
@@ -158,9 +162,12 @@ export async function approveEveryLine(
 
   for (const line of permit.approvals) {
     if (line.decision !== "PENDING") continue;
+    const token = line.approverId
+      ? await tokenFor(app, await emailOf(app, line.approverId))
+      : adminToken;
     const response = await request(app.getHttpServer())
       .post(`/permits/${permitId}/approvals/${line.id}/decide`)
-      .set(bearer(adminToken))
+      .set(bearer(token))
       .send({ decision: "APPROVED", commentEl: null });
     if (response.status !== 200) {
       throw new Error(`approve: ${response.status} ${JSON.stringify(response.body)}`);
@@ -168,6 +175,16 @@ export async function approveEveryLine(
     permit = response.body as ShutdownPermit;
   }
   return permit;
+}
+
+/** The address an account signs in with, read as the administrator. */
+export async function emailOf(app: INestApplication, userId: string): Promise<string> {
+  const token = await tokenFor(app, USERS.admin);
+  const response = await request(app.getHttpServer()).get(`/admin/users/${userId}`).set(bearer(token));
+  if (response.status !== 200) {
+    throw new Error(`emailOf: ${response.status} ${JSON.stringify(response.body)}`);
+  }
+  return (response.body as { email: string }).email;
 }
 
 /** DRAFT → ICRA → SUBMITTED → every line approved. */

@@ -314,6 +314,16 @@ export function toPermitAuditEntry(row: PermitAuditRow): AuditEntry {
     } else if (row.action === "DELETE") {
       action = "permitRouteCleared";
       detail = typeof before?.role === "string" ? before.role : null;
+    } else if (
+      before?.decision === "PENDING" &&
+      after?.decision === "PENDING" &&
+      before?.approver_id !== after?.approver_id
+    ) {
+      // Owner decision 26/11/2026: a pending line moved to the next holder
+      // (or to nobody) because its approver was switched off or lost the
+      // role. The actor is the administrator who made that change.
+      action = "permitLineReassigned";
+      detail = typeof after?.role === "string" ? after.role : null;
     } else {
       action = "permitDecided";
       const role = String(after?.role ?? "");

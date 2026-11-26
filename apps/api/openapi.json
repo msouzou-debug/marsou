@@ -76654,6 +76654,66 @@
                     "type": "string",
                     "minLength": 1,
                     "maxLength": 200
+                  },
+                  "approverScopes": {
+                    "type": "object",
+                    "properties": {
+                      "areas": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "areaId": {
+                              "type": "string"
+                            },
+                            "role": {
+                              "type": "string",
+                              "enum": [
+                                "WARD_MANAGER",
+                                "NURSING",
+                                "INFECTION_CONTROL"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "areaId",
+                            "role"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "units": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "orgUnitId": {
+                              "type": "string"
+                            },
+                            "role": {
+                              "type": "string",
+                              "enum": [
+                                "TECHNICAL",
+                                "SAFETY",
+                                "HOSPITAL_DIRECTOR",
+                                "INFECTION_CONTROL",
+                                "NURSING"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "orgUnitId",
+                            "role"
+                          ],
+                          "additionalProperties": false
+                        }
+                      }
+                    },
+                    "required": [
+                      "areas",
+                      "units"
+                    ],
+                    "additionalProperties": false
                   }
                 },
                 "additionalProperties": false
@@ -76817,7 +76877,7 @@
             }
           },
           "404": {
-            "description": "No such account",
+            "description": "No such account, or no such area or unit in the scopes",
             "content": {
               "application/json": {
                 "schema": {
@@ -76849,7 +76909,7 @@
             }
           },
           "422": {
-            "description": "errors.selfLockout, errors.lastAdmin, errors.auditorProtected or errors.unitRequired",
+            "description": "errors.selfLockout, errors.lastAdmin, errors.auditorProtected, errors.unitRequired, errors.approverScopesNeedRole or errors.approverScopesNeedTechnicalRole",
             "content": {
               "application/json": {
                 "schema": {
@@ -76886,7 +76946,7 @@
             "bearer": []
           }
         ],
-        "summary": "Change an account's roles, units, name or whether it is on",
+        "summary": "Change an account's roles, units, name, whether it is on, and its approver scopes",
         "tags": [
           "admin-users"
         ]

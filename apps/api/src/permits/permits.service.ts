@@ -51,6 +51,7 @@ import {
 import { PermissionsService } from "../permissions/permissions.service";
 import { mayDecideLine } from "./line-needs";
 import { approvalSlaWindow } from "./permit-sla";
+import { eligibleFor, resolveApprover } from "./approver-resolver";
 import { durationHours, routeFor, type RouteLine } from "./routing";
 
 /** §6.6: who may sign the clinical acceptance that closes a permit. */
@@ -799,10 +800,14 @@ export class PermitsService {
   /**
    * One approver's decision on one line (§6.4, UI S14).
    *
-   * RULE: only the person the line resolved to may decide it, or an
-   * administrator — a line nobody could be found for has to be unblockable,
-   * and a decision taken by somebody else is recorded as theirs, with their
-   * name, in the audit trail.
+   * RULE: only the person the line resolved to may decide it. An
+   * administrator stands in only for a line that resolved to nobody — such a
+   * line has to be unblockable — and is then stamped as its approver, so the
+   * line names who decided it. RULE (owner decision 26/11/2026): a line
+   * assigned to somebody else is refused to the administrator too, 403
+   * `errors.permitDecisionAssignedToOther`; before, the API let it through
+   * and the line went on naming the person who was asked, with only the
+   * audit trail knowing better. The screens never offered it.
    *
    * Then the permit follows the route:
    *   every line APPROVED → APPROVED, stamped and audited (§6.4);
@@ -847,14 +852,17 @@ export class PermitsService {
       throw AppError.conflict("errors.permitSelfApproval");
     }
     // The administrator standing in for a missing approver is an identity
-    // rule (ADR-0026 Errata), not a row of the matrix (ADR-0033). Everyone
+    // rule (ADR-0026 Errata), not a row of the matrix (ADR-0033), and it
+    // covers an unassigned line only (owner decision 26/11/2026). Everyone
     // else decides only their own line, and only while the matrix gives
     // their role APPROVE on a row that line accepts (`LINE_NEEDS`: the
     // clinical row for the clinical lines; the technical row, or the clinical
     // row for an appointment made before ADR-0039, for TECHNICAL and SAFETY).
     const isAdmin = tx.context.roles.includes("admin");
-    if (!isAdmin && line.approverId !== caller) {
-      throw AppError.forbidden("errors.permitDecisionNotYours");
+    if (line.approverId !== caller && !(isAdmin && line.approverId === null)) {
+      throw AppError.forbidden(
+        isAdmin ? "errors.permitDecisionAssignedToOther" : "errors.permitDecisionNotYours",
+      );
     }
     if (
       !isAdmin &&
@@ -873,8 +881,9 @@ export class PermitsService {
           decision: input.decision,
           commentEl: input.commentEl,
           decidedAt: now,
-          // An administrator deciding on somebody's behalf is recorded as the
-          // person who decided, not as the person who was asked.
+          // An administrator standing in for nobody is stamped as the
+          // approver, so the line names who decided it. An assigned line is
+          // only ever decided by its own approver (above), so it keeps theirs.
           approverId: line.approverId ?? caller,
           updatedAt: sql`now()`,
         })
@@ -1212,7 +1221,9 @@ export class PermitsService {
   ): Promise<void> {
     const tx = currentTx();
     if (!tx) throw AppError.internal();
-    const approverId = await this.resolveApprover(orgUnitId, line.role, line.areaId, requestedById);
+    // Who: `resolveApprover` (approver-resolver.ts), which passes over anybody
+    // switched off or without a role that may decide this line.
+    const approverId = await resolveApprover(orgUnitId, line.role, line.areaId, requestedById);
     const sla = approvalSlaWindow(now);
     await tx.db.insert(schema.permitApproval).values({
       permitId,
@@ -1228,132 +1239,15 @@ export class PermitsService {
   }
 
   /**
-   * Who this line is waiting on.
+   * §6.6: is this person a clinical owner of one of these rooms, or of the
+   * unit?
    *
-   * A line about one area asks that area's owner. A unit-wide line asks the
-   * person holding that capacity for the unit, and falls back to an area
-   * owner holding it where there is no unit-wide appointment — an Infection
-   * Control officer appointed over the theatres and not over the hospital is
-   * still the Infection Control officer.
-   *
-   * No one found leaves the line unassigned and PENDING. That blocks the
-   * permit, which is the strict reading and the right one: a route with a
-   * signature missing is not an approved permit, and an administrator can
-   * decide the line while somebody is appointed.
-   *
-   * RULE (ADR-0015's segregation principle, applied here per ADR-0026
-   * Errata): the person who asked for the permit never resolves as the one
-   * who signs off one of its own lines. When the natural answer is the
-   * requester, another holder of the same role anywhere in the unit is
-   * looked for instead (`anotherHolderInUnit`); when there is not one, the
-   * line is left unassigned rather than handed back to its own requester —
-   * an administrator can still decide it, subject to the same rule, once
-   * somebody else is appointed.
+   * RULE (owner decision 26/11/2026): the scope rows count only while the
+   * account is active and holds the clinical approver role, the one role the
+   * three acceptance capacities belong to (`approvalRoleHolders`). A scope
+   * left behind on an account that lost the role, or on one switched off,
+   * signs nothing. The inbox asks the same question in SQL.
    */
-  private async resolveApprover(
-    orgUnitId: string,
-    role: ApprovalRole,
-    areaId: string | null,
-    requestedById: string,
-  ): Promise<string | null> {
-    const tx = currentTx();
-    if (!tx) throw AppError.internal();
-
-    if (areaId) {
-      const owners = await tx.db
-        .select({ userId: schema.areaClinicalOwner.userId })
-        .from(schema.areaClinicalOwner)
-        .where(
-          and(
-            eq(schema.areaClinicalOwner.areaId, areaId),
-            eq(schema.areaClinicalOwner.approvalRole, role),
-          ),
-        )
-        .orderBy(asc(schema.areaClinicalOwner.createdAt))
-        .limit(1);
-      const candidate = owners[0]?.userId ?? null;
-      if (candidate === null || candidate === requestedById) {
-        return this.anotherHolderInUnit(orgUnitId, role, requestedById);
-      }
-      return candidate;
-    }
-
-    const unitWide = await tx.db
-      .select({ userId: schema.unitApprover.userId })
-      .from(schema.unitApprover)
-      .where(
-        and(
-          eq(schema.unitApprover.orgUnitId, orgUnitId),
-          eq(schema.unitApprover.approvalRole, role),
-        ),
-      )
-      .orderBy(asc(schema.unitApprover.createdAt))
-      .limit(1);
-    if (unitWide.length && unitWide[0].userId !== requestedById) return unitWide[0].userId;
-
-    const byArea = await tx.db
-      .select({ userId: schema.areaClinicalOwner.userId })
-      .from(schema.areaClinicalOwner)
-      .where(
-        and(
-          eq(schema.areaClinicalOwner.orgUnitId, orgUnitId),
-          eq(schema.areaClinicalOwner.approvalRole, role),
-        ),
-      )
-      .orderBy(asc(schema.areaClinicalOwner.createdAt))
-      .limit(1);
-    if (byArea.length && byArea[0].userId !== requestedById) return byArea[0].userId;
-
-    if (unitWide.length || byArea.length) {
-      // The only holder(s) found are the requester themselves — look
-      // further before giving up.
-      return this.anotherHolderInUnit(orgUnitId, role, requestedById);
-    }
-    return null;
-  }
-
-  /**
-   * Any other holder of `role` in the unit, unit-wide appointments first —
-   * used only when the natural resolution above landed on the requester.
-   */
-  private async anotherHolderInUnit(
-    orgUnitId: string,
-    role: ApprovalRole,
-    excludeUserId: string,
-  ): Promise<string | null> {
-    const tx = currentTx();
-    if (!tx) throw AppError.internal();
-
-    const unitWide = await tx.db
-      .select({ userId: schema.unitApprover.userId })
-      .from(schema.unitApprover)
-      .where(
-        and(
-          eq(schema.unitApprover.orgUnitId, orgUnitId),
-          eq(schema.unitApprover.approvalRole, role),
-          ne(schema.unitApprover.userId, excludeUserId),
-        ),
-      )
-      .orderBy(asc(schema.unitApprover.createdAt))
-      .limit(1);
-    if (unitWide.length) return unitWide[0].userId;
-
-    const byArea = await tx.db
-      .select({ userId: schema.areaClinicalOwner.userId })
-      .from(schema.areaClinicalOwner)
-      .where(
-        and(
-          eq(schema.areaClinicalOwner.orgUnitId, orgUnitId),
-          eq(schema.areaClinicalOwner.approvalRole, role),
-          ne(schema.areaClinicalOwner.userId, excludeUserId),
-        ),
-      )
-      .orderBy(asc(schema.areaClinicalOwner.createdAt))
-      .limit(1);
-    return byArea[0]?.userId ?? null;
-  }
-
-  /** §6.6: is this person a clinical owner of one of these rooms, or of the unit? */
   private async holdsAcceptanceRole(
     userId: string,
     orgUnitId: string,
@@ -1361,6 +1255,7 @@ export class PermitsService {
   ): Promise<boolean> {
     const tx = currentTx();
     if (!tx) throw AppError.internal();
+    if (!(await eligibleFor("WARD_MANAGER", [userId])).has(userId)) return false;
     if (areaIds.length) {
       const owned = await tx.db
         .select({ id: schema.areaClinicalOwner.id })

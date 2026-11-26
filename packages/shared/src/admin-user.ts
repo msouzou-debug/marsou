@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { AppRole, AuthMode } from "./auth";
+import { ApproverScopes } from "./permit";
 
 /**
  * S24 «Χρήστες» and the API's `admin-users` module — per-user role
@@ -77,5 +78,10 @@ export const AdminUserUpdate = z.object({
   orgUnitIds: z.array(z.string()).optional(),
   active: z.boolean().optional(),
   name: z.string().trim().min(1).max(200).optional(),
+  // Owner decision 26/11/2026: the sheet has one «Αποθήκευση». The approver
+  // scopes travel with the roles they depend on, are checked against the
+  // roles in this same body, and are written in the same transaction, so a
+  // refusal leaves nothing half-saved. Left out, the scopes are not touched.
+  approverScopes: ApproverScopes.optional(),
 });
 export type AdminUserUpdate = z.infer<typeof AdminUserUpdate>;

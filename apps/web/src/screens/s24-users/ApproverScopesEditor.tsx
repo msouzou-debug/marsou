@@ -7,48 +7,51 @@
  * INFECTION_CONTROL) and the unit roles (TECHNICAL, SAFETY,
  * HOSPITAL_DIRECTOR, INFECTION_CONTROL, NURSING) a person may decide for
  * (task item 8, CAPEX-01 §6.4 — routing derives from these scopes).
- * Self-contained: it loads and saves `GET/PUT /admin/users/:id/approver-scopes`
- * on its own, independent of the rest of `UserSheet`'s own Save.
+ *
+ * RULE (owner decision 26/11/2026): it has no save button of its own. It
+ * reads the saved scopes (`GET /admin/users/:id/approver-scopes`) and hands
+ * every change up to `UserSheet`, whose one «Αποθήκευση» sends them with the
+ * roles in `PATCH /admin/users/:id`, so ticking a role and adding the scope
+ * it allows is one save, checked by the API against the roles being saved.
  *
  * RULE (ADR-0039, owner decision 26/11/2026): it offers only the scopes the
- * account's roles allow (`allowedApproverScopeRoles`, the same rule the API
+ * ticked roles allow (`allowedApproverScopeRoles`, the same rule the API
  * refuses with 422): TECHNICAL and SAFETY for a technical and safety
  * approver, a clinical approver or an estates head; every other scope for a
  * clinical approver alone. A scope already saved is listed, and removable,
- * whatever the roles are now.
+ * whatever the roles are now; one the roles no longer allow stays saved but
+ * brings no approval lines, and the editor says so.
  *
- * | Prop     | Type      | Notes                                                  |
- * |----------|-----------|------------------------------------------------------------|
- * | userId   | string    | An existing account only — nothing to scope before it is one. |
- * | orgUnits | OrgUnit[] |                                                             |
- * | roles    | AppRole[] | The roles ticked on the sheet, which decide what is offered. |
- *
- * ASSUMPTION (flagged in the hand-back summary and in
- * `packages/shared/src/permit.ts`'s own note on `ApproverScopes`): the
- * endpoint is not in CAPEX-01's own list; the PM reconciles the name at
- * merge if the API agent chose a different one.
+ * | Prop     | Type                             | Notes                                                         |
+ * |----------|----------------------------------|---------------------------------------------------------------|
+ * | userId   | string                           | An existing account only — nothing to scope before it is one. |
+ * | orgUnits | OrgUnit[]                        |                                                               |
+ * | roles    | AppRole[]                        | The roles ticked on the sheet, which decide what is offered.  |
+ * | value    | ApproverScopes or null           | The sheet's unsaved scopes; null while nothing was changed.   |
+ * | onChange | (scopes: ApproverScopes) => void | Every add and remove, as the whole new picture.               |
  */
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { X } from "lucide-react";
 import {
   type AppRole,
-  ApproverScopes,
+  type ApproverScopes,
   type AreaApprovalRole,
   type OrgUnit,
   type UnitApprovalRole,
   allowedApproverScopeRoles,
 } from "@ecapital/shared";
-import { ApiError, apiMutate } from "@/data/client";
 import { useApproverScopes, useAreaTree } from "@/data/queries";
 
 export interface ApproverScopesEditorProps {
   userId: string;
   orgUnits: OrgUnit[];
   roles: AppRole[];
+  value: ApproverScopes | null;
+  onChange: (scopes: ApproverScopes) => void;
 }
 
-export function ApproverScopesEditor({ userId, orgUnits, roles }: ApproverScopesEditorProps) {
+export function ApproverScopesEditor({ userId, orgUnits, roles, value, onChange }: ApproverScopesEditorProps) {
   const t = useTranslations("screens.s24users.approverScopes");
   const tRoot = useTranslations();
   const scopesQuery = useApproverScopes(userId);
@@ -59,11 +62,8 @@ export function ApproverScopesEditor({ userId, orgUnits, roles }: ApproverScopes
   const [pickedAreaRole, setAreaRole] = useState<AreaApprovalRole | undefined>(undefined);
   const [unitId, setUnitId] = useState(orgUnits[0]?.id ?? "");
   const [pickedUnitRole, setUnitRole] = useState<UnitApprovalRole | undefined>(undefined);
-  const [scopes, setScopes] = useState<{ areas: { areaId: string; role: AreaApprovalRole }[]; units: { orgUnitId: string; role: UnitApprovalRole }[] } | null>(null);
-  const [saving, setSaving] = useState(false);
-  const [apiError, setApiError] = useState<string | undefined>(undefined);
-
-  const current = scopes ?? scopesQuery.data ?? { areas: [], units: [] };
+  const current: ApproverScopes = value ?? scopesQuery.data ?? { areas: [], units: [] };
+  const setScopes = onChange;
   // A choice the roles no longer allow (a role was unticked) falls back to
   // the first one they do.
   const areaRole = pickedAreaRole && allowed.areas.includes(pickedAreaRole) ? pickedAreaRole : allowed.areas[0];
@@ -73,6 +73,7 @@ export function ApproverScopesEditor({ userId, orgUnits, roles }: ApproverScopes
 
   function addAreaScope() {
     if (!areaAreaId || !areaRole) return;
+    if (current.areas.some((a) => a.areaId === areaAreaId && a.role === areaRole)) return;
     setScopes({ ...current, areas: [...current.areas, { areaId: areaAreaId, role: areaRole }] });
   }
   function removeAreaScope(areaId: string, role: AreaApprovalRole) {
@@ -80,34 +81,26 @@ export function ApproverScopesEditor({ userId, orgUnits, roles }: ApproverScopes
   }
   function addUnitScope() {
     if (!unitId || !unitRole) return;
+    if (current.units.some((u) => u.orgUnitId === unitId && u.role === unitRole)) return;
     setScopes({ ...current, units: [...current.units, { orgUnitId: unitId, role: unitRole }] });
   }
   function removeUnitScope(orgUnitId: string, role: UnitApprovalRole) {
     setScopes({ ...current, units: current.units.filter((u) => !(u.orgUnitId === orgUnitId && u.role === role)) });
   }
 
-  async function save(): Promise<void> {
-    setSaving(true);
-    setApiError(undefined);
-    try {
-      await apiMutate(`/admin/users/${encodeURIComponent(userId)}/approver-scopes`, "PUT", current, ApproverScopes);
-      await scopesQuery.refetch();
-      setScopes(null);
-    } catch (error) {
-      setApiError(error instanceof ApiError ? error.message : String(error));
-    } finally {
-      setSaving(false);
-    }
-  }
-
   const unitNameById = new Map(orgUnits.map((u) => [u.id, u.nameEl] as const));
   const nothingAllowed = allowed.areas.length === 0 && allowed.units.length === 0;
+  // A saved scope the ticked roles no longer allow: kept, and inert.
+  const inert =
+    current.areas.some((a) => !allowed.areas.includes(a.role)) ||
+    current.units.some((u) => !allowed.units.includes(u.role));
 
   return (
     <div className="mt-s-4 rounded-k border border-k-grey p-s-4">
       <h3 className="text-fs-16 font-bold text-k-ink">{t("title")}</h3>
 
       {nothingAllowed && <p className="mt-s-2 text-fs-14 text-k-text">{t("noScopes")}</p>}
+      {inert && <p className="mt-s-2 text-fs-14 text-k-text">{t("keptHint")}</p>}
 
       {(allowed.areas.length > 0 || current.areas.length > 0) && (
         <div className="mt-s-3">
@@ -167,16 +160,7 @@ export function ApproverScopesEditor({ userId, orgUnits, roles }: ApproverScopes
         </div>
       )}
 
-      {apiError && <p role="alert" className="mt-s-3 text-fs-14 text-k-red">{apiError}</p>}
-
-      <button
-        type="button"
-        onClick={() => void save()}
-        disabled={saving}
-        className="mt-s-4 rounded-k bg-k-blue px-s-4 py-s-2 text-fs-14 font-bold text-k-white shadow-k disabled:opacity-60"
-      >
-        {tRoot("buttons.save")}
-      </button>
+      <p className="mt-s-4 text-fs-14 text-k-text">{t("saveHint")}</p>
     </div>
   );
 }

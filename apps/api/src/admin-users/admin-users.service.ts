@@ -20,6 +20,8 @@ import { INSUFFICIENT_PRIVILEGE, UNIQUE_VIOLATION, sqlState } from "../common/sq
 import { currentTx } from "../db/client";
 import * as schema from "../db/schema";
 import { hashPassword } from "../auth/password";
+import { rerouteLinesOf } from "../permits/approver-resolver";
+import { ApproverScopesService } from "./approver-scopes.service";
 
 /**
  * ADR-0020 — per-user role administration.
@@ -38,7 +40,10 @@ import { hashPassword } from "../auth/password";
  */
 @Injectable()
 export class AdminUsersService {
-  constructor(@Inject(CONFIG) private readonly config: AppConfig) {}
+  constructor(
+    @Inject(CONFIG) private readonly config: AppConfig,
+    private readonly scopes: ApproverScopesService,
+  ) {}
 
   /** The eight roles and their scope, so no client hardcodes either. */
   catalogue(): RoleCatalogue {
@@ -168,9 +173,16 @@ export class AdminUsersService {
   }
 
   /**
-   * Change somebody's roles, units, display name or whether their account is
-   * on. Every rule below is a 422 with a sentence the administrator can act
-   * on, never a silent no-op.
+   * Change somebody's roles, units, display name, whether their account is
+   * on and, since 26/11/2026, their approver scopes. Every rule below is a
+   * 422 with a sentence the administrator can act on, never a silent no-op.
+   *
+   * One request, one transaction (owner decision 26/11/2026): the sheet's one
+   * «Αποθήκευση» sends the scopes with the roles, the scopes are judged
+   * against the roles of this same save, and a refusal of either leaves
+   * nothing written. Then, in the same transaction, the person's pending
+   * approval lines that they can no longer decide — switched off, or without
+   * the role the line needs — go to the next holder (`rerouteLinesOf`).
    */
   async update(id: string, input: AdminUserUpdate): Promise<AdminUser> {
     const tx = currentTx();
@@ -215,6 +227,13 @@ export class AdminUsersService {
         ? current.orgUnitIds
         : await this.resolveOrgUnits(nextRoles, input.orgUnitIds ?? current.orgUnitIds);
 
+    // RULE (ADR-0039, judged against the roles being saved): worked out and
+    // checked before anything is written.
+    const scopePlan =
+      input.approverScopes === undefined
+        ? null
+        : await this.scopes.plan(id, input.approverScopes, nextRoles);
+
     try {
       const touched = await tx.db
         .update(schema.appUser)
@@ -231,6 +250,15 @@ export class AdminUsersService {
       if (input.orgUnitIds !== undefined || input.roles !== undefined) {
         await this.writeOrgUnits(id, nextUnits);
       }
+      if (scopePlan) await this.scopes.apply(id, scopePlan);
+
+      // RULE (owner decision 26/11/2026): a line waits only on somebody who
+      // can decide it. Asked whenever the save touches the account's roles or
+      // whether it is on — the sheet always sends both — so an account that
+      // was already switched off when this rule arrived has its lines moved
+      // the next time it is saved. Its scope rows stay: switched back on, it
+      // has them again.
+      if (input.roles !== undefined || input.active !== undefined) await rerouteLinesOf(id);
       return await this.detail(id);
     } catch (error) {
       if (error instanceof AppError) throw error;

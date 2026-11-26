@@ -377,7 +377,7 @@ describe("shutdown permits", () => {
 
   // ------------------------------------------------------- the decisions --
 
-  it("lets only the resolved approver decide, or an administrator", async () => {
+  it("lets only the resolved approver decide (an administrator only a line with nobody on it)", async () => {
     const permit = await draftPermit(app, {
       titleEl: title("Ποιος αποφασίζει"),
       areaIds: [areas.theatre],

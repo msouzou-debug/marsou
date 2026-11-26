@@ -4,10 +4,12 @@
 //
 /**
  * PasswordEditor — for an existing account, in `local` mode only: the
- * administrator types a password and sends it once. Self-contained, like
- * `ApproverScopesEditor`: it calls `PUT /admin/users/:id/password` on its
- * own, apart from the sheet's Save, so a typo in the roles does not resend a
- * password and a password does not wait on the roles.
+ * administrator types a password and sends it once. Self-contained: it calls
+ * `PUT /admin/users/:id/password` on its own, with its own «Ορισμός
+ * κωδικού», apart from the sheet's Save, so a typo in the roles does not
+ * resend a password and a password does not wait on the roles. (The approver
+ * scopes, which do depend on the roles, save with the sheet since
+ * 26/11/2026.)
  *
  * | Prop        | Type     | Notes                                                  |
  * |-------------|----------|--------------------------------------------------------|

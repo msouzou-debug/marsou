@@ -1,6 +1,12 @@
 import { Injectable } from "@nestjs/common";
-import { ApproverScopes, approverScopesRefusal } from "@ecapital/shared";
-import { asc, eq } from "drizzle-orm";
+import {
+  ApproverScopes,
+  approverScopesRefusal,
+  type AppRole,
+  type ApproverAreaScope,
+  type ApproverUnitScope,
+} from "@ecapital/shared";
+import { asc, eq, inArray } from "drizzle-orm";
 import { UUID } from "../common/actor";
 import { AppError } from "../common/errors";
 import { INSUFFICIENT_PRIVILEGE, sqlState } from "../common/sql-error";
@@ -34,12 +40,23 @@ import * as schema from "../db/schema";
  *
  *   **A replacement is one transaction.** The administrator sends the whole
  *   picture and gets the whole picture; a half-applied scope would leave a
- *   permit routed to somebody who has just been taken off the ward.
+ *   permit routed to somebody who has just been taken off the ward. Since
+ *   26/11/2026 that transaction is normally the whole sheet's: the scopes
+ *   come with the roles in `PATCH /admin/users/:id`, are judged against the
+ *   roles of that same save, and only the rows that changed are written.
  *
  * Access is the controller's `@Roles("admin")` and the row policies of
  * migration 0015, which have said `admin` and nobody else since they were
  * written. Neither is decoration (ADR-0010).
  */
+/** What one save changes, worked out and checked before anything is written. */
+export interface ScopePlan {
+  addAreas: (ApproverAreaScope & { orgUnitId: string })[];
+  addUnits: ApproverUnitScope[];
+  removeAreaIds: string[];
+  removeUnitIds: string[];
+}
+
 @Injectable()
 export class ApproverScopesService {
   async read(userId: string): Promise<ApproverScopes> {
@@ -72,6 +89,12 @@ export class ApproverScopesService {
     return ApproverScopes.parse({ areas, units });
   }
 
+  /**
+   * `PUT /admin/users/:id/approver-scopes`, kept for compatibility: the sheet
+   * now saves the scopes with the roles through `PATCH /admin/users/:id`
+   * (owner decision 26/11/2026). Checked against the roles the account holds
+   * now, because this route does not change them.
+   */
   async replace(userId: string, scopes: ApproverScopes): Promise<ApproverScopes> {
     const tx = currentTx();
     if (!tx) throw AppError.internal();
@@ -81,18 +104,69 @@ export class ApproverScopesService {
       .select({ role: schema.appUserRole.role })
       .from(schema.appUserRole)
       .where(eq(schema.appUserRole.appUserId, userId));
-    const refusal = approverScopesRefusal(
-      roles.map((row) => row.role),
+    const plan = await this.plan(
+      userId,
       scopes,
+      roles.map((row) => row.role),
     );
+    await this.apply(userId, plan);
+    return this.read(userId);
+  }
+
+  /**
+   * What saving `scopes` would change, checked, before anything is written.
+   *
+   * RULE (ADR-0039): only a role that can decide the line gets the scope,
+   * judged against `roles` — the roles the same save gives the account, so
+   * ticking a role and adding its scope in one go is one valid save (owner
+   * decision 26/11/2026). What is judged is what the save **adds**: a scope
+   * the account already holds and keeps is not a grant, and since the same
+   * decision keeps scope rows on an account that loses its role (switched
+   * back, it has them again; meanwhile routing passes it over), a save that
+   * keeps one is not refused for it.
+   *
+   * Every added area has to exist and to be one the administrator may write
+   * to. A scope over a room in a unit they cannot see is a scope they should
+   * not be able to grant, and the policy refuses it anyway — this is what
+   * turns that refusal into a sentence rather than a 403 with no subject.
+   */
+  async plan(userId: string, scopes: ApproverScopes, roles: AppRole[]): Promise<ScopePlan> {
+    const tx = currentTx();
+    if (!tx) throw AppError.internal();
+
+    const savedAreas = await tx.db
+      .select({
+        id: schema.areaClinicalOwner.id,
+        areaId: schema.areaClinicalOwner.areaId,
+        role: schema.areaClinicalOwner.approvalRole,
+      })
+      .from(schema.areaClinicalOwner)
+      .where(eq(schema.areaClinicalOwner.userId, userId));
+    const savedUnits = await tx.db
+      .select({
+        id: schema.unitApprover.id,
+        orgUnitId: schema.unitApprover.orgUnitId,
+        role: schema.unitApprover.approvalRole,
+      })
+      .from(schema.unitApprover)
+      .where(eq(schema.unitApprover.userId, userId));
+
+    const areaKey = (scope: { areaId: string; role: string }) => `${scope.areaId}|${scope.role}`;
+    const unitKey = (scope: { orgUnitId: string; role: string }) => `${scope.orgUnitId}|${scope.role}`;
+    const wantedAreas = new Map(scopes.areas.map((scope) => [areaKey(scope), scope]));
+    const wantedUnits = new Map(scopes.units.map((scope) => [unitKey(scope), scope]));
+    const heldAreas = new Set(savedAreas.map(areaKey));
+    const heldUnits = new Set(savedUnits.map(unitKey));
+
+    const added: ApproverScopes = {
+      areas: [...wantedAreas.entries()].filter(([key]) => !heldAreas.has(key)).map(([, scope]) => scope),
+      units: [...wantedUnits.entries()].filter(([key]) => !heldUnits.has(key)).map(([, scope]) => scope),
+    };
+    const refusal = approverScopesRefusal(roles, added);
     if (refusal) throw AppError.unprocessable(refusal);
 
-    // Every area has to exist and to be one the administrator may write to.
-    // A scope over a room in a unit they cannot see is a scope they should
-    // not be able to grant, and the policy refuses it anyway — this is what
-    // turns that refusal into a sentence rather than a 403 with no subject.
     const areaUnits = new Map<string, string>();
-    for (const scope of scopes.areas) {
+    for (const scope of added.areas) {
       if (!UUID.test(scope.areaId)) throw AppError.notFound("errors.permitAreaNotFound");
       const rows = await tx.db
         .select({ orgUnitId: schema.area.orgUnitId })
@@ -102,7 +176,7 @@ export class ApproverScopesService {
       if (!rows.length) throw AppError.notFound("errors.permitAreaNotFound");
       areaUnits.set(scope.areaId, rows[0].orgUnitId);
     }
-    for (const scope of scopes.units) {
+    for (const scope of added.units) {
       const rows = await tx.db
         .select({ id: schema.orgUnit.id })
         .from(schema.orgUnit)
@@ -111,22 +185,42 @@ export class ApproverScopesService {
       if (!rows.length) throw AppError.notFound("errors.unitNotFound");
     }
 
-    try {
-      await tx.db
-        .delete(schema.areaClinicalOwner)
-        .where(eq(schema.areaClinicalOwner.userId, userId));
-      await tx.db.delete(schema.unitApprover).where(eq(schema.unitApprover.userId, userId));
+    return {
+      addAreas: added.areas.map((scope) => ({ ...scope, orgUnitId: areaUnits.get(scope.areaId) as string })),
+      addUnits: added.units,
+      removeAreaIds: savedAreas.filter((row) => !wantedAreas.has(areaKey(row))).map((row) => row.id),
+      removeUnitIds: savedUnits.filter((row) => !wantedUnits.has(unitKey(row))).map((row) => row.id),
+    };
+  }
 
-      for (const scope of scopes.areas) {
+  /**
+   * Write only what changed (owner decision 26/11/2026): a scope kept is not
+   * touched, so the audit log shows the rows that were added and removed and
+   * nothing else, and a kept appointment keeps its place in the
+   * earliest-appointment-first order.
+   */
+  async apply(userId: string, plan: ScopePlan): Promise<void> {
+    const tx = currentTx();
+    if (!tx) throw AppError.internal();
+    try {
+      if (plan.removeAreaIds.length) {
+        await tx.db
+          .delete(schema.areaClinicalOwner)
+          .where(inArray(schema.areaClinicalOwner.id, plan.removeAreaIds));
+      }
+      if (plan.removeUnitIds.length) {
+        await tx.db.delete(schema.unitApprover).where(inArray(schema.unitApprover.id, plan.removeUnitIds));
+      }
+      for (const scope of plan.addAreas) {
         await tx.db.insert(schema.areaClinicalOwner).values({
           areaId: scope.areaId,
           userId,
           // The trigger takes it from the area; the column is NOT NULL.
-          orgUnitId: areaUnits.get(scope.areaId) as string,
+          orgUnitId: scope.orgUnitId,
           approvalRole: scope.role,
         });
       }
-      for (const scope of scopes.units) {
+      for (const scope of plan.addUnits) {
         await tx.db.insert(schema.unitApprover).values({
           orgUnitId: scope.orgUnitId,
           userId,
@@ -140,8 +234,6 @@ export class ApproverScopesService {
       }
       throw error;
     }
-
-    return this.read(userId);
   }
 
   /** An account that does not exist is a 404, the same as everywhere else. */

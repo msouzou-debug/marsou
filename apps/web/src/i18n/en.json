@@ -1082,7 +1082,7 @@
       "unitsHint": "Pick at least one unit.",
       "newHint": "The user signs in with their ΟΚΥπΥ account; their permissions apply from that first sign-in.",
       "deactivateTitle": "Switch off the account for {name}?",
-      "deactivateConsequence": "They will not be able to sign in, and the session they have open stops at their next action.",
+      "deactivateConsequence": "They will not be able to sign in, and the session they have open stops at their next action. Approval lines waiting on them move to the next approver in the unit, or wait with no approver for an administrator to decide.",
       "deactivateConfirm": "Switch off",
       "noPermissionAskRole": "The system administrator manages users and their roles.",
       "approverScopes": {
@@ -1090,7 +1090,9 @@
         "areasLabel": "Roles by area",
         "unitsLabel": "Roles by unit",
         "pickArea": "Choose an area",
-        "noScopes": "This account's roles allow no approver scopes."
+        "noScopes": "This account's roles allow no approver scopes.",
+        "keptHint": "Scopes the roles no longer allow stay saved but bring no approval lines. Remove them if they are not needed.",
+        "saveHint": "Scopes are saved with the roles, by Save at the bottom of the sheet."
       },
       "newHintLocal": "The user signs in with their account name and an eCapital password. After saving, open their row again to set the password.",
       "password": {

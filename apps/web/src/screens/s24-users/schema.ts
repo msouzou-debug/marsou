@@ -6,7 +6,7 @@
 // administrator — is the API's to refuse, and its sentence is what the sheet
 // shows (`apiError`), because those three depend on rows this browser cannot
 // see.
-import type { AppRole, RoleCatalogueEntry } from "@ecapital/shared";
+import type { AppRole, ApproverScopes, RoleCatalogueEntry } from "@ecapital/shared";
 
 export interface UserFormValues {
   name: string;
@@ -15,6 +15,8 @@ export interface UserFormValues {
   roles: AppRole[];
   orgUnitIds: string[];
   active: boolean;
+  /** Only when the approver section was changed; saved with the roles (owner decision 26/11/2026). */
+  approverScopes?: ApproverScopes;
 }
 
 /**

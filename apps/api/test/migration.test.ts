@@ -63,7 +63,8 @@ describe("migrations", () => {
     expect(result.applied).toContain("0033_technical_approver_role");
     expect(result.applied).toContain("0034_site_instruction_mail");
     expect(result.applied).toContain("0035_permit_handback");
-    expect(result.lastMigrationId).toBe("0035_permit_handback");
+    expect(result.applied).toContain("0036_approver_eligibility");
+    expect(result.lastMigrationId).toBe("0036_approver_eligibility");
 
     const client = new Client({ connectionString: targetUrl });
     await client.connect();
@@ -1426,6 +1427,45 @@ describe("migrations", () => {
         "permit_actionable_by",
       );
 
+      await client.query(file!.sql);
+      expect(await state()).toEqual(before);
+    } finally {
+      await client.end();
+    }
+  });
+
+  /**
+   * Owner decision 26/11/2026, 0036: one narrow function that says which
+   * people are active and hold one of the given roles, for the routing and
+   * the handback acceptance. No policy and no grant moves. A second run
+   * changes nothing.
+   */
+  it("0036 adds the approver eligibility function, moves no policy, and is idempotent", async () => {
+    const client = new Client({ connectionString: targetUrl });
+    await client.connect();
+    try {
+      const file = readMigrations().find((m) => m.id === "0036_approver_eligibility");
+      expect(file).toBeDefined();
+      const state = async () => {
+        const { rows: fn } = await client.query<{ src: string; definer: boolean }>(
+          `select prosrc as src, prosecdef as definer from pg_proc p
+             join pg_namespace n on n.oid = p.pronamespace
+            where n.nspname = 'ecapital' and p.proname = 'eligible_approvers'`,
+        );
+        const { rows: policies } = await client.query<{ tablename: string; policyname: string }>(
+          `select tablename, policyname from pg_policies
+            where schemaname = 'ecapital'
+              and tablename in ('app_user', 'app_user_role', 'unit_approver', 'area_clinical_owner', 'permit_approval')
+            order by tablename, policyname`,
+        );
+        return { fn, policies };
+      };
+      const before = await state();
+      expect(before.fn).toHaveLength(1);
+      expect(before.fn[0].definer).toBe(true);
+      expect(before.fn[0].src).toContain("current_actor_id() is not null");
+      expect(before.fn[0].src).toContain("u.is_active");
+      expect(before.fn[0].src).toContain("can_read_unit");
       await client.query(file!.sql);
       expect(await state()).toEqual(before);
     } finally {

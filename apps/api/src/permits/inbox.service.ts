@@ -2,6 +2,7 @@ import { Injectable } from "@nestjs/common";
 import {
   Inbox,
   InboxItem,
+  approvalRoleHolders,
   type ApprovalRole,
   type InboxItemType,
   type PaymentCertStatus,
@@ -316,7 +317,9 @@ export class InboxService {
    * rule as `PermitsService.holdsAcceptanceRole` (§6.6): a clinical owner of
    * one of the permit's areas as WARD_MANAGER, NURSING or INFECTION_CONTROL,
    * or the unit's NURSING or INFECTION_CONTROL — and never the person who
-   * submitted it. An administrator is not one of them by being one.
+   * submitted it. An administrator is not one of them by being one, and
+   * neither is an account that lost the clinical approver role (OWNER
+   * 26/11/2026).
    *
    * The id carries the moment of the submission, so a handback returned and
    * submitted again reads as unread again.
@@ -344,6 +347,11 @@ export class InboxService {
           inArray(schema.shutdownPermit.status, ["ACTIVE", "BREACH"]),
           isNotNull(schema.shutdownPermit.closeoutSubmittedAt),
           ne(schema.shutdownPermit.closeoutSubmittedBy, caller),
+          // RULE (owner decision 26/11/2026): the scopes count only while the
+          // account is active and holds the clinical approver role, as in
+          // `holdsAcceptanceRole`; a scope left behind offers nothing.
+          sql`exists (select 1 from ecapital.eligible_approvers(
+                ${`{${caller}}`}::uuid[], ${`{${approvalRoleHolders("WARD_MANAGER").join(",")}}`}::text[]))`,
           sql`(exists (select 1 from ecapital.shutdown_permit_area spa
                          join ecapital.area_clinical_owner aco on aco.area_id = spa.area_id
                         where spa.permit_id = ${schema.shutdownPermit.id}
