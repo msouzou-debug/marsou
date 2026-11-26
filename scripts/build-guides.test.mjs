@@ -22,6 +22,7 @@ import {
   dividerLabel,
   extractTitle,
   formatDate,
+  latestUatWorkbook,
   parseScreenId,
   splitChaptersByTier,
 } from "./build-guides.mjs";
@@ -224,4 +225,17 @@ test("formatDate renders DD/MM/YYYY", () => {
 test("countPdfPages counts /Type /Page objects, not /Type /Pages", () => {
   const buf = Buffer.from("1 0 obj << /Type /Pages /Count 2 >> endobj\n2 0 obj << /Type /Page >> endobj\n3 0 obj << /Type /Page >> endobj");
   assert.equal(countPdfPages(buf), 2);
+});
+
+test("latestUatWorkbook picks the newest dated per-role UAT workbook and nothing else", () => {
+  const names = [
+    "README.md",
+    "build_uat.py",
+    "eCapital-UAT-ανά-ρόλο-2026-11-26.xlsx",
+    "eCapital-UAT-ανά-ρόλο-2026-12-03.xlsx",
+    "eCapital-UAT-ανά-ρόλο-draft.xlsx",
+    "UAT-scenarios.el.md",
+  ];
+  assert.equal(latestUatWorkbook(names), "eCapital-UAT-ανά-ρόλο-2026-12-03.xlsx");
+  assert.equal(latestUatWorkbook(["README.md"]), null);
 });

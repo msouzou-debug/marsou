@@ -22,7 +22,7 @@
 // Run: `pnpm guides:build` from the repo root, or `node scripts/build-guides.mjs`.
 import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -58,8 +58,25 @@ export const LANGS = ["el", "en"];
 // as a single-chapter PDF with the same cover and print CSS.
 export const GENERAL_DOCS = [
   { id: "overview", source: (lang) => `docs/manual/${lang}/OVERVIEW.md` },
-  { id: "uat", source: (lang) => `docs/uat/UAT-scenarios.${lang}.md` },
 ];
+
+// Owner ask, 26/11/2026: the UAT scenarios are per role, in the Excel workbook
+// that docs/uat/build_uat.py builds (one sheet per role, live «Σύνοψη»). It
+// replaces the old all-roles PDF and is published as it is, in Greek, under a
+// plain ASCII name. The newest dated workbook in docs/uat is the one shipped.
+export const UAT_WORKBOOK = {
+  id: "uat",
+  dir: "docs/uat",
+  pattern: /^eCapital-UAT-ανά-ρόλο-\d{4}-\d{2}-\d{2}\.xlsx$/u,
+  file: "uat-per-role.el.xlsx",
+  lang: "el",
+};
+
+/** The newest dated UAT workbook's name in `dir`, or null. Dates sort as text. */
+export function latestUatWorkbook(names, pattern = UAT_WORKBOOK.pattern) {
+  const matches = names.filter((name) => pattern.test(name)).sort();
+  return matches.length ? matches[matches.length - 1] : null;
+}
 
 // The sandbox's preinstalled Chromium (see apps/web/e2e/support.ts for the
 // same override and why). Falls back to Playwright's own managed browser
@@ -522,6 +539,28 @@ async function main() {
         built += 1;
         console.log(`built ${fileName} — ${pages} pages, ${(pdfBuffer.length / 1024).toFixed(0)} KB`);
       }
+    }
+
+    const workbook = latestUatWorkbook(readdirSync(resolve(ROOT, UAT_WORKBOOK.dir)));
+    if (workbook) {
+      const buffer = readFileSync(resolve(ROOT, UAT_WORKBOOK.dir, workbook));
+      writeFileSync(resolve(GUIDES_DIR, UAT_WORKBOOK.file), buffer);
+      guides.push({
+        persona: UAT_WORKBOOK.id,
+        kind: "general",
+        lang: UAT_WORKBOOK.lang,
+        file: UAT_WORKBOOK.file,
+        personaLabel: generalLabels[UAT_WORKBOOK.lang][UAT_WORKBOOK.id] ?? UAT_WORKBOOK.id,
+        sections: 1,
+        sizeBytes: buffer.length,
+        pages: 0,
+        sha256: createHash("sha256").update(buffer).digest("hex"),
+      });
+      built += 1;
+      console.log(`copied ${workbook} as ${UAT_WORKBOOK.file} — ${(buffer.length / 1024).toFixed(0)} KB`);
+    } else {
+      console.log(`skip: no UAT workbook in ${UAT_WORKBOOK.dir}`);
+      skipped += 1;
     }
 
     for (const persona of PERSONA_ORDER) {

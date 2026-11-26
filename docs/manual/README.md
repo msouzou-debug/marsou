@@ -55,7 +55,7 @@ Owner decision, 20/09/2026 (docs/briefs/README.md Errata "Screen tiers"): the pi
 | S11a-edit | Αίτημα διακοπής | Shutdown request | admin, estates_head, project_engineer |
 | S12 | Εκτίμηση κινδύνου λοιμώξεων (ICRA) | Infection control risk assessment (ICRA) | admin, estates_head, project_engineer |
 | S13 | Άδεια εργασίας (εκτύπωση) | Permit to work (print) | admin, estates_head, project_engineer, technician, clinical_approver, technical_approver |
-| S14 | Εγκρίσεις | Approvals | admin, estates_head, clinical_approver, technical_approver |
+| S14 | Εγκρίσεις | Approvals | admin, estates_head, project_engineer, clinical_approver, technical_approver |
 | S15 | Ημερολόγιο διαταράξεων | Disruption calendar | admin, estates_head, project_engineer, clinical_approver, technical_approver, executive_readonly, auditor_readonly |
 | S17c | Πρόβλεψη αντικαταστάσεων | Replacement forecast | estates_head, finance, executive_readonly, admin |
 | S21 | Εκκρεμότητες συντήρησης | Maintenance backlog | estates_head, project_engineer, finance, executive_readonly, admin |

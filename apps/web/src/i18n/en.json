@@ -1699,7 +1699,7 @@
     "s26": {
       "title": "User guide",
       "intro": "This page gives you the printable guides: the general guide to how eCapital works, the UAT test scenarios and one guide per role, in each language. Download the one that matches your role, to print or to train new staff with.",
-      "tableCaption": "The PDF guides, by document, role and language, with file size and the date of the last update.",
+      "tableCaption": "The PDF guides and the Excel acceptance test scenarios, by document, role and language, with file size and the date of the last update.",
       "columns": {
         "persona": "Document or role",
         "language": "Language",
@@ -1715,7 +1715,7 @@
       },
       "general": {
         "overview": "General guide: how eCapital works",
-        "uat": "UAT test scenarios"
+        "uat": "Acceptance test scenarios (UAT) by role, Excel, in Greek"
       }
     },
     "s16a": {

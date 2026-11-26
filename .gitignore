@@ -20,6 +20,7 @@ coverage/
 # scripts/build-guides.mjs (`pnpm guides:build`) at release, never hand-built
 # or committed. See docs/adr/ADR-0027-persona-guides.md.
 apps/web/public/guides/*.pdf
+apps/web/public/guides/*.xlsx
 apps/web/public/guides/index.json
 
 # Python bytecode from docs/uat/build_uat.py
