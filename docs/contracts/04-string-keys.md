@@ -222,6 +222,7 @@ One key per row. `strings` writes the Greek.
 | `settings.col.substitute` | Substitute |
 | `settings.col.line_manager` | Line manager |
 | `settings.none` | None |
+| `settings.none_directorate` | None (Directorate list; feminine in Greek) |
 | `settings.central` | Central |
 | `settings.users` | Users |
 | `settings.user.username` | Username |

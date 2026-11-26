@@ -575,6 +575,7 @@
   "settings.max_file_mb": "Μέγιστο μέγεθος αρχείου (MB)",
   "settings.next": "Επόμενη",
   "settings.none": "Κανένα",
+  "settings.none_directorate": "Καμία",
   "settings.number_invalid": "Γράψτε έναν ακέραιο αριθμό, 1 ή μεγαλύτερο.",
   "settings.outbox": "Καταγραφή email",
   "settings.outbox.empty": "Δεν υπάρχουν ακόμη email.",

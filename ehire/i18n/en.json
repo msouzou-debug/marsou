@@ -575,6 +575,7 @@
   "settings.max_file_mb": "Largest file (MB)",
   "settings.next": "Next",
   "settings.none": "None",
+  "settings.none_directorate": "None",
   "settings.number_invalid": "Enter a whole number, 1 or more.",
   "settings.outbox": "Email log",
   "settings.outbox.empty": "No emails yet.",

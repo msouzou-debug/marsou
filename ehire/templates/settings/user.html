@@ -125,7 +125,7 @@
         </select></div>
       <div class="col-12 col-md-4" id="add-dir-wrap"><label class="form-label small mb-1" for="add-dir">{{ t('settings.col.directorate') }}</label>
         <select class="form-select" name="directorate_id" id="add-dir" aria-describedby="add-dir-hint">
-          <option value="">{{ t('settings.none') }}</option>
+          <option value="">{{ t('settings.none_directorate') }}</option>
           {% for d in directorates %}<option value="{{ d.id }}" data-sci="{{ 1 if d.id in sci_ids else 0 }}">{{ d['name_' ~ lang] }}</option>{% endfor %}
         </select>
         <div class="form-text" id="add-dir-hint">{{ t('settings.person.directorate_hint') }}</div></div>
