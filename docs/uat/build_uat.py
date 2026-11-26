@@ -472,6 +472,12 @@ def main():
         placed.append((role, (ws.title, last)))
     summary_sheet(wb, placed)
     assumptions_sheet(wb)
+    # Owner 26/11/2026: «I don't see the scenarios». Open on «Σύνοψη», whose
+    # role names link to each role's sheet, so the scenarios are one click away.
+    summary = wb["Σύνοψη"]
+    wb.active = wb.worksheets.index(summary)
+    for ws in wb.worksheets:
+        ws.sheet_view.tabSelected = ws is summary
     wb.properties.title = "eCapital UAT ανά ρόλο"
     wb.calculation.fullCalcOnLoad = True  # το Excel υπολογίζει τη «Σύνοψη» μόλις ανοίξει
     wb.properties.creator = "ΟΚΥπΥ Τεχνικές Υπηρεσίες"

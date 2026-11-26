@@ -43,7 +43,7 @@ import { canWritePermits } from "@/auth/roles";
 import { AreaPicker } from "@/components/area-picker";
 import { WizardShell } from "@/components/wizard-shell";
 import { ApiError, apiMutate } from "@/data/client";
-import { useAreaImpact, usePermit, useProjectsForUnit, useContracts, useAreaTree } from "@/data/queries";
+import { useAreaImpact, usePermit, useProjectsForUnit, useContractsForUnit, useAreaTree } from "@/data/queries";
 import { isoInstantToLocalInput, localInputToIsoInstant } from "@/lib/datetime";
 import { formatDateTimeRange } from "@/lib/format";
 import { durationMinutes, EMPTY_WIZARD_DRAFT, step1Complete, step2Complete, step3Complete, windowBackwards, type PermitWizardDraft } from "./schema";
@@ -134,7 +134,14 @@ export function PermitWizardScreen({ mode, permitId, roles, orgUnits, defaultOrg
   const areaTree = useAreaTree(draft.orgUnitId);
   const areaImpact = useAreaImpact(draft.orgUnitId, draft.systems, draft.areaIds);
   const projectsForUnit = useProjectsForUnit(draft.orgUnitId);
-  const contracts = useContracts();
+  // Owner UAT 26/11/2026: the contract list was every contract, by number
+  // only. It is now the unit's contracts, narrowed to the chosen project, and
+  // each says its reference, number and contractor.
+  const contractsForUnit = useContractsForUnit(draft.orgUnitId);
+  const projects = projectsForUnit.data?.items ?? [];
+  const contractOptions = (contractsForUnit.data ?? []).filter(
+    (c) => !draft.projectId || c.projectId === draft.projectId,
+  );
 
   const canContinueByStep: Record<StepId, boolean> = {
     system: step1Complete(draft),
@@ -332,26 +339,43 @@ export function PermitWizardScreen({ mode, permitId, roles, orgUnits, defaultOrg
                 <select
                   id="pw-project"
                   value={draft.projectId ?? ""}
-                  onChange={(e) => setDraft({ ...draft, projectId: e.target.value || null })}
+                  onChange={(e) => {
+                    const projectId = e.target.value || null;
+                    // A contract of another project no longer fits; drop it.
+                    const keep = contractsForUnit.data?.find((c) => c.id === draft.contractId);
+                    const contractId = keep && (!projectId || keep.projectId === projectId) ? draft.contractId : null;
+                    setDraft({ ...draft, projectId, contractId });
+                  }}
+                  aria-describedby="pw-project-hint"
                   className="h-11 rounded-k border border-k-grey px-s-3 text-fs-16"
                 >
                   <option value="">{t("screens.s11a.fields.none")}</option>
-                  {(projectsForUnit.data?.items ?? []).map((p) => (
-                    <option key={p.id} value={p.id}>{p.titleEl}</option>
+                  {projects.map((p) => (
+                    <option key={p.id} value={p.id}>{p.code} — {p.titleEl}</option>
                   ))}
                 </select>
+                <p id="pw-project-hint" className="text-fs-14 text-k-text">
+                  {t("screens.s11a.fields.projectHint", { unit: unitLabel, count: projects.length })}
+                </p>
               </div>
               <div className="flex flex-col gap-s-1">
                 <label htmlFor="pw-contract" className="text-fs-14 text-k-text">{t("screens.s11a.fields.contract")}</label>
                 <select
                   id="pw-contract"
                   value={draft.contractId ?? ""}
-                  onChange={(e) => setDraft({ ...draft, contractId: e.target.value || null })}
+                  onChange={(e) => {
+                    const contractId = e.target.value || null;
+                    // Picking a contract fills its project when none is chosen.
+                    const picked = contractsForUnit.data?.find((c) => c.id === contractId);
+                    setDraft({ ...draft, contractId, projectId: draft.projectId ?? picked?.projectId ?? null });
+                  }}
                   className="h-11 rounded-k border border-k-grey px-s-3 text-fs-16"
                 >
                   <option value="">{t("screens.s11a.fields.none")}</option>
-                  {(contracts.data?.items ?? []).map((c) => (
-                    <option key={c.id} value={c.id}>{c.contractNo}</option>
+                  {contractOptions.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {[c.ref, c.contractNo !== c.ref ? c.contractNo : null, c.contractorName].filter(Boolean).join(" — ")}
+                    </option>
                   ))}
                 </select>
               </div>

@@ -1556,6 +1556,7 @@
         "title": "Title",
         "description": "Description",
         "project": "Project",
+        "projectHint": "Projects of «{unit}»: {count}. For a project of another unit, change the unit above.",
         "contract": "Contract",
         "none": "None",
         "plannedStart": "Planned start",
