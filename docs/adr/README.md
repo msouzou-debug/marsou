@@ -42,3 +42,4 @@ One file per decision, numbered, never edited after acceptance; superseding deci
 - [ADR-0036 — SAP capital lines replace the ME2N and KSB1 extracts; reconciliation against eFinance, never a second spent figure](ADR-0036-sap-capital-lines.md)
 - [ADR-0037 — A project's cash flow is planned by month, and the budget spread stays as the fallback](ADR-0037-project-cash-flow-plan.md)
 - [ADR-0038 — Commitments carry a net amount and a VAT rate; budget control runs on gross](ADR-0038-vat.md)
+- [ADR-0039 — The technical and safety lines get a role of their own](ADR-0039-technical-approver-role.md)
