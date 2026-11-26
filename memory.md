@@ -74,6 +74,9 @@ English and Greek text: always use these skills
   Comparison line with the hospital total stays. Default pack: laptop report, PowerPoint, Excel.
 - «ΓΡΗΓΟΡΙΟΣ ΚΛΙΝΙΚΗ» is the Gregorios Clinic (HIV/AIDS); its drugs are reimbursed by the HIO (ΟΑΥ). Keep the name
   as it is in reports; do not add a diagnosis label.
+- Larnaca, 26 Nov 2026: a morning with appointments and no registrations most likely means the clinic did not
+  take place, because a patient is always registered before being seen. Keep these mornings out of the average.
+  Γεωργίου Ιωάννα's former Pathology registrations stay under «ΓΡΗΓΟΡΙΟΣ ΚΛΙΝΙΚΗ» for now; to be revisited.
 - Open questions sent to Larnaca: `outpatient-dashboards/docs/LGH-Erotiseis-Neo-Arxeio-2026-11-19.docx`.
 
 ## Pitfalls to remember
