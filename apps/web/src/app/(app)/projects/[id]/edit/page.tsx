@@ -1,6 +1,8 @@
 // S02a — R04, R05
 
 import { ProjectDetail } from "@ecapital/shared";
+import { editsApprovedBudgetOnly } from "@/auth/roles";
+import { getSession } from "@/auth/session";
 import { NoPermission } from "@/components/app-shell";
 import { serverApi } from "@/data/server";
 import { HelpSection } from "@/help/HelpSection";
@@ -37,9 +39,20 @@ export default async function EditProjectPage({ params }: PageProps<"/projects/[
 
   if (!project) return <NoPermission />;
 
+  // OWNER 26/11/2026 (ADR-0014): finance edits the approved budget and
+  // nothing else; the register's own roles get the whole form, unchanged.
+  const session = await getSession();
+  const budgetOnly = editsApprovedBudgetOnly(session?.me.roles ?? [], project.phase);
+
   return (
     <>
-      <ProjectFormScreen mode="edit" orgUnits={[]} projectId={project.id} initialValues={toFormValues(project)} />
+      <ProjectFormScreen
+        mode="edit"
+        orgUnits={[]}
+        projectId={project.id}
+        initialValues={toFormValues(project)}
+        budgetOnly={budgetOnly}
+      />
       <HelpSection route="/projects/[id]/edit" />
     </>
   );

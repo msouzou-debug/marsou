@@ -13,54 +13,39 @@ const BOX_KEYS = [
 ] as const;
 
 /**
- * CloseoutChecklist — the permit detail's «Κλείσιμο» dialog body: the five
- * §6.6 boxes, a note, and the clinical-acceptance block (UI instructions §5
- * permit detail, CAPEX-01 §6.6).
+ * CloseoutChecklist — the five §6.6 boxes and a note: the body of the permit
+ * detail's «Ολοκλήρωση εργασιών» dialog, and, read-only, of the clinical
+ * owner's «Αποδοχή και κλείσιμο» dialog (UI instructions §5 permit detail,
+ * CAPEX-01 §6.6).
  *
- * | Prop              | Type                 | Notes                                                              |
- * |-------------------|----------------------|-----------------------------------------------------------------------|
- * | value             | CloseoutChecklist    | Fully controlled.                                                     |
- * | onChange          | (next) => void       | Fired on every box/note/acceptance change.                            |
- * | isClinicalOwner   | boolean              | RULE below.                                                           |
- * | approverName      | string               | The signed-in clinical owner's own name, used when they sign.          |
+ * | Prop      | Type               | Notes                                                    |
+ * |-----------|--------------------|----------------------------------------------------------|
+ * | value     | CloseoutChecklist  | Fully controlled.                                        |
+ * | onChange  | (next) => void     | Fired on every box/note change. Not called when read-only.|
+ * | readOnly  | boolean?           | The submitted checklist, as the clinical owner reads it.  |
  *
- * RULE (§6.6): «Αποδοχή από κλινικό υπεύθυνο» is a checkbox only a clinical
- * owner may tick — enabled only when `isClinicalOwner` is true, and always
- * shown (never hidden) so a non-clinical requester sees who still has to
- * sign. RULE: `closeoutComplete` (`src/lib/permit-rules.ts`) — every box plus
- * the signature — is what the caller uses to enable «Ολοκλήρωση»; this
- * component only collects the values.
+ * RULE (OWNER 26/11/2026, the handback in two steps): the works side ticks
+ * the boxes and submits; the clinical owner accepts with a button of their
+ * own, and the API stamps the acceptance from whoever pressed it. So there is
+ * no acceptance checkbox here any more — a signature somebody else can tick
+ * on your behalf is not one. The sentence under the boxes says who signs.
+ * RULE: `closeoutComplete` (`src/lib/permit-rules.ts`), every box, is what
+ * the caller uses to enable «Υποβολή για αποδοχή»; this component only
+ * collects the values.
  *
  * State: default only.
  */
 export interface CloseoutChecklistProps {
   value: CloseoutChecklistValue;
   onChange: (next: CloseoutChecklistValue) => void;
-  isClinicalOwner: boolean;
-  approverName: string;
-  approverId: string;
+  readOnly?: boolean;
 }
 
-export function CloseoutChecklist({
-  value,
-  onChange,
-  isClinicalOwner,
-  approverName,
-  approverId,
-}: CloseoutChecklistProps) {
+export function CloseoutChecklist({ value, onChange, readOnly = false }: CloseoutChecklistProps) {
   const t = useTranslations("components.closeout-checklist");
 
   function toggleBox(key: (typeof BOX_KEYS)[number]) {
     onChange({ ...value, [key]: !value[key] });
-  }
-
-  function toggleAcceptance(checked: boolean) {
-    onChange({
-      ...value,
-      clinicalAcceptanceById: checked ? approverId : null,
-      clinicalAcceptanceByName: checked ? approverName : null,
-      clinicalAcceptanceAt: checked ? new Date().toISOString() : null,
-    });
   }
 
   return (
@@ -69,43 +54,40 @@ export function CloseoutChecklist({
         <legend className="sr-only">{t("legend")}</legend>
         {BOX_KEYS.map((key) => (
           <label key={key} className="flex min-h-[44px] items-center gap-s-3 text-fs-16 text-k-ink">
-            <input type="checkbox" checked={value[key]} onChange={() => toggleBox(key)} />
+            <input type="checkbox" checked={value[key]} disabled={readOnly} onChange={() => toggleBox(key)} />
             {t(`boxes.${key}`)}
           </label>
         ))}
       </fieldset>
 
-      <div className="flex flex-col gap-s-1">
-        <label htmlFor="closeout-note" className="text-fs-14 text-k-text">
-          {t("noteLabel")}
-        </label>
-        <textarea
-          id="closeout-note"
-          value={value.noteEl ?? ""}
-          onChange={(event) => onChange({ ...value, noteEl: event.target.value || null })}
-          rows={3}
-          className="rounded-k border border-k-grey p-s-3 text-fs-14"
-        />
-      </div>
-
-      <label
-        className="flex min-h-[44px] items-center gap-s-3 text-fs-16 text-k-ink"
-        title={isClinicalOwner ? undefined : t("notClinicalOwner")}
-      >
-        <input
-          type="checkbox"
-          checked={value.clinicalAcceptanceById !== null}
-          disabled={!isClinicalOwner}
-          onChange={(event) => toggleAcceptance(event.target.checked)}
-        />
-        {t("clinicalAcceptance")}
-      </label>
-      {value.clinicalAcceptanceByName && (
-        <p className="text-fs-14 text-k-text">
-          {t("acceptedBy", { name: value.clinicalAcceptanceByName })}
-        </p>
+      {readOnly ? (
+        value.noteEl && (
+          <div className="flex flex-col gap-s-1">
+            <p className="text-fs-14 text-k-text">{t("noteLabel")}</p>
+            <p className="text-fs-14 text-k-ink">{value.noteEl}</p>
+          </div>
+        )
+      ) : (
+        <div className="flex flex-col gap-s-1">
+          <label htmlFor="closeout-note" className="text-fs-14 text-k-text">
+            {t("noteLabel")}
+          </label>
+          <textarea
+            id="closeout-note"
+            value={value.noteEl ?? ""}
+            onChange={(event) => onChange({ ...value, noteEl: event.target.value || null })}
+            rows={3}
+            className="rounded-k border border-k-grey p-s-3 text-fs-14"
+          />
+        </div>
       )}
-      {!closeoutComplete(value) && <p className="text-fs-14 text-k-text">{t("incomplete")}</p>}
+
+      {value.clinicalAcceptanceByName ? (
+        <p className="text-fs-14 text-k-text">{t("acceptedBy", { name: value.clinicalAcceptanceByName })}</p>
+      ) : (
+        !readOnly && <p className="text-fs-14 text-k-text">{t("whoSigns")}</p>
+      )}
+      {!readOnly && !closeoutComplete(value) && <p className="text-fs-14 text-k-text">{t("incomplete")}</p>}
     </div>
   );
 }

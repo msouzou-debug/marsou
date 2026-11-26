@@ -6,7 +6,7 @@ import {
   type InboxItemType,
   type PaymentCertStatus,
 } from "@ecapital/shared";
-import { and, asc, eq, inArray, isNull, ne, or, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, isNotNull, isNull, ne, or, sql } from "drizzle-orm";
 import { callerUserId } from "../common/actor";
 import { AppError } from "../common/errors";
 import { I18nService, type Locale } from "../common/i18n.service";
@@ -39,6 +39,12 @@ const CERT_ORDER: PaymentCertStatus[] = ["DRAFT", "ENGINEER_APPROVED", "FINANCE_
  *   PAYMENT_CERT  a certificate whose next step is one the caller may take
  *                 (R11, with the same segregation on the engineer's signature).
  *
+ * Two more SHUTDOWN kinds come from the handback in two steps (OWNER
+ * 26/11/2026): a handback waiting for the caller's clinical acceptance, and
+ * a handback the clinical owner returned to the caller who submitted it.
+ * Both are `decidable: false`: accepting signs the §6.6 acceptance and is
+ * done on the permit's own page, where the checklist is.
+ *
  * The last two are `decidable: false` and carry an href, because their
  * decisions have screens of their own with figures on them that a three-fact
  * card cannot carry honestly. That is the contract's word, not a shortcut.
@@ -69,6 +75,8 @@ export class InboxService {
     const items = [
       ...(await this.permitItems(caller, now, locale)),
       ...(await this.returnedItems(caller, locale)),
+      ...(await this.handbackItems(caller, locale)),
+      ...(await this.handbackReturnedItems(caller, locale)),
       ...(await this.variationItems(caller, roles)),
       ...(await this.certificateItems(caller, roles)),
     ]
@@ -300,6 +308,171 @@ export class InboxService {
         name: row.returnedByName ?? this.i18n.translate(`approvalRole.${row.role}`, locale),
       }),
     }));
+  }
+
+  /**
+   * OWNER 26/11/2026, step 2 of the handback: a permit whose works side has
+   * submitted the area and is waiting for the caller's acceptance. The same
+   * rule as `PermitsService.holdsAcceptanceRole` (§6.6): a clinical owner of
+   * one of the permit's areas as WARD_MANAGER, NURSING or INFECTION_CONTROL,
+   * or the unit's NURSING or INFECTION_CONTROL — and never the person who
+   * submitted it. An administrator is not one of them by being one.
+   *
+   * The id carries the moment of the submission, so a handback returned and
+   * submitted again reads as unread again.
+   */
+  private async handbackItems(caller: string, locale: Locale): Promise<Omit<InboxItem, "unread">[]> {
+    const tx = currentTx();
+    if (!tx) throw AppError.internal();
+
+    const rows = await tx.db
+      .select({
+        permitId: schema.shutdownPermit.id,
+        ref: schema.shutdownPermit.ref,
+        titleEl: schema.shutdownPermit.titleEl,
+        plannedStart: schema.shutdownPermit.plannedStart,
+        plannedEnd: schema.shutdownPermit.plannedEnd,
+        submittedAt: schema.shutdownPermit.closeoutSubmittedAt,
+        submittedByName: sql<string | null>`ecapital.user_display_name(${schema.shutdownPermit.closeoutSubmittedBy})`,
+        closeout: schema.shutdownPermit.closeout,
+        orgUnitNameEl: schema.orgUnit.nameEl,
+      })
+      .from(schema.shutdownPermit)
+      .innerJoin(schema.orgUnit, eq(schema.orgUnit.id, schema.shutdownPermit.orgUnitId))
+      .where(
+        and(
+          inArray(schema.shutdownPermit.status, ["ACTIVE", "BREACH"]),
+          isNotNull(schema.shutdownPermit.closeoutSubmittedAt),
+          ne(schema.shutdownPermit.closeoutSubmittedBy, caller),
+          sql`(exists (select 1 from ecapital.shutdown_permit_area spa
+                         join ecapital.area_clinical_owner aco on aco.area_id = spa.area_id
+                        where spa.permit_id = ${schema.shutdownPermit.id}
+                          and aco.user_id = ${caller}::uuid
+                          and aco.approval_role in ('WARD_MANAGER', 'NURSING', 'INFECTION_CONTROL'))
+               or exists (select 1 from ecapital.unit_approver ua
+                           where ua.org_unit_id = ${schema.shutdownPermit.orgUnitId}
+                             and ua.user_id = ${caller}::uuid
+                             and ua.approval_role in ('NURSING', 'INFECTION_CONTROL')))`,
+        ),
+      )
+      .orderBy(asc(schema.shutdownPermit.closeoutSubmittedAt));
+    if (!rows.length) return [];
+
+    const names = await this.areaNames(rows.map((row) => row.permitId));
+
+    return rows.map((row) => {
+      const submittedAt = row.submittedAt as Date;
+      const note = (row.closeout as { noteEl?: string | null } | null)?.noteEl;
+      return {
+        id: `handback:${row.permitId}:${submittedAt.getTime()}`,
+        type: "SHUTDOWN" as const,
+        whatEl: this.i18n.translate("inbox.handbackWhat", locale, {
+          ref: row.ref ?? "—",
+          title: row.titleEl,
+        }),
+        whereEl: `${row.orgUnitNameEl} › ${names.get(row.permitId)?.[0] ?? "—"}`,
+        requestedByName: row.submittedByName ?? "",
+        requestedAt: submittedAt.toISOString(),
+        dueAt: null,
+        slaState: null,
+        facts: [
+          {
+            label: this.i18n.translate("inbox.facts.period", locale),
+            value: formatPermitWindow(row.plannedStart, row.plannedEnd),
+          },
+          {
+            label: this.i18n.translate("inbox.facts.rooms", locale),
+            value: formatAreaList(names.get(row.permitId) ?? []),
+          },
+          {
+            label: this.i18n.translate("inbox.facts.handbackNote", locale),
+            value: note?.trim() ? note : "—",
+          },
+        ],
+        href: `/permits/${row.permitId}`,
+        decidable: false,
+        note: this.i18n.translate("inbox.notes.handback", locale, {
+          name: row.submittedByName ?? "—",
+        }),
+      };
+    });
+  }
+
+  /**
+   * OWNER 26/11/2026: a handback the clinical owner returned waits in the
+   * inbox of whoever submitted it, with the comment as the first fact, until
+   * they submit it again (which clears the return from view) or the permit
+   * is settled.
+   */
+  private async handbackReturnedItems(
+    caller: string,
+    locale: Locale,
+  ): Promise<Omit<InboxItem, "unread">[]> {
+    const tx = currentTx();
+    if (!tx) throw AppError.internal();
+
+    const rows = await tx.db
+      .select({
+        permitId: schema.shutdownPermit.id,
+        ref: schema.shutdownPermit.ref,
+        titleEl: schema.shutdownPermit.titleEl,
+        plannedStart: schema.shutdownPermit.plannedStart,
+        plannedEnd: schema.shutdownPermit.plannedEnd,
+        returnedAt: schema.shutdownPermit.closeoutReturnedAt,
+        returnedByName: sql<string | null>`ecapital.user_display_name(${schema.shutdownPermit.closeoutReturnedBy})`,
+        commentEl: schema.shutdownPermit.closeoutReturnCommentEl,
+        orgUnitNameEl: schema.orgUnit.nameEl,
+      })
+      .from(schema.shutdownPermit)
+      .innerJoin(schema.orgUnit, eq(schema.orgUnit.id, schema.shutdownPermit.orgUnitId))
+      .where(
+        and(
+          inArray(schema.shutdownPermit.status, ["ACTIVE", "BREACH"]),
+          isNull(schema.shutdownPermit.closeoutSubmittedAt),
+          isNotNull(schema.shutdownPermit.closeoutReturnedAt),
+          eq(schema.shutdownPermit.closeoutSubmittedBy, caller),
+        ),
+      )
+      .orderBy(asc(schema.shutdownPermit.closeoutReturnedAt));
+    if (!rows.length) return [];
+
+    const names = await this.areaNames(rows.map((row) => row.permitId));
+
+    return rows.map((row) => {
+      const returnedAt = row.returnedAt as Date;
+      return {
+        id: `handback-returned:${row.permitId}:${returnedAt.getTime()}`,
+        type: "SHUTDOWN" as const,
+        whatEl: this.i18n.translate("inbox.handbackReturnedWhat", locale, {
+          ref: row.ref ?? "—",
+          title: row.titleEl,
+        }),
+        whereEl: `${row.orgUnitNameEl} › ${names.get(row.permitId)?.[0] ?? "—"}`,
+        requestedByName: row.returnedByName ?? "",
+        requestedAt: returnedAt.toISOString(),
+        dueAt: null,
+        slaState: null,
+        facts: [
+          {
+            label: this.i18n.translate("inbox.facts.handbackComment", locale),
+            value: row.commentEl ?? "—",
+          },
+          {
+            label: this.i18n.translate("inbox.facts.period", locale),
+            value: formatPermitWindow(row.plannedStart, row.plannedEnd),
+          },
+          {
+            label: this.i18n.translate("inbox.facts.rooms", locale),
+            value: formatAreaList(names.get(row.permitId) ?? []),
+          },
+        ],
+        href: `/permits/${row.permitId}`,
+        decidable: false,
+        note: this.i18n.translate("inbox.notes.handbackReturned", locale, {
+          name: row.returnedByName ?? "—",
+        }),
+      };
+    });
   }
 
   /** The names of each permit's areas, in code order — S14's «Χώροι» fact. */

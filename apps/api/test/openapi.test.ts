@@ -137,6 +137,8 @@ describe("openapi.json", () => {
       "/permits/{id}",
       "/permits/{id}/approvals/{approvalId}/decide",
       "/permits/{id}/audit",
+      "/permits/{id}/closeout",
+      "/permits/{id}/closeout/return",
       "/permits/{id}/icra",
       "/permits/{id}/transition",
       "/portfolio",

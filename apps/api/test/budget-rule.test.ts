@@ -114,7 +114,43 @@ describe("who may change the approved budget", () => {
       .set(bearer(token))
       .send({ titleEl: "Νέος τίτλος από την Οικονομική Διεύθυνση" });
     expect(response.status).toBe(403);
-    expect(response.body.key).toBe("errors.readOnlyAccount");
+    // OWNER 26/11/2026: the refusal says what finance may change.
+    expect(response.body.key).toBe("errors.projectBudgetOnly");
+  });
+
+  it("refuses finance a budget sent with another field, and moves neither", async () => {
+    // S03's «Επεξεργασία» for finance sends the budget alone; a change that
+    // names anything else is refused whole, the budget included.
+    const project = await projectAt(
+      app,
+      "IN_PROGRESS",
+      `Προϋπολογισμός και τίτλος από Οικονομική ${Date.now()}`,
+      USERS.estatesNicosia,
+    );
+    const token = await tokenFor(app, USERS.finance);
+    const response = await request(app.getHttpServer())
+      .patch(`/projects/${project.id}`)
+      .set(bearer(token))
+      .send({ approvedBudget: 1_500_000, titleEl: "Άλλος τίτλος" });
+    expect(response.status).toBe(403);
+    expect(response.body.key).toBe("errors.projectBudgetOnly");
+
+    const admin = await tokenFor(app, USERS.admin);
+    const after = ProjectDetail.parse(
+      (await request(app.getHttpServer()).get(`/projects/${project.id}`).set(bearer(admin))).body,
+    );
+    expect(after.approvedBudget).toBe(1_000_000);
+    expect(after.titleEl).toBe(project.titleEl);
+  });
+
+  it("refuses finance the budget before APPROVED, where it is the register's field", async () => {
+    const project = await projectAt(app, "PREPARATION", `Πριν την έγκριση ${Date.now()}`, USERS.estatesNicosia);
+    const token = await tokenFor(app, USERS.finance);
+    const response = await request(app.getHttpServer())
+      .patch(`/projects/${project.id}`)
+      .set(bearer(token))
+      .send({ approvedBudget: 1_200_000 });
+    expect(response.status).toBe(403);
   });
 
   it("lets a patch that repeats the same budget through, because it changes nothing", async () => {

@@ -20,6 +20,7 @@
  * | defaultOrgUnitId | string?             | The shell's unit cookie — preselects Μονάδα in "create".          |
  * | projectId        | string?             | Required in "edit"; the id being patched.                         |
  * | initialValues    | ProjectFormValues?  | Required in "edit"; prefills the form.                            |
+ * | budgetOnly       | boolean?            | Finance's edit (ADR-0014): the approved budget alone, and the PATCH carries only that field. |
  */
 
 import { useState } from "react";
@@ -36,6 +37,7 @@ export interface ProjectFormScreenProps {
   defaultOrgUnitId?: string;
   projectId?: string;
   initialValues?: ProjectFormValues;
+  budgetOnly?: boolean;
 }
 
 export function ProjectFormScreen({
@@ -44,6 +46,7 @@ export function ProjectFormScreen({
   defaultOrgUnitId,
   projectId,
   initialValues,
+  budgetOnly = false,
 }: ProjectFormScreenProps) {
   const t = useTranslations();
   const router = useRouter();
@@ -64,7 +67,9 @@ export function ProjectFormScreen({
               "PATCH",
               // `orgUnitId` never reaches `PATCH` — `ProjectUpdate` has no such
               // field, and it cannot change after the project opens (ADR-0014).
-              { ...values, orgUnitId: undefined },
+              // Finance sends the approved budget and nothing else: the API
+              // refuses them any other field (`errors.projectBudgetOnly`).
+              budgetOnly ? { approvedBudget: values.approvedBudget } : { ...values, orgUnitId: undefined },
               ProjectDetail,
             );
       router.push(`/projects/${encodeURIComponent(project.id)}`);
@@ -98,6 +103,7 @@ export function ProjectFormScreen({
       submitting={submitting}
       apiError={apiError}
       budgetFieldError={budgetFieldError}
+      budgetOnly={budgetOnly}
       onSubmit={handleSubmit}
       onCancel={handleCancel}
     />

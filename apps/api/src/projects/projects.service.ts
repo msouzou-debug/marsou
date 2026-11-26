@@ -264,6 +264,17 @@ export class ProjectsService {
       PROJECT_DATE_RULES,
     );
 
+    // OWNER 26/11/2026 (ADR-0014): finance holds the approved budget and not
+    // the register. A change from them that names any other field is refused
+    // as a whole, before the budget moves, and says why — rather than moving
+    // the budget and then failing on the rest with a read-only sentence.
+    const financeOnly =
+      this.permissions.allowedHere("approvedBudget", "APPROVE") &&
+      !this.permissions.allowedHere("projectRecords", "WRITE");
+    if (financeOnly && Object.keys(input).some((key) => key !== "approvedBudget")) {
+      throw AppError.forbidden("errors.projectBudgetOnly");
+    }
+
     const budget = input.approvedBudget;
     const changingBudget = budget !== undefined && budget !== money(project.approvedBudget);
     const needsFinance = changingBudget && phaseIndex(project.phase) >= phaseIndex(BUDGET_LOCKED_FROM);

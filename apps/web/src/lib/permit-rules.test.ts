@@ -4,6 +4,8 @@ import {
   allControlsAcknowledged,
   canRemoveArea,
   closeoutComplete,
+  handbackReturned,
+  handbackWaiting,
   permitBannerState,
   startWorkDisabledReasonKey,
 } from "./permit-rules";
@@ -66,10 +68,43 @@ const FULL_CHECKLIST: CloseoutChecklist = {
 };
 
 describe("closeoutComplete", () => {
-  it("requires every box plus the clinical acceptance", () => {
+  it("requires every box, and not the signature, which is the clinical owner's own button", () => {
     expect(closeoutComplete(FULL_CHECKLIST)).toBe(true);
     expect(closeoutComplete({ ...FULL_CHECKLIST, fireSystemsReenabled: false })).toBe(false);
-    expect(closeoutComplete({ ...FULL_CHECKLIST, clinicalAcceptanceById: null })).toBe(false);
+    expect(closeoutComplete({ ...FULL_CHECKLIST, clinicalAcceptanceById: null })).toBe(true);
+  });
+});
+
+const NO_HANDBACK = {
+  submittedAt: null,
+  submittedById: null,
+  submittedByName: null,
+  returnedAt: null,
+  returnedById: null,
+  returnedByName: null,
+  returnCommentEl: null,
+  mayAccept: false,
+};
+const WAITING = { ...NO_HANDBACK, submittedAt: "2026-03-14T15:00:00.000Z", submittedById: "u1", submittedByName: "Α. Π." };
+const RETURNED = { ...NO_HANDBACK, submittedById: "u1", returnedAt: "2026-03-14T16:00:00.000Z", returnCommentEl: "Σκόνη." };
+
+describe("the handback in two steps (OWNER 26/11/2026)", () => {
+  it("waits only on a running permit with a submission", () => {
+    expect(handbackWaiting({ status: "ACTIVE", handback: WAITING })).toBe(true);
+    expect(handbackWaiting({ status: "BREACH", handback: WAITING })).toBe(true);
+    expect(handbackWaiting({ status: "ACTIVE", handback: NO_HANDBACK })).toBe(false);
+    expect(handbackWaiting({ status: "CLOSED", handback: WAITING })).toBe(false);
+  });
+  it("says returned only while the area is back with the works side", () => {
+    expect(handbackReturned({ status: "ACTIVE", handback: RETURNED })).toBe(true);
+    expect(handbackReturned({ status: "ACTIVE", handback: { ...RETURNED, submittedAt: "2026-03-14T17:00:00.000Z" } })).toBe(false);
+    expect(handbackReturned({ status: "CLOSED", handback: RETURNED })).toBe(false);
+  });
+  it("shows «Αναμονή αποδοχής παράδοσης» over ACTIVE and BREACH while it waits", () => {
+    expect(permitBannerState("ACTIVE", WAITING)).toBe("awaitingAcceptance");
+    expect(permitBannerState("BREACH", WAITING)).toBe("awaitingAcceptance");
+    expect(permitBannerState("ACTIVE", RETURNED)).toBe("inForce");
+    expect(permitBannerState("CLOSED", WAITING)).toBeNull();
   });
 });
 

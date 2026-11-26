@@ -21,7 +21,10 @@
  * | phaseDialog* / onSubmitPhaseChange / onOpenPhaseDialog / onClosePhaseDialog | — | `ProjectOverviewScreen` owns the `POST /projects/:id/phase` call and the dialog's open/submitting/error state — same Screen/pure split as the network fetch itself. |
  *
  * RULE (`@/auth/roles`): the «Επεξεργασία» link (PageTitle's action slot)
- * is hidden for `auditor_readonly`/`executive_readonly` — both are
+ * shows for the project register's roles, and for finance from APPROVED on,
+ * where it opens the edit form with the approved budget alone
+ * (`editsApprovedBudgetOnly`, ADR-0014, OWNER 26/11/2026). It is hidden for
+ * `auditor_readonly`/`executive_readonly` — both are
  * read-only at the row-policy level (ADR-0010), so the link would only ever
  * come back 403. The «Αλλαγή φάσης» button (next to the Φάση fact) is
  * additionally hidden for `clinical_approver` and `finance` — a
@@ -34,7 +37,7 @@ import type { ReactNode } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import Link from "next/link";
 import type { AppRole, Contract, ProjectDetail, ProjectPhase, Rag } from "@ecapital/shared";
-import { canChangeProjectPhase, canWriteProjects, isAdmin } from "@/auth/roles";
+import { canChangeProjectPhase, canWriteProjects, editsApprovedBudgetOnly, isAdmin } from "@/auth/roles";
 import { PageTitle } from "@/components/app-shell";
 import { CostBar } from "@/components/cost-bar";
 import { RagChip } from "@/components/rag-chip";
@@ -162,7 +165,10 @@ export function ProjectOverview({
   }));
 
   const offline = state === "offline";
-  const canEdit = canWriteProjects(roles);
+  // OWNER 26/11/2026: finance holds APPROVE on the approved budget from
+  // APPROVED on (ADR-0014) and had no way to reach it but typing `/edit`.
+  // The same «Επεξεργασία» now opens the form with that one field for them.
+  const canEdit = canWriteProjects(roles) || editsApprovedBudgetOnly(roles, data.phase);
   const canChangePhase = canChangeProjectPhase(roles) && canOfferPhaseChange(data.phase, isAdmin(roles));
 
   return (

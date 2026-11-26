@@ -165,13 +165,13 @@ describe("the overrun sweep", () => {
     await breach.sweep(new Date());
     expect((await statusOf(id)).status).toBe("BREACH");
 
-    const token = await tokenFor(app, USERS.clinicalNicosia);
-    const closed = await request(app.getHttpServer())
-      .post(`/permits/${id}/transition`)
-      .set(bearer(token))
+    // OWNER 26/11/2026: the works side submits the handback, the clinical
+    // owner accepts it.
+    const engineer = await tokenFor(app, USERS.estatesNicosia);
+    const submitted = await request(app.getHttpServer())
+      .post(`/permits/${id}/closeout`)
+      .set(bearer(engineer))
       .send({
-        to: "CLOSED",
-        commentEl: null,
         closeout: {
           barriersRemoved: true,
           areaCleaned: true,
@@ -184,6 +184,13 @@ describe("the overrun sweep", () => {
           clinicalAcceptanceAt: null,
         },
       });
+    expect(submitted.status).toBe(200);
+
+    const token = await tokenFor(app, USERS.clinicalNicosia);
+    const closed = await request(app.getHttpServer())
+      .post(`/permits/${id}/transition`)
+      .set(bearer(token))
+      .send({ to: "CLOSED", commentEl: null });
     expect(closed.status).toBe(200);
     expect(closed.body.status).toBe("CLOSED");
     // The breach is part of the record, not something closing erases.

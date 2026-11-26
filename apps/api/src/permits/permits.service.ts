@@ -12,7 +12,10 @@ import {
   type PermitStatus,
   type PermitTransition,
   type AccessLevel,
+  type CloseoutChecklist,
   type MatrixArea,
+  type PermitCloseoutSubmit,
+  type PermitHandbackReturn,
   type ShutdownPermitDraft,
 } from "@ecapital/shared";
 import { and, asc, desc, eq, gte, inArray, lte, ne, sql, type SQL } from "drizzle-orm";
@@ -199,7 +202,10 @@ export class PermitsService {
   async one(id: string, now: Date): Promise<ShutdownPermit> {
     const row = await this.row(id);
     const [areas, approvals] = await Promise.all([this.areasOf(id), this.approvalsOf(id, now)]);
-    return ShutdownPermit.parse(toPermit(row, areas, approvals));
+    // OWNER 26/11/2026: the screen offers «Αποδοχή και κλείσιμο» only to
+    // somebody the API would let sign, so the same rule answers both.
+    const mayAccept = await this.mayAcceptHandback(row, areas);
+    return ShutdownPermit.parse(toPermit(row, areas, approvals, mayAccept));
   }
 
   // ------------------------------------------------------------- writing --
@@ -415,8 +421,9 @@ export class PermitsService {
 
   async transition(id: string, input: PermitTransition, now: Date): Promise<ShutdownPermit> {
     // ADR-0033: which row of the role matrix each step asks. Closing is not
-    // here: it is the clinical owner's signature (§6.6), decided by the
-    // approval capacity in `close`, not by a role.
+    // here: it is the clinical owner accepting the handback the works side
+    // submitted (§6.6, OWNER 26/11/2026), decided by the approval capacity in
+    // `close`, not by a role.
     const need = TRANSITION_NEEDS[input.to];
     if (need && !this.permissions.allowedHere(need[0], need[1])) {
       throw AppError.forbidden();
@@ -427,7 +434,7 @@ export class PermitsService {
       case "ACTIVE":
         return this.activate(id, now);
       case "CLOSED":
-        return this.close(id, input, now);
+        return this.close(id, now);
       case "REJECTED":
         return this.reject(id, input, now);
     }
@@ -554,8 +561,66 @@ export class PermitsService {
   }
 
   /**
-   * RULE (§6.6): «No closeout, no permit closure.» Every box true, and the
-   * clinical owner signs the acceptance.
+   * Step 1 of the handback (OWNER 26/11/2026): the works side says the works
+   * are finished and the area is ready to be handed back.
+   *
+   * RULE (§6.6): «No closeout, no permit closure.» Every box true, here as
+   * before. What the works side cannot do is sign the clinical acceptance, so
+   * the checklist is stored without one and the permit waits, still ACTIVE or
+   * BREACH, for the clinical owner (`close`). `actual_end` is the moment the
+   * works finished, which is now, not the moment somebody accepted them.
+   *
+   * Who: `permitOperate` WRITE, the row that starts the works (the controller
+   * asks it), so the same people who press «Έναρξη εργασιών» press this.
+   */
+  async submitCloseout(
+    id: string,
+    input: PermitCloseoutSubmit,
+    now: Date,
+  ): Promise<ShutdownPermit> {
+    const tx = currentTx();
+    if (!tx) throw AppError.internal();
+    const existing = await this.row(id);
+    if (existing.status !== "ACTIVE" && existing.status !== "BREACH") {
+      throw AppError.unprocessable("errors.permitNotActive");
+    }
+    if (existing.closeoutSubmittedAt) throw AppError.unprocessable("errors.permitHandbackPending");
+    if (!checklistComplete(input.closeout)) {
+      throw AppError.unprocessable("errors.permitCloseoutIncomplete");
+    }
+
+    const caller = await callerUserId();
+    // The acceptance is never read out of the body, not even as a blank.
+    const closeout = {
+      ...input.closeout,
+      noteEl: input.closeout.noteEl?.trim() ? input.closeout.noteEl : null,
+      clinicalAcceptanceById: null,
+      clinicalAcceptanceByName: null,
+      clinicalAcceptanceAt: null,
+    };
+
+    try {
+      const touched = await tx.db
+        .update(schema.shutdownPermit)
+        .set({
+          closeout,
+          closeoutSubmittedAt: now,
+          closeoutSubmittedBy: caller,
+          actualEnd: now,
+          updatedAt: sql`now()`,
+        })
+        .where(eq(schema.shutdownPermit.id, id))
+        .returning({ id: schema.shutdownPermit.id });
+      if (!touched.length) throw AppError.forbidden("errors.readOnlyAccount");
+    } catch (error) {
+      throw this.writeError(error);
+    }
+    return this.one(id, now);
+  }
+
+  /**
+   * Step 2 of the handback: the clinical owner accepts it and the permit
+   * closes (§6.6).
    *
    * The signature is the caller's, stamped here — `clinicalAcceptanceById` is
    * never read out of the body, because a signature a client can type is a
@@ -563,31 +628,21 @@ export class PermitsService {
    * WARD_MANAGER, NURSING or INFECTION_CONTROL over one of the affected
    * areas; anybody else is refused with `errors.permitAcceptanceNotYours`,
    * including the engineer who raised it and including an administrator.
+   *
+   * RULE (OWNER 26/11/2026): only a handback the works side submitted can be
+   * accepted, and the checklist accepted is the one they submitted. RULE
+   * (ADR-0015's segregation principle): whoever submitted it does not accept
+   * it, even when they also hold an acceptance capacity.
    */
-  private async close(id: string, input: PermitTransition, now: Date): Promise<ShutdownPermit> {
+  private async close(id: string, now: Date): Promise<ShutdownPermit> {
     const tx = currentTx();
     if (!tx) throw AppError.internal();
     const existing = await this.row(id);
-    if (existing.status !== "ACTIVE" && existing.status !== "BREACH") {
-      throw AppError.unprocessable("errors.permitNotActive");
-    }
-    if (!input.closeout) throw AppError.unprocessable("errors.permitCloseoutRequired");
-    if (!checklistComplete(input.closeout)) {
-      throw AppError.unprocessable("errors.permitCloseoutIncomplete");
-    }
-
-    const caller = await callerUserId();
-    const areas = await this.areasOf(id);
-    const accepted = await this.holdsAcceptanceRole(
-      caller,
-      existing.orgUnitId,
-      areas.map((area) => area.areaId),
-    );
-    if (!accepted) throw AppError.forbidden("errors.permitAcceptanceNotYours");
+    const caller = await this.mayAnswerHandback(existing);
 
     const name = await this.displayName(caller);
     const closeout = {
-      ...input.closeout,
+      ...(existing.closeout as CloseoutChecklist),
       clinicalAcceptanceById: caller,
       clinicalAcceptanceByName: name,
       clinicalAcceptanceAt: now.toISOString(),
@@ -599,7 +654,9 @@ export class PermitsService {
         .set({
           status: "CLOSED",
           closeout,
-          actualEnd: now,
+          // The works ended when they were submitted; a permit submitted
+          // before 0035 had none, and closing is then the end.
+          actualEnd: existing.actualEnd ?? now,
           closedBy: caller,
           closedAt: now,
           updatedAt: sql`now()`,
@@ -611,6 +668,87 @@ export class PermitsService {
       throw this.writeError(error);
     }
     return this.one(id, now);
+  }
+
+  /**
+   * Step 2's other answer: the clinical owner returns the handback with a
+   * comment (OWNER 26/11/2026). The submission is cleared and the permit is
+   * where it was — ACTIVE or BREACH — with the works side's clock running
+   * again, so an ACTIVE permit returned after its end is flipped to BREACH on
+   * the breach sweep's next pass. The comment stays on the record until the
+   * next return, and every return stays in the audit trail (R42).
+   */
+  async returnCloseout(
+    id: string,
+    input: PermitHandbackReturn,
+    now: Date,
+  ): Promise<ShutdownPermit> {
+    const tx = currentTx();
+    if (!tx) throw AppError.internal();
+    const existing = await this.row(id);
+    if (!input.commentEl.trim()) throw AppError.unprocessable("errors.permitCommentRequired");
+    const caller = await this.mayAnswerHandback(existing);
+
+    try {
+      const touched = await tx.db
+        .update(schema.shutdownPermit)
+        .set({
+          // The boxes are ticked again on the next submission: what was
+          // wrong with the area is why it came back.
+          // `closeout_submitted_by` stays: it is who the return goes back to.
+          closeout: null,
+          closeoutSubmittedAt: null,
+          actualEnd: null,
+          closeoutReturnedAt: now,
+          closeoutReturnedBy: caller,
+          closeoutReturnCommentEl: input.commentEl.trim(),
+          updatedAt: sql`now()`,
+        })
+        .where(eq(schema.shutdownPermit.id, id))
+        .returning({ id: schema.shutdownPermit.id });
+      if (!touched.length) throw AppError.forbidden("errors.readOnlyAccount");
+    } catch (error) {
+      throw this.writeError(error);
+    }
+    return this.one(id, now);
+  }
+
+  /**
+   * What accepting and returning both ask, in this order: a live permit, a
+   * handback waiting, a caller who holds the acceptance capacity (§6.6), and
+   * a caller who is not the person who submitted it. Returns the caller.
+   */
+  private async mayAnswerHandback(existing: PermitRow): Promise<string> {
+    if (existing.status !== "ACTIVE" && existing.status !== "BREACH") {
+      throw AppError.unprocessable("errors.permitNotActive");
+    }
+    if (!existing.closeoutSubmittedAt || !existing.closeout) {
+      throw AppError.unprocessable("errors.permitHandbackNotSubmitted");
+    }
+    const caller = await callerUserId();
+    const areas = await this.areasOf(existing.id);
+    const accepted = await this.holdsAcceptanceRole(
+      caller,
+      existing.orgUnitId,
+      areas.map((area) => area.areaId),
+    );
+    if (!accepted) throw AppError.forbidden("errors.permitAcceptanceNotYours");
+    if (existing.closeoutSubmittedById === caller) {
+      throw AppError.conflict("errors.permitHandbackSelf");
+    }
+    return caller;
+  }
+
+  /** The screen's half of `mayAnswerHandback`: the same rule, as a yes or no. */
+  private async mayAcceptHandback(row: PermitRow, areas: AffectedArea[]): Promise<boolean> {
+    if (row.status !== "ACTIVE" && row.status !== "BREACH") return false;
+    const caller = await callerUserId();
+    if (row.closeoutSubmittedById === caller) return false;
+    return this.holdsAcceptanceRole(
+      caller,
+      row.orgUnitId,
+      areas.map((area) => area.areaId),
+    );
   }
 
   /** A rejection is a decision, so it carries a reason, and it is final. */
@@ -898,6 +1036,13 @@ export class PermitsService {
         closedById: schema.shutdownPermit.closedBy,
         closedAt: schema.shutdownPermit.closedAt,
         breachedAt: schema.shutdownPermit.breachedAt,
+        closeoutSubmittedAt: schema.shutdownPermit.closeoutSubmittedAt,
+        closeoutSubmittedById: schema.shutdownPermit.closeoutSubmittedBy,
+        closeoutSubmittedByName: sql<string | null>`ecapital.user_display_name(${schema.shutdownPermit.closeoutSubmittedBy})`,
+        closeoutReturnedAt: schema.shutdownPermit.closeoutReturnedAt,
+        closeoutReturnedById: schema.shutdownPermit.closeoutReturnedBy,
+        closeoutReturnedByName: sql<string | null>`ecapital.user_display_name(${schema.shutdownPermit.closeoutReturnedBy})`,
+        closeoutReturnCommentEl: schema.shutdownPermit.closeoutReturnCommentEl,
         createdAt: schema.shutdownPermit.createdAt,
         updatedAt: schema.shutdownPermit.updatedAt,
       })

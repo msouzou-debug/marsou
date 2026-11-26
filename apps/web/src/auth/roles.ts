@@ -22,7 +22,7 @@
 // matrix (the user and role screens answer to the administrator's identity),
 // and `canManageDefect` keeps ADR-0017's split between a field defect and a
 // handover one.
-import type { AppRole, DefectSource } from "@ecapital/shared";
+import { ProjectPhase, type AppRole, type DefectSource } from "@ecapital/shared";
 import { levelAtLeast } from "./role-matrix-store";
 
 export { getRoleMatrix, levelAtLeast, setRoleMatrix } from "./role-matrix-store";
@@ -39,6 +39,31 @@ export function canWriteProjects(roles: AppRole[]): boolean {
 // default (ProjectsService.changePhase asks the same).
 export function canChangeProjectPhase(roles: AppRole[]): boolean {
   return levelAtLeast(roles, "projectPhase", "WRITE");
+}
+
+// RULE (ADR-0014, ADR-0033): from APPROVED on, the approved budget is a
+// finance figure — APPROVE on its own row, finance's by default. Finance does
+// not hold the project register, so this opens the edit form with that one
+// field (OWNER 26/11/2026, «finance has no Επεξεργασία»).
+export function canChangeApprovedBudget(roles: AppRole[]): boolean {
+  return levelAtLeast(roles, "approvedBudget", "APPROVE");
+}
+
+/** The phase from which only finance moves the approved budget (ADR-0014). */
+export const BUDGET_LOCKED_FROM = "APPROVED" as const;
+
+/**
+ * Who gets the budget-only edit: somebody who may change the approved
+ * budget, does not run the project register, on a project at or past
+ * APPROVED — before that the budget is an ordinary field of the register
+ * and the register's people change it.
+ */
+export function editsApprovedBudgetOnly(roles: AppRole[], phase: ProjectPhase): boolean {
+  return (
+    !canWriteProjects(roles) &&
+    canChangeApprovedBudget(roles) &&
+    ProjectPhase.options.indexOf(phase) >= ProjectPhase.options.indexOf(BUDGET_LOCKED_FROM)
+  );
 }
 
 /** Identity, not a row of the matrix: the user and role screens are the administrator's. */

@@ -11,6 +11,8 @@ This screen opens a new project or changes an existing one's core details: title
 5. Enter the planned start and finish, the budget years, the WBS code and the tender reference, where they apply.
 6. Press "Save". The screen takes you to the project's overview.
 
+Finance sees the form titled "Change the approved budget", with the approved budget field alone (VAT included). From the Approved phase on, only finance changes that amount; the project engineer or the head of estates changes everything else.
+
 ## What can go wrong
 
 - **"Fill in this field."** The title or the budget is missing. Fill it in and press "Save" again.

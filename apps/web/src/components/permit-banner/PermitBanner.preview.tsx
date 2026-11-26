@@ -16,6 +16,13 @@ const entry: PreviewEntry = {
           onDismiss={() => {}}
         />
         <PermitBanner
+          state="awaitingAcceptance"
+          validFrom="2026-03-01T00:00:00Z"
+          validTo="2026-06-01T00:00:00Z"
+          icraClass="IV"
+          onDismiss={() => {}}
+        />
+        <PermitBanner
           state="expired"
           validFrom="2025-09-01T00:00:00Z"
           validTo="2026-01-01T00:00:00Z"
@@ -34,8 +41,9 @@ const entry: PreviewEntry = {
   },
   notes:
     "State: default only, one banner per permit state (UI instructions §4). Notice the dismiss " +
-    "control (×) is absent on the «Σε ισχύ» banner even though the other three were given " +
-    "onDismiss — RULE: a live permit can never be dismissed off screen.",
+    "control (×) is absent on the «Σε ισχύ» and «Αναμονή αποδοχής παράδοσης» banners even though " +
+    "they were given onDismiss — RULE: a live permit can never be dismissed off screen, and a " +
+    "permit whose handback waits for the clinical owner is still live (OWNER 26/11/2026).",
 };
 
 export default entry;

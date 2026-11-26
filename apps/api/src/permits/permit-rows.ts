@@ -53,6 +53,14 @@ export interface PermitRow {
   closedById: string | null;
   closedAt: Date | null;
   breachedAt: Date | null;
+  /** 0035, the handback in two steps. */
+  closeoutSubmittedAt: Date | null;
+  closeoutSubmittedById: string | null;
+  closeoutSubmittedByName: string | null;
+  closeoutReturnedAt: Date | null;
+  closeoutReturnedById: string | null;
+  closeoutReturnedByName: string | null;
+  closeoutReturnCommentEl: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -96,6 +104,7 @@ export function toPermit(
   row: PermitRow,
   areas: AffectedArea[],
   approvals: PermitApproval[],
+  mayAcceptHandback = false,
 ): ShutdownPermit {
   return {
     id: row.id,
@@ -119,6 +128,16 @@ export function toPermit(
     status: row.status,
     approvals,
     closeout: row.closeout,
+    handback: {
+      submittedAt: row.closeoutSubmittedAt ? row.closeoutSubmittedAt.toISOString() : null,
+      submittedById: row.closeoutSubmittedById,
+      submittedByName: row.closeoutSubmittedByName,
+      returnedAt: row.closeoutReturnedAt ? row.closeoutReturnedAt.toISOString() : null,
+      returnedById: row.closeoutReturnedById,
+      returnedByName: row.closeoutReturnedByName,
+      returnCommentEl: row.closeoutReturnCommentEl,
+      mayAccept: mayAcceptHandback,
+    },
     requestedById: row.requestedById,
     requestedByName: row.requestedByName ?? "",
     requestedAt: row.requestedAt.toISOString(),
@@ -273,6 +292,16 @@ export function toPermitAuditEntry(row: PermitAuditRow): AuditEntry {
     } else if (before?.status !== after?.status && typeof after?.status === "string") {
       action = "permitStatusChanged";
       detail = `${String(before?.status ?? "")} → ${after.status}`;
+    } else if (!before?.closeout_submitted_at && after?.closeout_submitted_at) {
+      // 0035, step 1: the works side submitted the area for acceptance.
+      action = "permitHandbackSubmitted";
+    } else if (before?.closeout_submitted_at && !after?.closeout_submitted_at) {
+      // 0035, step 2's other answer: returned, and the comment is the reason.
+      action = "permitHandbackReturned";
+      detail =
+        typeof after?.closeout_return_comment_el === "string"
+          ? after.closeout_return_comment_el
+          : null;
     } else {
       action = "permitUpdated";
       const fields = changed(before, after);

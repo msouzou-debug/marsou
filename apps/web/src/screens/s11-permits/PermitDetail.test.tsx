@@ -59,6 +59,16 @@ const BASE_PERMIT: ShutdownPermit = {
     },
   ],
   closeout: null,
+  handback: {
+    submittedAt: null,
+    submittedById: null,
+    submittedByName: null,
+    returnedAt: null,
+    returnedById: null,
+    returnedByName: null,
+    returnCommentEl: null,
+    mayAccept: false,
+  },
   requestedById: "req1",
   requestedByName: "Γ. Γεωργίου",
   requestedAt: "2026-03-10T08:00:00.000Z",
@@ -95,6 +105,18 @@ const NOOP_PROPS = {
   onChangeCloseout: vi.fn(),
   onSubmitCloseout: vi.fn(),
   onCancelCloseout: vi.fn(),
+  acceptOpen: false,
+  acceptSaving: false,
+  onOpenAccept: vi.fn(),
+  onSubmitAccept: vi.fn(),
+  onCancelAccept: vi.fn(),
+  giveBackOpen: false,
+  giveBackComment: "",
+  giveBackSaving: false,
+  onOpenGiveBack: vi.fn(),
+  onChangeGiveBackComment: vi.fn(),
+  onSubmitGiveBack: vi.fn(),
+  onCancelGiveBack: vi.fn(),
   rejectOpen: false,
   rejectComment: "",
   rejectSaving: false,
@@ -275,6 +297,169 @@ describe("PermitDetail", () => {
       <PermitDetail {...NOOP_PROPS} roles={["admin"]} myUserId="admin" permit={unassigned} state="default" />,
     );
     expect(screen.getByRole("button", { name: "Έγκριση" })).toBeInTheDocument();
+  });
+
+  // ------------------------------- OWNER 26/11/2026, handback in two steps --
+
+  const FULL_BOXES = {
+    ...NOOP_PROPS.closeoutValue,
+    barriersRemoved: true,
+    areaCleaned: true,
+    airBalanceRestored: true,
+    systemsTestedAndReturned: true,
+    fireSystemsReenabled: true,
+    noteEl: "Ο χώρος παραδόθηκε καθαρός.",
+  };
+  const RUNNING: ShutdownPermit = { ...BASE_PERMIT, status: "ACTIVE", actualStart: "2026-03-14T08:30:00.000Z" };
+  const WAITING: ShutdownPermit = {
+    ...RUNNING,
+    actualEnd: "2026-03-14T15:00:00.000Z",
+    closeout: FULL_BOXES,
+    handback: {
+      ...BASE_PERMIT.handback,
+      submittedAt: "2026-03-14T15:00:00.000Z",
+      submittedById: "eng",
+      submittedByName: "Α. Παπαδόπουλος",
+    },
+  };
+  const NOW = new Date("2026-03-14T15:30:00.000Z");
+
+  it("offers the works side «Ολοκλήρωση εργασιών» on a running permit, and no acceptance", () => {
+    const onOpenCloseout = vi.fn();
+    renderWithIntl(
+      <PermitDetail {...NOOP_PROPS} onOpenCloseout={onOpenCloseout} permit={RUNNING} state="default" now={NOW} />,
+    );
+    screen.getByRole("button", { name: "Ολοκλήρωση εργασιών" }).click();
+    expect(onOpenCloseout).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("button", { name: "Αποδοχή και κλείσιμο" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Κλείσιμο" })).toBeNull();
+  });
+
+  it("offers a clinical approver nothing on a running permit before the works side submits", () => {
+    renderWithIntl(
+      <PermitDetail {...NOOP_PROPS} roles={["clinical_approver"]} permit={RUNNING} state="default" now={NOW} />,
+    );
+    expect(screen.queryByRole("button", { name: "Ολοκλήρωση εργασιών" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Αποδοχή και κλείσιμο" })).toBeNull();
+  });
+
+  it("asks for every box before «Υποβολή για αποδοχή», and has no acceptance box", () => {
+    const { unmount } = renderWithIntl(
+      <PermitDetail {...NOOP_PROPS} closeoutOpen permit={RUNNING} state="default" now={NOW} />,
+    );
+    expect(screen.getAllByRole("checkbox")).toHaveLength(5);
+    expect(screen.getByRole("button", { name: "Υποβολή για αποδοχή" })).toBeDisabled();
+    unmount();
+    renderWithIntl(
+      <PermitDetail {...NOOP_PROPS} closeoutOpen closeoutValue={FULL_BOXES} permit={RUNNING} state="default" now={NOW} />,
+    );
+    expect(screen.getByRole("button", { name: "Υποβολή για αποδοχή" })).not.toBeDisabled();
+  });
+
+  it("shows the works side «Αναμονή αποδοχής παράδοσης» once submitted, with nothing to press", () => {
+    renderWithIntl(<PermitDetail {...NOOP_PROPS} permit={WAITING} state="default" now={NOW} />);
+    expect(screen.getByText("Αναμονή αποδοχής παράδοσης")).toBeInTheDocument();
+    expect(screen.getByText(/Ο\/Η Α\. Παπαδόπουλος υπέβαλε τον χώρο για αποδοχή στις 14\/03\/2026 17:00/)).toBeInTheDocument();
+    expect(screen.getByText(/περιμένει την αποδοχή του κλινικού υπευθύνου/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Ολοκλήρωση εργασιών" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Αποδοχή και κλείσιμο" })).toBeNull();
+  });
+
+  it("offers the clinical owner «Αποδοχή και κλείσιμο» and «Επιστροφή με σχόλια» when the API says they may sign", () => {
+    const onOpenAccept = vi.fn();
+    const onOpenGiveBack = vi.fn();
+    renderWithIntl(
+      <PermitDetail
+        {...NOOP_PROPS}
+        roles={["clinical_approver"]}
+        myUserId="clin"
+        onOpenAccept={onOpenAccept}
+        onOpenGiveBack={onOpenGiveBack}
+        permit={{ ...WAITING, handback: { ...WAITING.handback, mayAccept: true } }}
+        state="default"
+        now={NOW}
+      />,
+    );
+    screen.getByRole("button", { name: "Αποδοχή και κλείσιμο" }).click();
+    screen.getByRole("button", { name: "Επιστροφή με σχόλια" }).click();
+    expect(onOpenAccept).toHaveBeenCalledTimes(1);
+    expect(onOpenGiveBack).toHaveBeenCalledTimes(1);
+  });
+
+  it("offers no «Απόρριψη» once the works have started, only before", () => {
+    const { unmount } = renderWithIntl(
+      <PermitDetail {...NOOP_PROPS} roles={["estates_head"]} permit={RUNNING} state="default" now={NOW} />,
+    );
+    expect(screen.queryByRole("button", { name: "Απόρριψη" })).toBeNull();
+    unmount();
+    renderWithIntl(<PermitDetail {...NOOP_PROPS} roles={["estates_head"]} permit={BASE_PERMIT} state="default" now={NOW} />);
+    expect(screen.getByRole("button", { name: "Απόρριψη" })).toBeInTheDocument();
+  });
+
+  it("offers an administrator no acceptance: the API does not let them sign", () => {
+    renderWithIntl(
+      <PermitDetail {...NOOP_PROPS} roles={["admin"]} myUserId="admin" permit={WAITING} state="default" now={NOW} />,
+    );
+    expect(screen.queryByRole("button", { name: "Αποδοχή και κλείσιμο" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Ολοκλήρωση εργασιών" })).toBeNull();
+  });
+
+  it("shows the submitted checklist read-only in the acceptance dialog", () => {
+    renderWithIntl(
+      <PermitDetail
+        {...NOOP_PROPS}
+        roles={["clinical_approver"]}
+        acceptOpen
+        permit={{ ...WAITING, handback: { ...WAITING.handback, mayAccept: true } }}
+        state="default"
+        now={NOW}
+      />,
+    );
+    const dialog = screen.getByRole("dialog", { name: "Αποδοχή παράδοσης χώρου" });
+    expect(dialog).toHaveTextContent("Υποβλήθηκε από τον/την Α. Παπαδόπουλος");
+    for (const box of screen.getAllByRole("checkbox")) expect(box).toBeDisabled();
+  });
+
+  it("needs a comment before the handback can be returned", () => {
+    renderWithIntl(
+      <PermitDetail
+        {...NOOP_PROPS}
+        roles={["clinical_approver"]}
+        giveBackOpen
+        permit={{ ...WAITING, handback: { ...WAITING.handback, mayAccept: true } }}
+        state="default"
+        now={NOW}
+      />,
+    );
+    const dialog = screen.getByRole("dialog", { name: "Επιστροφή παράδοσης με σχόλια" });
+    const buttons = dialog.querySelectorAll("button");
+    expect(buttons[buttons.length - 1]).toBeDisabled();
+  });
+
+  it("says who returned the handback and why, and offers the works side «Ολοκλήρωση εργασιών» again", () => {
+    renderWithIntl(
+      <PermitDetail
+        {...NOOP_PROPS}
+        permit={{
+          ...RUNNING,
+          handback: {
+            ...BASE_PERMIT.handback,
+            submittedById: "eng",
+            submittedByName: "Α. Παπαδόπουλος",
+            returnedAt: "2026-03-14T15:20:00.000Z",
+            returnedById: "clin",
+            returnedByName: "Γ. Σάββα",
+            returnCommentEl: "Υπάρχει σκόνη στους αεραγωγούς.",
+          },
+        }}
+        state="default"
+        now={NOW}
+      />,
+    );
+    expect(screen.getByText(/Ο\/Η Γ\. Σάββα επέστρεψε την παράδοση του χώρου/)).toBeInTheDocument();
+    expect(screen.getByText("«Υπάρχει σκόνη στους αεραγωγούς.»")).toBeInTheDocument();
+    expect(screen.getByText("Σε ισχύ")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Ολοκλήρωση εργασιών" })).toBeInTheDocument();
   });
 
   it("shows the API's sentence under the line whose decision was refused", () => {

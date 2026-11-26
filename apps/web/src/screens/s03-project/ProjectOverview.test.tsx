@@ -109,9 +109,18 @@ describe("ProjectOverview write controls", () => {
     expect(screen.queryByRole("button", { name: "Αλλαγή φάσης" })).not.toBeInTheDocument();
   });
 
-  it("hides both Επεξεργασία and Αλλαγή φάσης for finance (finance changes the budget on S04, not the record)", () => {
+  // OWNER 26/11/2026 (ADR-0014): from APPROVED on, finance changes the
+  // approved budget, and «Επεξεργασία» is how they get to it.
+  it("gives finance Επεξεργασία, for the budget, from APPROVED on, and never Αλλαγή φάσης", () => {
     renderWithIntl(<ProjectOverview data={detail} state="default" noPermission={noPermission} roles={["finance"]} />);
-    expect(screen.queryByRole("link", { name: "Επεξεργασία" })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Επεξεργασία" })).toHaveAttribute("href", "/projects/PRJ-1/edit");
     expect(screen.queryByRole("button", { name: "Αλλαγή φάσης" })).not.toBeInTheDocument();
+  });
+
+  it("gives finance no Επεξεργασία before APPROVED, where the budget is the register's field", () => {
+    renderWithIntl(
+      <ProjectOverview data={{ ...detail, phase: "PREPARATION" }} state="default" noPermission={noPermission} roles={["finance"]} />,
+    );
+    expect(screen.queryByRole("link", { name: "Επεξεργασία" })).not.toBeInTheDocument();
   });
 });

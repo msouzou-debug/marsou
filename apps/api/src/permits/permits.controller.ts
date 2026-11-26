@@ -4,6 +4,8 @@ import {
   ApprovalDecisionWrite,
   AuditEntry,
   IcraSubmission,
+  PermitCloseoutSubmit,
+  PermitHandbackReturn,
   PermitListQuery,
   PermitListRow,
   PermitStatus,
@@ -174,11 +176,13 @@ export class PermitsController {
   /**
    * SUBMITTED, ACTIVE, CLOSED, REJECTED. There is no route to CLINICAL_REVIEW
    * or APPROVED: those are what the approvals do (§6.4), and BREACH is what
-   * the clock does (§6.5).
+   * the clock does (§6.5). CLOSED is the clinical owner accepting a handback
+   * the works side submitted (`POST :id/closeout`, OWNER 26/11/2026); the
+   * checklist is the stored one and the signature is the caller's.
    */
   @Post(":id/transition")
   @HttpCode(200)
-  @ApiOperation({ summary: "Submit, start, close or reject a permit" })
+  @ApiOperation({ summary: "Submit, start, accept the handback and close, or reject a permit" })
   @ApiParam({ name: "id", schema: { type: "string", format: "uuid" } })
   @ApiBody({ schema: jsonSchema(PermitTransition) as never })
   @ApiZodResponse(200, ShutdownPermit, "The permit in its new state")
@@ -190,6 +194,50 @@ export class PermitsController {
     const parsed = PermitTransition.safeParse(body);
     if (!parsed.success) throw AppError.badRequest("errors.permitTransitionNotValid");
     return this.permits.transition(id, parsed.data, new Date());
+  }
+
+  /**
+   * Step 1 of the handback (OWNER 26/11/2026): the works side ticks every
+   * box of the closeout checklist and submits the area for the clinical
+   * owner's acceptance. The permit stays ACTIVE or BREACH; the breach sweep
+   * leaves it alone while the handback waits.
+   */
+  @Post(":id/closeout")
+  @HttpCode(200)
+  @Needs("permitOperate", "WRITE")
+  @ApiOperation({ summary: "Submit the finished works for the clinical owner's acceptance" })
+  @ApiParam({ name: "id", schema: { type: "string", format: "uuid" } })
+  @ApiBody({ schema: jsonSchema(PermitCloseoutSubmit) as never })
+  @ApiZodResponse(200, ShutdownPermit, "The permit, with the handback waiting for acceptance")
+  @ApiZodError(400, "The body is not a valid closeout checklist")
+  @ApiZodError(403, "A role that does not run the works, or a read-only account")
+  @ApiZodError(404, "No such permit")
+  @ApiZodError(422, "Not running, a box unticked, or a handback already waiting")
+  submitCloseout(@Param("id") id: string, @Body() body: unknown): Promise<ShutdownPermit> {
+    const parsed = PermitCloseoutSubmit.safeParse(body);
+    if (!parsed.success) throw AppError.badRequest("errors.permitTransitionNotValid");
+    return this.permits.submitCloseout(id, parsed.data, new Date());
+  }
+
+  /**
+   * Step 2's other answer: the clinical owner returns the handback with a
+   * comment, and the permit goes back to the works side as it was.
+   */
+  @Post(":id/closeout/return")
+  @HttpCode(200)
+  @ApiOperation({ summary: "Return the handback to the works side with a comment" })
+  @ApiParam({ name: "id", schema: { type: "string", format: "uuid" } })
+  @ApiBody({ schema: jsonSchema(PermitHandbackReturn) as never })
+  @ApiZodResponse(200, ShutdownPermit, "The permit, back with the works side")
+  @ApiZodError(400, "The body is not valid")
+  @ApiZodError(403, "Not a clinical owner of the permit's areas, or a read-only account")
+  @ApiZodError(404, "No such permit")
+  @ApiZodError(409, "The caller submitted this handback themselves")
+  @ApiZodError(422, "No handback waiting, or no comment")
+  returnCloseout(@Param("id") id: string, @Body() body: unknown): Promise<ShutdownPermit> {
+    const parsed = PermitHandbackReturn.safeParse(body);
+    if (!parsed.success) throw AppError.badRequest("errors.permitTransitionNotValid");
+    return this.permits.returnCloseout(id, parsed.data, new Date());
   }
 
   @Post(":id/approvals/:approvalId/decide")

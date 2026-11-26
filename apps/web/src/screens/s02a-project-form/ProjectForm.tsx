@@ -26,6 +26,7 @@
  * | submitting        | boolean                       | Disables the form and shows the spinner in Αποθήκευση.            |
  * | apiError          | string?                       | The API's own sentence, shown in a strip above the buttons — every failure except the one below. |
  * | budgetFieldError  | string?                       | RULE (ADR-0014, decided 19/09/2026): only `finance` may change `approvedBudget` once the phase is APPROVED or later. The API answers 403 `errors.budgetFinanceOnly` for anyone else's attempt to move it; that message lands here, next to the field, not in the general strip — the rest of the edit may well have gone through. |
+ * | budgetOnly        | boolean?                      | "edit" only. OWNER 26/11/2026, ADR-0014: finance's edit — the approved budget field alone, with a sentence saying why; every other field is left as it is and is not sent. |
  * | onSubmit          | (values) => void              | Fired once client-side validation passes.                        |
  * | onCancel          | () => void                    | `Ακύρωση`.                                                        |
  *
@@ -79,6 +80,7 @@ export interface ProjectFormProps {
   submitting: boolean;
   apiError?: string;
   budgetFieldError?: string;
+  budgetOnly?: boolean;
   onSubmit: (values: ProjectFormSubmitValues) => void;
   onCancel: () => void;
 }
@@ -98,9 +100,12 @@ export function ProjectForm({
   submitting,
   apiError,
   budgetFieldError,
+  budgetOnly = false,
   onSubmit,
   onCancel,
 }: ProjectFormProps) {
+  // Finance's edit is the edit form with one field; never a create.
+  const onlyBudget = budgetOnly && mode === "edit";
   const t = useTranslations();
   const tf = useTranslations("screens.s02a.fields");
   const locale = useLocale() as Locale;
@@ -140,9 +145,21 @@ export function ProjectForm({
     <>
       <PageTitle
         eyebrow={t("nav.projects")}
-        title={mode === "create" ? t("screens.s02a.titleNew") : t("screens.s02a.titleEdit")}
+        title={
+          mode === "create"
+            ? t("screens.s02a.titleNew")
+            : onlyBudget
+              ? t("screens.s02a.titleBudget")
+              : t("screens.s02a.titleEdit")
+        }
       />
       <form onSubmit={handleSubmit((values) => onSubmit(values))} className="flex max-w-[680px] flex-col gap-s-5">
+      {onlyBudget && (
+        <p className="text-fs-14 text-k-text">
+          {initialValues?.titleEl ? <span className="block font-bold text-k-ink">{initialValues.titleEl}</span> : null}
+          {t("screens.s02a.budgetOnlyHint")}
+        </p>
+      )}
       {/* RULE (ADR-0014): the org unit an admin/estates_head/… creates a
           project under is fixed at creation and cannot be edited later
           (there is no `orgUnitId` in `ProjectUpdate`), so the field is only
@@ -167,6 +184,8 @@ export function ProjectForm({
         </div>
       )}
 
+      {!onlyBudget && (
+      <>
       <div className="flex flex-col gap-s-1">
         <label htmlFor="pf-title-el" className="text-fs-14 text-k-text">
           {tf("titleEl")}
@@ -233,6 +252,8 @@ export function ProjectForm({
           </select>
         </div>
       </div>
+      </>
+      )}
 
       <div className="flex flex-col gap-s-1">
         <label htmlFor="pf-budget" className="text-fs-14 text-k-text">
@@ -271,6 +292,8 @@ export function ProjectForm({
         )}
       </div>
 
+      {!onlyBudget && (
+      <>
       <div className="grid grid-cols-1 gap-s-4 tablet:grid-cols-2">
         <div className="flex flex-col gap-s-1">
           <label htmlFor="pf-start" className="text-fs-14 text-k-text">
@@ -357,6 +380,8 @@ export function ProjectForm({
           className="h-11 rounded-k border border-k-grey bg-k-white px-s-3 text-fs-16 text-k-ink"
         />
       </div>
+      </>
+      )}
 
       {apiError && (
         <p role="alert" className="rounded-k border border-k-red bg-k-white p-s-3 text-fs-14 text-k-red">

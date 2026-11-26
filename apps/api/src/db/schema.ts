@@ -1690,6 +1690,13 @@ export const shutdownPermit = ecapital.table(
     closedBy: uuid("closed_by").references(() => appUser.id),
     closedAt: timestamp("closed_at", { withTimezone: true }),
     breachedAt: timestamp("breached_at", { withTimezone: true }),
+    /** 0035: the handback in two steps — set while it waits for acceptance. */
+    closeoutSubmittedAt: timestamp("closeout_submitted_at", { withTimezone: true }),
+    closeoutSubmittedBy: uuid("closeout_submitted_by").references(() => appUser.id),
+    /** 0035: the last return of a handback, with its comment. */
+    closeoutReturnedAt: timestamp("closeout_returned_at", { withTimezone: true }),
+    closeoutReturnedBy: uuid("closeout_returned_by").references(() => appUser.id),
+    closeoutReturnCommentEl: text("closeout_return_comment_el"),
     createdAt,
     updatedAt,
   },

@@ -47,7 +47,9 @@ export function startWorkDisabledReasonKey(
 
 /**
  * Permit detail closeout — RULE (§6.6): no closeout, no permit closure.
- * Every box must be true and the clinical owner must have signed.
+ * Every box must be true before the works side submits the area for
+ * acceptance. The clinical owner's signature is not part of it any more
+ * (OWNER 26/11/2026): it is their own button, and the API stamps it.
  */
 export function closeoutComplete(checklist: CloseoutChecklist): boolean {
   return (
@@ -55,13 +57,39 @@ export function closeoutComplete(checklist: CloseoutChecklist): boolean {
     checklist.areaCleaned &&
     checklist.airBalanceRestored &&
     checklist.systemsTestedAndReturned &&
-    checklist.fireSystemsReenabled &&
-    checklist.clinicalAcceptanceById !== null
+    checklist.fireSystemsReenabled
   );
 }
 
-/** Permit detail banner — maps the contract's eight-value status onto the five PermitBanner states. */
-export function permitBannerState(status: PermitStatus): PermitState | null {
+/**
+ * OWNER 26/11/2026, the handback in two steps: a running permit whose works
+ * side has submitted the area and is waiting for the clinical owner. Not a
+ * status of its own (statuses feed the calendar, the filters and the
+ * reports); the submission fields say it.
+ */
+export function handbackWaiting(permit: Pick<ShutdownPermit, "status" | "handback">): boolean {
+  return (permit.status === "ACTIVE" || permit.status === "BREACH") && permit.handback.submittedAt !== null;
+}
+
+/** The last return is news only while the area is back with the works side. */
+export function handbackReturned(permit: Pick<ShutdownPermit, "status" | "handback">): boolean {
+  return (
+    (permit.status === "ACTIVE" || permit.status === "BREACH") &&
+    permit.handback.submittedAt === null &&
+    permit.handback.returnedAt !== null
+  );
+}
+
+/**
+ * Permit detail banner — maps the contract's eight-value status onto the
+ * PermitBanner states, plus «Αναμονή αποδοχής παράδοσης» for a running
+ * permit whose handback waits for the clinical owner (OWNER 26/11/2026).
+ */
+export function permitBannerState(
+  status: PermitStatus,
+  handback?: ShutdownPermit["handback"] | null,
+): PermitState | null {
+  if ((status === "ACTIVE" || status === "BREACH") && handback?.submittedAt) return "awaitingAcceptance";
   switch (status) {
     case "CLINICAL_REVIEW":
     case "SUBMITTED":
@@ -91,9 +119,20 @@ export function permitBannerState(status: PermitStatus): PermitState | null {
  * closed. ASSUMPTION, flagged for the PM: a `GET /permits/:id/audit` (the
  * pattern every other record page uses) would replace this once it exists.
  */
+export type PermitTimelineKey =
+  | "requested"
+  | "submitted"
+  | "approved"
+  | "returned"
+  | "rejected"
+  | "breached"
+  | "handbackSubmitted"
+  | "handbackReturned"
+  | "closed";
+
 export function permitTimelineFrom(
   permit: ShutdownPermit,
-  actionLabel: (key: "requested" | "submitted" | "approved" | "returned" | "rejected" | "breached" | "closed") => string,
+  actionLabel: (key: PermitTimelineKey) => string,
 ): TimelineEntry[] {
   const entries: TimelineEntry[] = [
     { id: "requested", actor: permit.requestedByName, action: actionLabel("requested"), timestamp: permit.requestedAt },
@@ -114,6 +153,28 @@ export function permitTimelineFrom(
   }
   if (permit.breachedAt) {
     entries.push({ id: "breached", actor: "", action: actionLabel("breached"), timestamp: permit.breachedAt });
+  }
+  // OWNER 26/11/2026: the last return of the handback, with its comment, and
+  // the submission waiting now (or the one that was accepted). Earlier rounds
+  // are in the permit's audit trail.
+  const { handback } = permit;
+  if (handback.returnedAt) {
+    entries.push({
+      id: "handback-returned",
+      actor: handback.returnedByName ?? "",
+      action: actionLabel("handbackReturned"),
+      timestamp: handback.returnedAt,
+      diff: handback.returnCommentEl ?? undefined,
+    });
+  }
+  if (handback.submittedAt) {
+    entries.push({
+      id: "handback-submitted",
+      actor: handback.submittedByName ?? "",
+      action: actionLabel("handbackSubmitted"),
+      timestamp: handback.submittedAt,
+      diff: permit.closeout?.noteEl ?? undefined,
+    });
   }
   if (permit.closedAt) {
     entries.push({ id: "closed", actor: permit.closeout?.clinicalAcceptanceByName ?? "", action: actionLabel("closed"), timestamp: permit.closedAt });

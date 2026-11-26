@@ -249,6 +249,30 @@ export const CloseoutChecklist = z.object({
 });
 export type CloseoutChecklist = z.infer<typeof CloseoutChecklist>;
 
+// RULE (OWNER 26/11/2026, «παράδοση σε δύο βήματα»): the works side ticks the
+// checklist and submits the area for acceptance; the clinical owner then
+// accepts and closes, or returns it with a comment. There is no status for
+// the wait between the two (statuses feed the calendar, the filters, the
+// banners and the reports): the permit stays ACTIVE or BREACH, and these
+// fields say a handback is waiting.
+export const PermitHandback = z.object({
+  // Set while a handback waits for acceptance; cleared by a return.
+  submittedAt: z.string().nullable(),
+  // Who submitted it last. A return keeps them: it is who it goes back to.
+  submittedById: z.string().nullable(),
+  submittedByName: z.string().nullable(),
+  // The last return, kept on the record (every earlier one is in the audit
+  // trail): who, when and why.
+  returnedAt: z.string().nullable(),
+  returnedById: z.string().nullable(),
+  returnedByName: z.string().nullable(),
+  returnCommentEl: z.string().nullable(),
+  // Worked out for the caller by the API: they hold the acceptance capacity
+  // over this permit (§6.6) and are not the person who submitted it.
+  mayAccept: z.boolean(),
+});
+export type PermitHandback = z.infer<typeof PermitHandback>;
+
 export const ShutdownPermit = z.object({
   id: z.string(),
   // RULE (ADR-0019 style): a reference eCapital owns, `PTW-<UNITCODE>-<YYYY>-<NNN>`,
@@ -278,6 +302,7 @@ export const ShutdownPermit = z.object({
   status: PermitStatus,
   approvals: z.array(PermitApproval),
   closeout: CloseoutChecklist.nullable(),
+  handback: PermitHandback,
   requestedById: z.string(),
   requestedByName: z.string(),
   requestedAt: z.string(),
@@ -342,10 +367,25 @@ export type IcraSubmission = z.infer<typeof IcraSubmission>;
 export const PermitTransition = z.object({
   to: z.enum(["SUBMITTED", "ACTIVE", "CLOSED", "REJECTED"]),
   commentEl: z.string().max(2000).nullable().default(null),
-  // For CLOSED: the checklist, signed by the clinical owner.
+  // Not read for CLOSED any more (OWNER 26/11/2026): CLOSED is the clinical
+  // owner accepting the handback the works side submitted, and the checklist
+  // is the one stored with that submission. Kept so an older client's body
+  // still parses; the signature is never taken from it.
   closeout: CloseoutChecklist.optional(),
 });
 export type PermitTransition = z.infer<typeof PermitTransition>;
+
+// Step 1 of the handback: the works side's checklist, every box ticked.
+export const PermitCloseoutSubmit = z.object({
+  closeout: CloseoutChecklist,
+});
+export type PermitCloseoutSubmit = z.infer<typeof PermitCloseoutSubmit>;
+
+// Step 2, the other answer: the clinical owner returns the handback.
+export const PermitHandbackReturn = z.object({
+  commentEl: z.string().max(2000),
+});
+export type PermitHandbackReturn = z.infer<typeof PermitHandbackReturn>;
 
 export const ApprovalDecisionWrite = z.object({
   decision: z.enum(["APPROVED", "RETURNED", "REJECTED"]),
