@@ -68,7 +68,7 @@
     "who": ["[[role.requester]]: test.nic.requester"],
     "pre": "The account opens in Greek.",
     "steps": [
-      "Sign in. Press “English” at the top right.",
+      "Sign in. Press “English” at the foot of the menu on the left (on a phone: “EN” in the bar at the top).",
       "Open the list, a request and the form “[[form.title.new]]”.",
       "Press “[[nav.logout]]”, then sign in again.",
       "Press “Ελληνικά”."
@@ -293,7 +293,7 @@
   "med_step2_ok": {
     "title": "Step 2 (medical): check with financial data, then Pass",
     "who": ["[[role.dir_accountant]]: test.nic.accountant"],
-    "pre": "A submitted medical Nicosia request at step 2.",
+    "pre": "A submitted medical Nicosia request at step 2. While the eFinance link is on, the card warns that eFinance does not know the test cost centre, and each “[[answer.yes]]” at step 2 or step 4 needs a comment (see the case on step 2 with a test cost centre, in the area “eFinance link and budget check”).",
     "steps": [
       "Open the request from the tab “[[list.tab.waiting]]”. Find the card “[[action.title]]”.",
       "Answer “[[card.position_available]]” with “[[answer.yes]]” and “[[card.funds_available]]” with “[[answer.yes]]”. Press “[[card.send]]” without financial data.",
@@ -348,7 +348,7 @@
   "med_exec": {
     "title": "Step 3 decision: approve and reject",
     "who": ["[[role.dir_exec]] of Primary Health Care: test.phc.exec", "Requester, accountant and HR officer of Primary Health Care: test.phc.requester, test.phc.accountant, test.phc.hr"],
-    "pre": "Make two administrative requests for Primary Health Care and bring both to the Executive Director: accountant Yes and Yes, HR officer “[[documentation.complete]]”.",
+    "pre": "Make two administrative requests for Primary Health Care and bring both to the Executive Director: accountant Yes and Yes, HR officer “[[documentation.complete]]”. While the eFinance link is on, the card warns that eFinance does not know the test cost centre, and each “[[answer.yes]]” at step 2 or step 4 needs a comment (see the case on step 2 with a test cost centre, in the area “eFinance link and budget check”).",
     "steps": [
       "On request A press “[[action.approve]]” (comment empty).",
       "On request B press “[[action.reject]]” with the comment empty.",
@@ -378,7 +378,7 @@
   "med_step4_ok": {
     "title": "Step 4: credit and costs, then the next step",
     "who": ["[[role.fin_mgmt_head]]: test.central.finmgmt", "[[role.central_hr_officer]]: test.central.hr"],
-    "pre": "A medical Nicosia request with the reason “[[reason.retirement]]” and one leaver, at step 4.",
+    "pre": "A medical Nicosia request with the reason “[[reason.retirement]]” and one leaver, at step 4. While the eFinance link is on, the card warns that eFinance does not know the test cost centre, and each “[[answer.yes]]” at step 2 or step 4 needs a comment (see the case on step 2 with a test cost centre, in the area “eFinance link and budget check”).",
     "steps": [
       "As test.central.finmgmt answer “[[card.credit]]” with “[[answer.yes]]”, leave “[[card.commitment_article]]” empty and press “[[card.send]]”.",
       "Type 2.1.05.001 as the commitment article and press “[[card.send]]”.",
@@ -439,7 +439,7 @@
   "nursing_route": {
     "title": "Nursing request from start to approval",
     "who": ["test.nic.requester, test.nic.accountant, test.nic.sci, test.nic.hr, test.nic.exec", "test.central.finmgmt, test.central.hr, test.central.nursing, test.central.medical, test.central.ceo"],
-    "pre": "None.",
+    "pre": "None. While the eFinance link is on, the card warns that eFinance does not know the test cost centre, and each “[[answer.yes]]” at step 2 or step 4 needs a comment (see the case on step 2 with a test cost centre, in the area “eFinance link and budget check”).",
     "steps": [
       "As the requester submit a nursing request in Nicosia: position “Νοσηλευτής/τρια (δοκιμή)”, reason “[[reason.resignation]]” with one leaver.",
       "As the accountant open the card. Answer Yes and Yes.",
@@ -457,7 +457,7 @@
   "admin_route": {
     "title": "Administrative request from start to approval",
     "who": ["test.phc.requester, test.phc.accountant, test.phc.hr, test.phc.exec", "test.central.finmgmt, test.central.hr, test.central.ceo"],
-    "pre": "None.",
+    "pre": "None. While the eFinance link is on, the card warns that eFinance does not know the test cost centre, and each “[[answer.yes]]” at step 2 or step 4 needs a comment (see the case on step 2 with a test cost centre, in the area “eFinance link and budget check”).",
     "steps": [
       "As test.phc.requester submit an administrative request: reason “[[reason.new_need]]”. Read the route on the request page.",
       "As the accountant answer Yes and Yes.",
@@ -475,7 +475,7 @@
   "route_variants": {
     "title": "Route variants: Directorate without Scientific Director, allied health, other",
     "who": ["test.phc.requester and test.phc.accountant", "test.nic.requester and test.nic.accountant"],
-    "pre": "None. You only need to reach the end of step 2 and read the tracker.",
+    "pre": "None. You only need to reach the end of step 2 and read the tracker. While the eFinance link is on, the card warns that eFinance does not know the test cost centre, and each “[[answer.yes]]” at step 2 or step 4 needs a comment (see the case on step 2 with a test cost centre, in the area “eFinance link and budget check”).",
     "steps": [
       "As test.phc.requester submit a medical request. As test.phc.accountant open the card.",
       "Answer Yes, Yes with financial data. Read step 3 and step 5 in the tracker.",
@@ -540,7 +540,7 @@
   "replace_answer": {
     "title": "Replace an earlier answer after resubmission",
     "who": ["[[role.sci_director]]: test.nic.sci", "[[role.fin_mgmt_head]]: test.central.finmgmt", "[[role.requester]]: test.nic.requester"],
-    "pre": "Part A: a Nicosia request at step 3 resubmitted after a return, with a positive opinion from the Scientific Director. Part B: a nursing request at step 4 where [[role.fin_mgmt_head]] answered credit Yes and [[role.central_hr_officer]] returned the request; the requester resubmitted it.",
+    "pre": "Part A: a Nicosia request at step 3 resubmitted after a return, with a positive opinion from the Scientific Director. Part B: a nursing request at step 4 where [[role.fin_mgmt_head]] answered credit Yes and [[role.central_hr_officer]] returned the request; the requester resubmitted it. While the eFinance link is on, the card warns that eFinance does not know the test cost centre, and each “[[answer.yes]]” at step 2 or step 4 needs a comment (see the case on step 2 with a test cost centre, in the area “eFinance link and budget check”).",
     "steps": [
       "Part A: as test.nic.sci choose “[[opinion.negative]]” in the answer form, with a comment, and press “[[card.send]]”.",
       "Part A: open the request and read “[[page.checks]]” and “[[page.history]]”.",
@@ -647,7 +647,7 @@
   "conflict": {
     "title": "Conflict of interest: the holder made the request",
     "who": ["[[role.sci_director]] and requester: test.lar.sci", "Substitute: test.lar.deputy", "test.lar.accountant", "Part B: test.central.hr and test.central.deputy"],
-    "pre": "None. test.lar.sci holds two roles in Larnaca – Famagusta.",
+    "pre": "None. test.lar.sci holds two roles in Larnaca – Famagusta. While the eFinance link is on, the card warns that eFinance does not know the test cost centre, and each “[[answer.yes]]” at step 2 or step 4 needs a comment (see the case on step 2 with a test cost centre, in the area “eFinance link and budget check”).",
     "steps": [
       "As test.lar.sci submit a medical request for Larnaca – Famagusta.",
       "As test.lar.accountant answer Yes and Yes with financial data.",
@@ -683,7 +683,7 @@
   "only_assignee": {
     "title": "Only the current assignee can act",
     "who": ["[[role.dir_accountant]]: test.nic.accountant", "test.nic.hr", "test.nic.requester", "test.demo.viewer"],
-    "pre": "A Nicosia request at step 2. Two browser tabs for test.nic.accountant.",
+    "pre": "A Nicosia request at step 2. Two browser tabs for test.nic.accountant. While the eFinance link is on, the card warns that eFinance does not know the test cost centre, and each “[[answer.yes]]” at step 2 or step 4 needs a comment (see the case on step 2 with a test cost centre, in the area “eFinance link and budget check”).",
     "steps": [
       "Open the request in tab 1 and tab 2 as test.nic.accountant.",
       "In tab 1 answer Yes and Yes (administrative request) and send.",
@@ -787,7 +787,7 @@
       "As test.nic.requester and test.nic.accountant type /settings and /audit in the address bar. Do the same as the administrator."
     ],
     "exp": [
-      "All three see every submitted request of every Directorate, and no drafts. The viewer's first tab is “[[list.tab.mine]]”, which is empty; “[[list.tab.all]]” has the requests.",
+      "All three see every submitted request of every Directorate, and no drafts. The viewer and the administrator open on the tab “[[list.tab.all]]”; their tab “[[list.tab.mine]]” is empty.",
       "The viewer and the administrator have no “[[list.new]]” button; /requests/new shows “[[error.404]]”.",
       "The viewer sees no action card.",
       "Requester and accountant get “[[error.404]]” for /settings and /audit. The administrator opens both and has “[[nav.audit]]” and “[[nav.settings]]” in the menu."
@@ -850,7 +850,7 @@
   "mail_flow": {
     "title": "Emails during the first steps (read in the email log)",
     "who": ["test.demo.admin (reads the log)", "test.nic.requester", "test.nic.accountant"],
-    "pre": "No real email is sent. “[[settings.outbox]]” lists every email with the state “[[settings.outbox.state.queued]]”.",
+    "pre": "No real email is sent. “[[settings.outbox]]” lists every email with the state “[[settings.outbox.state.queued]]”. While the eFinance link is on, the card warns that eFinance does not know the test cost centre, and each “[[answer.yes]]” at step 2 or step 4 needs a comment (see the case on step 2 with a test cost centre, in the area “eFinance link and budget check”).",
     "steps": [
       "As the requester submit a medical Nicosia request.",
       "As the accountant answer Yes and Yes with financial data.",
@@ -979,14 +979,14 @@
       "Open “[[settings.users]]”. Add test.uat.one with a name, an email ending @test.invalid, the language and a temporary password.",
       "Sign in as test.uat.one with that password. Type two different passwords, then a password shorter than 8 characters, then a good one twice.",
       "Look at the list as the new user.",
-      "As the administrator press “[[settings.deactivate]]” for test.uat.one. Try to sign in again.",
-      "Try to deactivate your own account. Try to add test.uat.one again."
+      "As the administrator open “[[settings.users]]”, press the name of test.uat.one and press “[[settings.deactivate]]” on that page. Try to sign in again as test.uat.one.",
+      "Open your own page and press “[[settings.deactivate]]”. Then try to add test.uat.one again. Press “[[settings.activate]]” on the page of test.uat.one when you finish; later cases use the account."
     ],
     "exp": [
-      "“[[settings.saved]]”. The row shows “[[settings.user.source.local]]”.",
+      "“[[settings.saved]]”. The row shows “[[settings.user.source.local]]” and “[[settings.users.no_role]]”.",
       "First sign-in goes to “[[password.title]]”. Messages: “[[password.mismatch]]”, “[[password.too_short|n=8]]”. A good password leads to the list.",
       "The new user has no role: an empty list and no menu items.",
-      "The deactivated user gets “[[login.failed]]”.",
+      "Step 4: “[[settings.saved]]” and the page shows “[[settings.inactive]]”. The list has no deactivate button; it is on the person's page. The deactivated user gets “[[login.failed]]”.",
       "“[[settings.self_deactivate]]” and “[[settings.user.duplicate]]”."
     ]
   },
@@ -1075,7 +1075,7 @@
     ],
     "exp": [
       "The table “[[audit.title]]” has the columns “[[audit.col.when]]”, “[[audit.col.user]]”, “[[audit.col.event]]”, “[[audit.col.request]]” and “[[audit.col.detail]]”, newest first, 50 rows a page, with “[[audit.prev]]” and “[[audit.next]]” and “[[audit.page|n=1|total=…]]”.",
-      "The filters narrow the list. A date with nothing in it shows “[[audit.empty]]”. Event names are the technical names (for example login, request_action, mail_queued).",
+      "The filters narrow the list. A date with nothing in it shows “[[audit.empty]]”. Event names show in the language of the page (for example “[[audit.event.login]]”, “[[audit.event.request_action]]”, “[[audit.event.mail_queued]]”).",
       "The number opens the request.",
       "The log can only be read. Nothing secret (passwords, tokens) is shown.",
       "The requester gets “[[error.404]]”."

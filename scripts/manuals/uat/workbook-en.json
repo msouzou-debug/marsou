@@ -136,7 +136,7 @@
       ]
     ],
     "accounts_h": "Test accounts by role",
-    "accounts_intro": "The usernames below are the ones that “flask load-test-data” creates. All accounts share one password, which the owner gives you. Full names on screen end with “(δοκιμή)”. Every account opens in Greek, except test.demo.admin, which opens in English; switch it with the language links at the top right.",
+    "accounts_intro": "The usernames below are the ones that “flask load-test-data” creates. All accounts share one password, which the owner gives you. Full names on screen end with “(δοκιμή)”. Every account opens in Greek, except test.demo.admin, which opens in English; switch it with the two language buttons at the foot of the menu on the left (on a phone: EL | EN in the bar at the top).",
     "accounts_cols": [
       "Username",
       "Role",
@@ -146,7 +146,7 @@
     "central_label": "Central Administration",
     "substitute_label": "Substitute",
     "substitute_note": "Takes over the tasks of the holder when the holder is out of office, or made the request.",
-    "viewer_label": "Observer (can see all requests, cannot create or act)",
+    "viewer_label": "Viewer (can see all requests, cannot create or act)",
     "admin_label": "Administrator (Settings, Audit log)",
     "both_note": "Holds two roles: Scientific Director and requester. Used for the conflict-of-interest case.",
     "samples_h": "Sample requests that come with the test data",

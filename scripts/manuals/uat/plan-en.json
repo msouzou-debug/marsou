@@ -21,10 +21,15 @@
     {
       "bullets": [
         "The position approval flow from the request form to the final decision: the six steps, the three routes (medical and allied, nursing, administrative and other), return and resubmission, withdrawal, conflict of interest and out-of-office substitution, and the comments the rules require.",
+        "Request numbers: Directorate, position code, date and counter; a draft has none and a resubmission keeps its number.",
         "Who can see what, the request list, the search by number and the Excel export.",
         "The emails, as stored in the email log in Settings.",
         "Reminders, escalation and the automatic withdrawal of a returned request.",
         "The Settings pages, the Excel import and the audit log.",
+        "Users and roles: the Users list with roles and filters, the person's page, role holders and substitutes, setting a new password, adding an Active Directory user in advance, and the Manuals page.",
+        "The automatic move of waiting tasks when a holder or substitute changes or an account is switched off.",
+        "Cost centres by Directorate on the request form, with the search.",
+        "The eFinance link: the cost-centre sync, and the budget check at steps 2 and 4 (whether a budget is loaded, without amounts).",
         "The layout at phone width."
       ]
     },
@@ -36,7 +41,9 @@
         "Sign-in with Active Directory. Test accounts are local.",
         "Sending real email. Mail stays in the email log; how it looks in Outlook is not tested.",
         "Deposits to eArchive. A line about eArchive may appear on a request page; testers ignore it.",
-        "ΟΑΥ figures from eFinance. Testers type the figures by hand."
+        "ΟΑΥ figures from eFinance. Testers type the figures by hand.",
+        "Budget amounts from eFinance (budget, spent, committed, available balance). The cards show only whether a budget is loaded.",
+        "The list of accounts waiting for activation. It needs a first sign-in through Active Directory."
       ]
     },
     {
@@ -79,7 +86,7 @@
             "accounts": "none"
           }
         ],
-        "viewer": "Observer (sees all requests, cannot act)",
+        "viewer": "Viewer (sees all requests, cannot act)",
         "admin": "Administrator (Settings, audit log)"
       }
     },
