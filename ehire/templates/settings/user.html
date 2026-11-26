@@ -118,7 +118,7 @@
   <form method="post" action="{{ url_for('settings.user_role_add', user_id=u.id) }}">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <input type="hidden" name="next" value="{{ here }}">
-    <div class="row g-3 align-items-end">
+    <div class="row g-3 align-items-start">
       <div class="col-12 col-md-4"><label class="form-label small mb-1" for="add-role">{{ t('settings.col.role') }}</label>
         <select class="form-select" name="role" id="add-role" required>
           {% for r in roles %}<option value="{{ r }}" data-dir="{{ 1 if r in dir_roles else 0 }}" data-single="{{ 1 if r in single_roles else 0 }}">{{ t('role.' ~ r) }}</option>{% endfor %}
