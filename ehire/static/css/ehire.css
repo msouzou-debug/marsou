@@ -272,3 +272,9 @@ section .ehire-empty, .ehire-panel .ehire-empty { padding: 1rem 0; border: 0; al
 
 .ehire-historypanel { margin-bottom: 0; }
 @media (max-width: 575.98px) { .ehire-statuspanel, .ehire-card > .card-body { padding: 1rem .875rem; } }
+
+/* Settings: people and roles. A link that is a whole 44 px row, role pills in the users list */
+.ehire-touchlink { display: inline-flex; align-items: center; min-height: 44px; }
+.ehire-rolepills { display: flex; flex-wrap: wrap; gap: .25rem; margin: 0; padding: 0; list-style: none; }
+.ehire-rolepills .badge { font-weight: 500; white-space: normal; text-align: left; }
+.ehire-person-actions { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; }

@@ -45,7 +45,7 @@ Route shape, stored as `route_snapshot_json` at submission:
 
 | Id | Rule |
 |---|---|
-| R4 | The stored route decides who is asked. Later changes to rules or role holders do not reroute a request in progress. Only substitution (section 5) and a material change on resubmission (T9b) do |
+| R4 | The stored route decides who is asked. Later changes to rules do not reroute a request in progress. Only substitution (section 5), a change of Κάτοχος or substitute, a switched-off account (C8) and a material change on resubmission (T9b) move a waiting task |
 
 ## 3. Engine interface
 
@@ -110,6 +110,7 @@ Closing: `approved`, `rejected` and `withdrawn` set `closed_at`, close every tas
 | C5 | No candidate left: the task opens unassigned with event `task_unassigned`, shown to `admin` |
 | C6 | When a holder switches out-of-office on, their open tasks move to the substitute by the same rules. Switching it off does not move tasks back |
 | C7 | Only the current assignee of an open task can act on it. A paused or closed task accepts nothing |
+| C8 | 26/11/2026, Marios: waiting tasks move automatically when the Κάτοχος or substitute changes or an account is switched off. After each such change (and when an account is switched on, or a list is imported), every open task of a request in progress is checked. It stays where it is while its assignee is an active person who is the holder or the substitute of that role in that Directorate (so coming back from out of office pulls nothing back). Otherwise it goes to whoever `resolve_assignee` gives now (C1 to C4; the requester never gets their own task) and the new assignee gets `task_opened`. If nobody is left the task stays open with no assignee and the administrators get `task_unassigned` (C5); it is picked up when a holder is appointed or switched on. Audit: `task_redirected` with cause `holder_changed` or `account_deactivated`. Same transaction as the change. No task is ever given to a switched-off account, including as a line manager. There is no button for it |
 
 ## 6. Validation errors
 

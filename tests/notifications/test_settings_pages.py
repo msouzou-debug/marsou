@@ -10,9 +10,11 @@ from tests.conftest import login
 from tests.notifications.nhelpers import KNOWN_MISSING, act, as_user, create, mails, shown, uid
 from tests.requests.flowhelpers import text
 
-GETS = ["/settings/roles", "/settings/users", "/settings/holidays", "/settings/timings", "/settings/outbox",
+GETS = ["/settings/roles", "/settings/users", "/settings/users/1", "/settings/holidays", "/settings/timings", "/settings/outbox",
         "/settings/outbox/1"]
-POSTS = [("/settings/roles/save", {"role": "ceo"}), ("/settings/roles/reassign", {"role": "ceo"}),
+POSTS = [("/settings/roles/save", {"role": "ceo"}),
+         ("/settings/users/1/roles/add", {"role": "ceo"}), ("/settings/users/1/roles/1/remove", {}),
+         ("/settings/users/1/roles/1/substitute", {}), ("/settings/users/1/covers/1/remove", {}),
          ("/settings/roles/requester/add", {"directorate_id": "1", "user_id": "1"}),
          ("/settings/roles/requester/remove", {"directorate_id": "1", "user_id": "1"}),
          ("/settings/users/add", {"username": "x.y", "full_name": "X", "temp_password": "abcdefgh"}),
@@ -242,44 +244,19 @@ def test_requesters_are_a_list(admin):
     assert "Requester" in page
 
 
-def test_changing_a_holder_does_not_reroute_but_offers_the_open_tasks(admin, seeded):
+def test_changing_a_holder_moves_the_open_tasks_at_once(admin, seeded):
     r = create(admin)
     assert Task.query.filter_by(request_id=r.id).one().assignee_user_id == uid("nic.accountant")
     as_user(admin, "demo.admin")
     rows, did = role_of("dir_accountant", "NIC")
+    before = len(mails(request_id=r.id))
     admin.post("/settings/roles/save", data={"role": "dir_accountant", "directorate_id": str(did),
                                               "holder_id": str(uid("nic.hr")), "substitute_id": ""})
     db.session.expire_all()
     task = Task.query.filter_by(request_id=r.id).one()
-    assert task.assignee_user_id == uid("nic.accountant")  # R4: nothing moved by itself
-    page = text(admin.get("/settings/roles?lang=en"))
-    assert shown(page, "settings.reassign.one", n=1)
-    before = len(mails(request_id=r.id))
-    assert admin.post("/settings/roles/reassign", data={"role": "dir_accountant", "directorate_id": str(did)}).status_code == 302
-    db.session.expire_all()
-    task = Task.query.filter_by(request_id=r.id).one()
-    assert task.assignee_user_id == uid("nic.hr") and task.on_behalf_of_user_id is None
+    assert task.assignee_user_id == uid("nic.hr") and task.on_behalf_of_user_id is None  # contract 02, C8
     assert [(m.event, m.to_user_id) for m in mails(request_id=r.id)[before:]] == [("task_opened", uid("nic.hr"))]
     assert audits("task_redirected", cause="holder_changed")[-1]["to"] == uid("nic.hr")
-    assert audits("role_changed", action="reassign_open_tasks")[-1]["moved"] == 1
-    after = text(admin.get("/settings/roles?lang=en"))
-    assert "1 open task was moved to" in after and "substitute" not in after.split("1 open task was moved to")[1][:80]
-    assert not shown(after, "settings.reassign.one", n=1)
-    # Pressing it again changes nothing.
-    admin.post("/settings/roles/reassign", data={"role": "dir_accountant", "directorate_id": str(did)})
-    assert audits("role_changed", action="reassign_open_tasks")[-1]["moved"] == 0
-
-
-def test_the_reassign_button_respects_conflict_of_interest(admin, seeded):
-    r = create(admin)  # made by nic.requester
-    as_user(admin, "demo.admin")
-    rows, did = role_of("dir_accountant", "NIC")
-    admin.post("/settings/roles/save", data={"role": "dir_accountant", "directorate_id": str(did),
-                                              "holder_id": str(uid("nic.requester")), "substitute_id": ""})
-    admin.post("/settings/roles/reassign", data={"role": "dir_accountant", "directorate_id": str(did)})
-    db.session.expire_all()
-    task = Task.query.filter_by(request_id=r.id).one()
-    assert task.assignee_user_id != uid("nic.requester")  # the requester never gets their own request
 
 
 # ---------------------------------------------------------------- email log

@@ -251,8 +251,6 @@ One key per row. `strings` writes the Greek.
 | `settings.outbox.empty` | No emails yet. |
 | `settings.outbox.preview` | Show the email |
 | `settings.same_person` | The holder and the substitute can't be the same person. |
-| `settings.reassign.one` | Move 1 open task to the new holder |
-| `settings.reassign.many` | Move {n} open tasks to the new holder |
 | `settings.escalation_order` | Escalation must come after the reminder. |
 | `settings.self_deactivate` | You can't deactivate your own account. |
 | `settings.user.email_invalid` | Enter a valid email address. |

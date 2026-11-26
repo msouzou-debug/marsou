@@ -10,17 +10,33 @@
 <h1 class="h4 mb-3">{{ t('settings.roles') }}</h1>
 {% include "settings/_nav.html" %}
 
+<section class="mb-4 border rounded" aria-labelledby="roles-empty">
+  <h2 class="h6 border-bottom pb-2 mb-2" id="roles-empty">{{ t('settings.roles.empty_title') }}</h2>
+  {% if empty %}
+  <p class="small text-secondary">{{ t('settings.roles.empty_hint') }}</p>
+  <ul class="list-unstyled mb-0">
+    {% for e in empty %}
+    <li class="py-1"><a class="ehire-touchlink" href="#{{ e.anchor }}">{{ t('role.' ~ e.role) }}, {{ e.directorate['name_' ~ lang] if e.directorate else t('settings.central') }}{% if e.inactive %} ({{ t('settings.roles.holder_inactive') }}){% endif %}</a></li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="mb-0 text-success" role="status">{{ t('settings.roles.empty_none') }}</p>
+  {% endif %}
+</section>
+
 {% for g in groups %}
 <section class="mb-4 border rounded">
   <h2 class="h6 border-bottom pb-2 mb-2">{{ g.directorate['name_' ~ lang] if g.directorate else t('settings.central') }}</h2>
   {% for r in g.rows %}
   {% set rid = 'r-' ~ (r.directorate_id or 0) ~ '-' ~ r.role %}
-  <form method="post" action="{{ url_for('settings.roles_save') }}" class="py-2 border-bottom">
+  <form method="post" action="{{ url_for('settings.roles_save') }}" class="py-2 border-bottom" id="{{ rid }}">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <input type="hidden" name="role" value="{{ r.role }}">
     <input type="hidden" name="directorate_id" value="{{ r.directorate_id or '' }}">
+    <input type="hidden" name="next" value="{{ url_for('settings.roles') }}">
     <div class="row g-2 align-items-end">
-      <div class="col-12 col-md-3 fw-semibold">{{ t('role.' ~ r.role) }}</div>
+      <div class="col-12 col-md-3 fw-semibold">{{ t('role.' ~ r.role) }}{% if r.holder_inactive %}<div class="small"><span class="badge text-bg-warning">{{ t('settings.roles.holder_inactive') }}</span></div>{% endif %}
+        {% if r.holder %}<div class="small fw-normal"><a class="ehire-touchlink" href="{{ url_for('settings.user_page', user_id=r.holder) }}">{{ t('settings.person.open') }}</a></div>{% endif %}</div>
       <div class="col-12 col-md">
         <label class="form-label small mb-1" for="{{ rid }}-h">{{ t('settings.col.holder') }}</label>
         {{ user_select('holder_id', users, r.holder, rid ~ '-h') }}
@@ -32,14 +48,6 @@
       <div class="col-12 col-md-auto"><button class="btn btn-outline-primary w-100" type="submit">{{ t('settings.save') }}</button></div>
     </div>
   </form>
-  {% if r.stale and r.holder %}
-  <form method="post" action="{{ url_for('settings.roles_reassign') }}" class="py-2">
-    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    <input type="hidden" name="role" value="{{ r.role }}">
-    <input type="hidden" name="directorate_id" value="{{ r.directorate_id or '' }}">
-    <button class="btn btn-warning" type="submit">{{ tn('settings.reassign', r.stale) }}</button>
-  </form>
-  {% endif %}
   {% endfor %}
 
   {% if g.directorate %}

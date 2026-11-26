@@ -20,7 +20,9 @@ from ..extensions import db
 from ..models import (ARCHIVE_SITE_CODES, CATEGORIES, CENTRAL_ROLES, ROLES, CostCentre, Directorate, Facility,
                       OaySpecialty, Position, RoleAssignment, User, audit)
 from ..workflow.numbering import valid_position_code
-from .roles import SINGLE_DIRECTORATE_ROLES, _active, _ended_yesterday, active_admin_ids
+from ..services.reassign import settle_open_tasks
+from ..services.role_admin import (SINGLE_DIRECTORATE_ROLES, _ended_yesterday, active_admin_ids,
+                                   active_rows as _active)
 from .users import EMAIL, USERNAME
 
 MAX_BYTES = 5 * 1024 * 1024
@@ -511,6 +513,8 @@ def apply(ops, admin_id):
             for action, values in todo:
                 _apply_role(action, values, admin_id)
                 db.session.flush()
+    if any(a != "unchanged" for s, a, _k, _v in ops if s in ("users", "role_holders")):
+        settle_open_tasks(admin_id)  # waiting tasks follow the new holders and switched-off accounts (contract 02, C8)
 
 
 # sheet -> (audit kind, model, key of a stored row, key of op values given the Directorate ids)

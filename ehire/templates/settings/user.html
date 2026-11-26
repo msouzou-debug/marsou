@@ -1,0 +1,145 @@
+{% extends "base.html" %}
+{% block title %}{{ u.full_name or u.username }} · {{ t('settings.users') }} · {{ t('app.name') }}{% endblock %}
+{% set here = url_for('settings.user_page', user_id=u.id) %}
+{% macro sub_select(name, id, selected) %}
+<select class="form-select" name="{{ name }}" id="{{ id }}">
+  <option value="">{{ t('settings.none') }}</option>
+  {% for p in people %}<option value="{{ p.id }}" {{ 'selected' if p.id == selected }}>{{ p.full_name or p.username }}</option>{% endfor %}
+</select>
+{% endmacro %}
+{% block content %}
+<p class="mb-2"><a class="ehire-touchlink" href="{{ url_for('settings.users') }}">&larr; {{ t('settings.person.back') }}</a></p>
+<div class="ehire-pagehead">
+  <h1 class="h4">{{ u.full_name or u.username }}</h1>
+  <div>
+    <span class="badge {{ 'text-bg-success' if u.is_active else 'text-bg-secondary' }}">{{ t('settings.active') if u.is_active else t('settings.inactive') }}</span>
+    {% if pending %}<span class="badge text-bg-warning">{{ t('settings.user.pending') }}</span>{% endif %}
+  </div>
+</div>
+
+<section class="mb-4 border rounded" aria-labelledby="sec-account">
+  <h2 class="h6 border-bottom pb-2 mb-3" id="sec-account">{{ t('settings.person.account') }}</h2>
+  <form method="post" action="{{ url_for('settings.users_edit', user_id=u.id) }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="next" value="{{ here }}">
+    <div class="row g-3 align-items-end">
+      <div class="col-12 col-md-6"><label class="form-label small mb-1" for="u-name">{{ t('settings.user.full_name') }}</label><input class="form-control" id="u-name" name="full_name" value="{{ u.full_name }}" required></div>
+      <div class="col-12 col-md-6"><label class="form-label small mb-1" for="u-email">{{ t('settings.user.email') }}</label><input class="form-control" id="u-email" name="email" type="email" value="{{ u.email or '' }}"></div>
+      <div class="col-6 col-md-3"><label class="form-label small mb-1" for="u-lang">{{ t('settings.user.language') }}</label>
+        <select class="form-select" name="language" id="u-lang">{% for code in ('el', 'en') %}<option value="{{ code }}" {{ 'selected' if code == u.language }}>{{ code | upper }}</option>{% endfor %}</select></div>
+      <div class="col-12 col-md-6"><label class="form-label small mb-1" for="u-boss">{{ t('settings.col.line_manager') }}</label>
+        <select class="form-select" name="line_manager_user_id" id="u-boss">
+          <option value="">{{ t('settings.none') }}</option>
+          {% for m in managers if m.id != u.id %}<option value="{{ m.id }}" {{ 'selected' if m.id == u.line_manager_user_id }}>{{ m.full_name or m.username }}</option>{% endfor %}
+        </select></div>
+      <div class="col-12 col-md-auto"><button class="btn btn-primary w-100" type="submit">{{ t('settings.save') }}</button></div>
+    </div>
+  </form>
+  <dl class="row small mt-3 mb-0">
+    <dt class="col-sm-3">{{ t('settings.user.username') }}</dt><dd class="col-sm-9">{{ u.username }}</dd>
+    <dt class="col-sm-3">{{ t('settings.user.source') }}</dt><dd class="col-sm-9">{{ t('settings.user.source.' ~ u.auth_source) }}</dd>
+    <dt class="col-sm-3">{{ t('settings.col.state') }}</dt>
+    <dd class="col-sm-9">
+      <form method="post" action="{{ url_for('settings.users_toggle', user_id=u.id) }}" class="d-flex flex-wrap align-items-center gap-2">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="next" value="{{ here }}">
+        <span>{{ t('settings.active') if u.is_active else t('settings.inactive') }}</span>
+        <button class="btn {{ 'btn-outline-danger' if u.is_active else 'btn-outline-secondary' }}" type="submit">{{ t('settings.deactivate') if u.is_active else t('settings.activate') }}</button>
+      </form>
+    </dd>
+  </dl>
+  {% if u.auth_source == 'local' and u.id != me.id %}
+  <details class="mt-2">
+    <summary class="small py-2">{{ t('settings.user.set_password') }}</summary>
+    <form method="post" action="{{ url_for('settings.users_password', user_id=u.id) }}" class="row g-2 align-items-end pb-2" autocomplete="off">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="next" value="{{ here }}">
+      <div class="col-12 col-md-5">
+        <label class="form-label small mb-1" for="u-pw">{{ t('settings.user.new_password') }}</label>
+        <input class="form-control" id="u-pw" name="new_password" type="password" minlength="{{ min_length }}" required autocomplete="new-password" aria-describedby="u-pw-hint">
+        <div class="form-text" id="u-pw-hint">{{ t('settings.user.temp_password_hint') }}</div>
+      </div>
+      <div class="col-12 col-md-auto"><button class="btn btn-outline-primary w-100" type="submit">{{ t('settings.user.set_password') }}</button></div>
+    </form>
+  </details>
+  {% endif %}
+</section>
+
+<section class="mb-4 border rounded" aria-labelledby="sec-roles">
+  <h2 class="h6 border-bottom pb-2 mb-3" id="sec-roles">{{ t('settings.person.roles') }}</h2>
+  {% if not u.is_active %}<div class="alert alert-warning" role="status">{{ t('settings.person.inactive_note') }}</div>{% endif %}
+  {% for a in mine %}
+  {% set rname = t('role.' ~ a.role) %}
+  <div class="row g-2 align-items-end py-2 border-bottom" id="a-{{ a.id }}">
+    <div class="col-12 col-md-4">
+      <div class="fw-semibold">{{ rname }}</div>
+      <div class="small text-secondary">{{ a.directorate['name_' ~ lang] if a.directorate else (t('settings.central') if a.role not in ('viewer', 'admin') else '') }}</div>
+    </div>
+    {% if a.role in single_roles %}
+    <form method="post" action="{{ url_for('settings.user_role_substitute', user_id=u.id, aid=a.id) }}" class="col-12 col-md d-flex flex-wrap gap-2 align-items-end">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="next" value="{{ here }}">
+      <div class="flex-grow-1"><label class="form-label small mb-1" for="s-{{ a.id }}">{{ t('settings.col.substitute') }}</label>{{ sub_select('substitute_id', 's-' ~ a.id, a.substitute_user_id) }}</div>
+      <button class="btn btn-outline-primary" type="submit">{{ t('settings.save') }}</button>
+    </form>
+    {% else %}<div class="col-12 col-md"></div>{% endif %}
+    <form method="post" action="{{ url_for('settings.user_role_remove', user_id=u.id, aid=a.id) }}" class="col-12 col-md-auto">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="next" value="{{ here }}">
+      <button class="btn btn-outline-danger w-100" type="submit">{{ t('settings.remove') }}<span class="visually-hidden"> {{ rname }}</span></button>
+    </form>
+  </div>
+  {% else %}
+  <div class="ehire-empty"><p>{{ t('settings.person.no_roles') }}</p></div>
+  {% endfor %}
+</section>
+
+<section class="mb-4 border rounded" aria-labelledby="sec-covers">
+  <h2 class="h6 border-bottom pb-2 mb-3" id="sec-covers">{{ t('settings.person.covers_title') }}</h2>
+  {% for a in covers %}
+  {% set rname = t('role.' ~ a.role) %}
+  <form method="post" action="{{ url_for('settings.user_cover_remove', user_id=u.id, aid=a.id) }}" class="row g-2 align-items-center py-2 border-bottom">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="next" value="{{ here }}">
+    <div class="col-12 col-md">
+      <span class="fw-semibold">{{ rname }}</span>, {{ a.directorate['name_' ~ lang] if a.directorate else t('settings.central') }}
+      <div class="small text-secondary">{{ t('settings.person.covers_for', who=(a.user.full_name or a.user.username)) }}</div>
+    </div>
+    <div class="col-12 col-md-auto"><button class="btn btn-outline-danger w-100" type="submit">{{ t('settings.person.stop_covering') }}<span class="visually-hidden"> {{ rname }}</span></button></div>
+  </form>
+  {% else %}
+  <p class="small text-secondary mb-0">{{ t('settings.person.covers_empty') }}</p>
+  {% endfor %}
+</section>
+
+<section class="mb-4 border rounded" aria-labelledby="sec-add">
+  <h2 class="h6 border-bottom pb-2 mb-3" id="sec-add">{{ t('settings.person.add_title') }}</h2>
+  {% if u.is_active %}
+  <form method="post" action="{{ url_for('settings.user_role_add', user_id=u.id) }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="next" value="{{ here }}">
+    <div class="row g-3 align-items-end">
+      <div class="col-12 col-md-4"><label class="form-label small mb-1" for="add-role">{{ t('settings.col.role') }}</label>
+        <select class="form-select" name="role" id="add-role" required>
+          {% for r in roles %}<option value="{{ r }}" data-dir="{{ 1 if r in dir_roles else 0 }}" data-single="{{ 1 if r in single_roles else 0 }}">{{ t('role.' ~ r) }}</option>{% endfor %}
+        </select></div>
+      <div class="col-12 col-md-4" id="add-dir-wrap"><label class="form-label small mb-1" for="add-dir">{{ t('settings.col.directorate') }}</label>
+        <select class="form-select" name="directorate_id" id="add-dir" aria-describedby="add-dir-hint">
+          <option value="">{{ t('settings.none') }}</option>
+          {% for d in directorates %}<option value="{{ d.id }}" data-sci="{{ 1 if d.id in sci_ids else 0 }}">{{ d['name_' ~ lang] }}</option>{% endfor %}
+        </select>
+        <div class="form-text" id="add-dir-hint">{{ t('settings.person.directorate_hint') }}</div></div>
+      <div class="col-12 col-md-4" id="add-sub-wrap"><label class="form-label small mb-1" for="add-sub">{{ t('settings.col.substitute') }}</label>{{ sub_select('substitute_id', 'add-sub', none) }}</div>
+    </div>
+    <div class="ehire-check mt-2" id="add-replace-wrap">
+      <input class="form-check-input" type="checkbox" name="replace" value="1" id="add-replace">
+      <label class="form-check-label" for="add-replace">{{ t('settings.person.replace') }}</label>
+    </div>
+    <div class="mt-3 d-grid d-md-block"><button class="btn btn-primary" type="submit">{{ t('settings.add') }}</button></div>
+  </form>
+  {% else %}
+  <p class="small text-secondary mb-0">{{ t('settings.person.add_inactive') }}</p>
+  {% endif %}
+</section>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/person-role.js') }}" defer></script>{% endblock %}

@@ -1,42 +1,27 @@
 """Role holders and substitutes (contract 01, role_assignment). Every change is audited.
 
-Changing a holder never reroutes a request in progress (R4). The old holder's open tasks are only listed, with one
-explicit button that offers them to whoever the assignment rules now give (C1 to C5).
+The writing is in `ehire.services.role_admin`, shared with the person page. A change of holder or substitute moves the
+waiting tasks at once (contract 02, C8, `ehire.services.reassign`); there is no button for it.
 """
-from datetime import timedelta
+import re
 
-from flask import abort, flash, redirect, render_template, request, url_for
+from flask import abort, redirect, render_template, request, url_for
 
-from .. import localtime
-from ..i18n import plural_key
 from ..auth import current_user, permission_required
 from ..extensions import db
-from ..models import CENTRAL_ROLES, Directorate, Request, RoleAssignment, Task, User, audit
-from ..services.notify import notify
-from ..services.request_engine import build_directory
-from ..services.request_flash import flash_key
-from ..workflow.assign import resolve_assignee
-from ..workflow.model import Event
+from ..models import Directorate, RoleAssignment, User
+from ..services import role_admin as ra
+from ..services.role_admin import (MULTI_HOLDER_CENTRAL_ROLES, SINGLE_DIRECTORATE_ROLES, active_admin_ids,  # noqa: F401
+                                   flash_outcome, roles_for)
 from . import bp
 
-MULTI_HOLDER_CENTRAL_ROLES = ("viewer", "admin")  # many holders, never a Directorate
-SINGLE_DIRECTORATE_ROLES = ("dir_accountant", "sci_director", "dir_hr_officer", "dir_exec")
+NEXT_OK = re.compile(r"^/settings/(roles|users/\d+)$")  # the two pages that may send a change; never another URL
 
 
-def _active(role, directorate_id):
-    rows = RoleAssignment.query.filter_by(role=role, directorate_id=directorate_id).order_by(RoleAssignment.id).all()
-    return [a for a in rows if a.is_active_on()]
-
-
-def active_admin_ids():
-    """Ids of the active users who hold the admin role now."""
-    return {a.user_id for a in _active("admin", None) if a.user is not None and a.user.is_active}
-
-
-def _roles_for(directorate):
-    if directorate is None:
-        return CENTRAL_ROLES
-    return tuple(r for r in SINGLE_DIRECTORATE_ROLES if r != "sci_director" or directorate.has_sci_director)
+def back(endpoint="roles", **values):
+    """Redirect to the page the form came from (hidden `next`), or to `endpoint`."""
+    target = (request.form.get("next") or "").strip()
+    return redirect(target if NEXT_OK.match(target) else url_for("settings." + endpoint, **values))
 
 
 def _directorate_arg():
@@ -47,7 +32,7 @@ def _directorate_arg():
     return directorate or abort(404)
 
 
-def _user_arg(name, required=False):
+def _user_arg(name):
     raw = (request.form.get(name) or "").strip()
     if not raw:
         return None
@@ -57,48 +42,52 @@ def _user_arg(name, required=False):
     return user
 
 
-def _ended_yesterday():
-    return localtime.today() - timedelta(days=1)
+def finish(outcome, endpoint="roles", **values):
+    """Commit a good outcome (the change and the moved tasks together), drop a refused one, flash, go back."""
+    if outcome.ok:
+        db.session.commit()
+    else:
+        db.session.rollback()
+    flash_outcome(outcome)
+    return back(endpoint, **values)
 
 
-def stale_tasks(role, directorate_id):
-    """Open tasks of this role (in this Directorate, or any for a central role) that are not with the current
-    holder, and not acting for them. These are what a change of holder leaves behind."""
-    current = _active(role, directorate_id)
-    holder = current[0].user_id if current else None
-    query = (Task.query.join(Request, Request.id == Task.request_id)
-             .filter(Task.role == role, Task.status == "open", Request.status == "in_progress"))
-    if directorate_id is not None:
-        query = query.filter(Request.directorate_id == directorate_id)
-    return [t for t in query.order_by(Task.id)
-            if t.assignee_user_id != holder and t.on_behalf_of_user_id != holder]
-
-
-def _snapshot(role, directorate_id):
-    return [{"user_id": a.user_id, "substitute_user_id": a.substitute_user_id} for a in _active(role, directorate_id)]
+def _grouped():
+    """Active rows by (role, directorate_id), oldest first, loaded once."""
+    out = {}
+    for a in RoleAssignment.query.order_by(RoleAssignment.id).all():
+        if a.is_active_on():
+            out.setdefault((a.role, a.directorate_id), []).append(a)
+    return out
 
 
 @bp.get("/roles")
 @permission_required("settings.manage")
 def roles():
-    users = User.query.filter(User.is_active.is_(True)).order_by(User.full_name, User.username).all()
-    groups = []
+    everyone = User.query.order_by(User.full_name, User.username).all()
+    users = [u for u in everyone if u.is_active]
+    by_id = {u.id: u for u in everyone}
+    rows_by = _grouped()
+    groups, empty = [], []
     for directorate in [None] + Directorate.query.order_by(Directorate.id).all():
+        did = directorate.id if directorate else None
         rows = []
-        for role in _roles_for(directorate):
-            did = directorate.id if directorate else None
-            current = _active(role, did)
-            rows.append({"role": role, "directorate_id": did,
-                         "holder": current[0].user_id if current else None,
-                         "substitute": current[0].substitute_user_id if current else None,
-                         "stale": len(stale_tasks(role, did))})
-        requesters = []
-        if directorate is not None:
-            requesters = [a.user for a in _active("requester", directorate.id)]
+        for role in roles_for(directorate):
+            current = rows_by.get((role, did), [])
+            holder = by_id.get(current[0].user_id) if current else None
+            row = {"role": role, "directorate_id": did, "anchor": "r-%d-%s" % (did or 0, role),
+                   "holder": holder.id if holder else None,
+                   "holder_inactive": holder is not None and not holder.is_active,
+                   "substitute": current[0].substitute_user_id if current else None}
+            rows.append(row)
+            if holder is None or not holder.is_active:
+                empty.append({"directorate": directorate, "role": role, "anchor": row["anchor"],
+                              "inactive": holder is not None})
+        requesters = [by_id[a.user_id] for a in rows_by.get(("requester", did), [])] if directorate else []
         groups.append({"directorate": directorate, "rows": rows, "requesters": requesters})
-    others = [{"role": role, "holders": [a.user for a in _active(role, None) if a.user is not None]}
+    others = [{"role": role, "holders": [by_id[a.user_id] for a in rows_by.get((role, None), [])]}
               for role in MULTI_HOLDER_CENTRAL_ROLES]
-    return render_template("settings/roles.html", groups=groups, users=users, others=others)
+    return render_template("settings/roles.html", groups=groups, users=users, others=others, empty=empty)
 
 
 @bp.post("/roles/save")
@@ -106,34 +95,10 @@ def roles():
 def roles_save():
     directorate = _directorate_arg()
     role = request.form.get("role") or ""
-    if role not in _roles_for(directorate):
+    if role not in roles_for(directorate):
         abort(404)
-    did = directorate.id if directorate else None
     holder, sub = _user_arg("holder_id"), _user_arg("substitute_id")
-    if holder and sub and holder.id == sub.id:
-        flash("settings.same_person", "danger")
-        return redirect(url_for("settings.roles"))
-    before = _snapshot(role, did)
-    current = _active(role, did)
-    if holder is None:
-        for a in current:
-            a.active_to = _ended_yesterday()
-    else:
-        existing = RoleAssignment.query.filter_by(user_id=holder.id, role=role, directorate_id=did).first()
-        for a in current:
-            if existing is None or a.id != existing.id:
-                a.active_to = _ended_yesterday()
-        if existing is None:
-            existing = RoleAssignment(user_id=holder.id, role=role, directorate_id=did)
-            db.session.add(existing)
-        existing.active_from = existing.active_to = None
-        existing.substitute_user_id = sub.id if sub else None
-    db.session.flush()
-    audit("role_changed", user_id=current_user().id, object_type="role_assignment", object_id=role,
-          detail={"role": role, "directorate_id": did, "before": before, "after": _snapshot(role, did)})
-    db.session.commit()
-    flash("settings.saved", "success")
-    return redirect(url_for("settings.roles"))
+    return finish(ra.set_single(current_user().id, role, directorate, holder, sub))
 
 
 @bp.post("/roles/requester/add")
@@ -142,18 +107,8 @@ def requester_add():
     directorate = _directorate_arg() or abort(404)
     user = _user_arg("user_id")
     if user is None:
-        flash("validation.required", "danger")
-        return redirect(url_for("settings.roles"))
-    row = RoleAssignment.query.filter_by(user_id=user.id, role="requester", directorate_id=directorate.id).first()
-    if row is None:
-        row = RoleAssignment(user_id=user.id, role="requester", directorate_id=directorate.id)
-        db.session.add(row)
-    row.active_from = row.active_to = None
-    audit("role_changed", user_id=current_user().id, object_type="role_assignment", object_id="requester",
-          detail={"role": "requester", "directorate_id": directorate.id, "action": "add", "user_id": user.id})
-    db.session.commit()
-    flash("settings.saved", "success")
-    return redirect(url_for("settings.roles"))
+        return finish(ra.fail("validation.required"))
+    return finish(ra.add_requester(current_user().id, user, directorate))
 
 
 @bp.post("/roles/requester/remove")
@@ -164,12 +119,7 @@ def requester_remove():
     row = RoleAssignment.query.filter_by(user_id=user.id, role="requester", directorate_id=directorate.id).first()
     if row is None:
         abort(404)
-    row.active_to = _ended_yesterday()
-    audit("role_changed", user_id=current_user().id, object_type="role_assignment", object_id="requester",
-          detail={"role": "requester", "directorate_id": directorate.id, "action": "remove", "user_id": user.id})
-    db.session.commit()
-    flash("settings.saved", "success")
-    return redirect(url_for("settings.roles"))
+    return finish(ra.remove_requester(current_user().id, user, directorate))
 
 
 def _multi_role():
@@ -186,18 +136,8 @@ def holder_add():
     role = _multi_role()
     user = _user_arg("user_id")
     if user is None:
-        flash("validation.required", "danger")
-        return redirect(url_for("settings.roles"))
-    row = RoleAssignment.query.filter_by(user_id=user.id, role=role, directorate_id=None).first()
-    if row is None:
-        row = RoleAssignment(user_id=user.id, role=role, directorate_id=None)
-        db.session.add(row)
-    row.active_from = row.active_to = None
-    audit("role_changed", user_id=current_user().id, object_type="role_assignment", object_id=role,
-          detail={"role": role, "directorate_id": None, "action": "add", "user_id": user.id})
-    db.session.commit()
-    flash("settings.saved", "success")
-    return redirect(url_for("settings.roles"))
+        return finish(ra.fail("validation.required"))
+    return finish(ra.add_multi(current_user().id, user, role))
 
 
 @bp.post("/roles/holder/remove")
@@ -205,62 +145,10 @@ def holder_add():
 def holder_remove():
     role = _multi_role()
     raw = (request.form.get("user_id") or "").strip()
-    user = db.session.get(User, int(raw)) if raw.isdigit() else abort(404)  # an inactive holder can still be removed
+    user = db.session.get(User, int(raw)) if raw.isdigit() else None  # an inactive holder can still be removed
     if user is None:
         abort(404)
     row = RoleAssignment.query.filter_by(user_id=user.id, role=role, directorate_id=None).first()
     if row is None or not row.is_active_on():
         abort(404)
-    if role == "admin":
-        if user.id == current_user().id:
-            flash("settings.admin_self_remove", "danger")
-            return redirect(url_for("settings.roles"))
-        if active_admin_ids() == {user.id}:
-            flash("settings.last_admin", "danger")
-            return redirect(url_for("settings.roles"))
-    row.active_to = _ended_yesterday()
-    audit("role_changed", user_id=current_user().id, object_type="role_assignment", object_id=role,
-          detail={"role": role, "directorate_id": None, "action": "remove", "user_id": user.id})
-    db.session.commit()
-    flash("settings.saved", "success")
-    return redirect(url_for("settings.roles"))
-
-
-@bp.post("/roles/reassign")
-@permission_required("settings.manage")
-def roles_reassign():
-    """One explicit button: offer the left-behind open tasks to whoever the rules give now."""
-    directorate = _directorate_arg()
-    role = request.form.get("role") or ""
-    if role not in _roles_for(directorate):
-        abort(404)
-    did = directorate.id if directorate else None
-    me = current_user()
-    events, moved, names = [], 0, []
-    for task in stale_tasks(role, did):
-        req = db.session.get(Request, task.request_id)
-        directory = build_directory(db.session, req.directorate_id)
-        assignee, behalf, reason = resolve_assignee(role, req.directorate_id, req.created_by, directory)
-        if assignee == task.assignee_user_id or assignee is None:
-            continue
-        before = task.assignee_user_id
-        task.assignee_user_id, task.on_behalf_of_user_id, task.redirect_reason = assignee, behalf, reason
-        audit("task_redirected", user_id=me.id, request_id=req.id, object_type="task", object_id=task.id,
-              detail={"role": role, "from": before, "to": assignee, "on_behalf_of": behalf, "reason": reason,
-                      "cause": "holder_changed"})
-        events.append(Event("task_opened", req.id, assignee,
-                            {"role": role, "step": task.step, "phase": task.phase, "on_behalf_of": behalf,
-                             "redirect_reason": reason}))
-        moved += 1
-        name = db.session.get(User, assignee).full_name
-        if name not in names:
-            names.append(name)
-    notify(events, actor_user_id=me.id)
-    audit("role_changed", user_id=me.id, object_type="role_assignment", object_id=role,
-          detail={"role": role, "directorate_id": did, "action": "reassign_open_tasks", "moved": moved})
-    db.session.commit()
-    if moved:
-        flash_key(plural_key("settings.reassigned", moved), "success", n=moved, who=", ".join(names))
-    else:
-        flash("settings.saved", "success")
-    return redirect(url_for("settings.roles"))
+    return finish(ra.remove_multi(current_user().id, user, role))

@@ -42,7 +42,7 @@ def build_directory(session, directorate_id, on=None):
     out = set()
     managers = {}
     for u in session.query(User).filter(User.is_active.is_(True)):
-        if u.line_manager_user_id:
+        if u.line_manager_user_id and u.line_manager_user_id in active:  # never route to a switched-off account
             managers[u.id] = u.line_manager_user_id
         if u.out_of_office and (u.out_of_office_from is None or u.out_of_office_from <= on) \
                 and (u.out_of_office_to is None or u.out_of_office_to >= on):

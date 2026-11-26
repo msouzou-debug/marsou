@@ -36,6 +36,10 @@ Server-rendered pages. Forms post back with a CSRF token. After a successful pos
 | POST `/settings/users/<id>/password` | `settings.manage` | New temporary password for a local user other than the administrator themselves. Forces a change at next sign-in, clears the sign-in lock for the name, audits `password_changed` with `by: admin` | 4 |
 | GET `/settings/users?show=pending` | `settings.manage` | Only the Active Directory accounts waiting for activation | 4 |
 | POST `/settings/roles/holder/add`, `/settings/roles/holder/remove` | `settings.manage` | Holders of `viewer` and `admin` (many each, no Directorate). The last active administrator cannot be removed or deactivated, and nobody removes their own `admin` role | 4 |
+| GET `/settings/users`, filters `q`, `role`, `directorate` (id or `central`), `status` (`active`, `inactive`), `show=pending` | `settings.manage` | One row per person: name (link to the person page), username, one pill per role held (role and Directorate code) or covered as substitute, status. Add-user form on top. The edit, password and switch forms moved to the person page | 26/11 |
+| GET `/settings/users/<id>` | `settings.manage` | Person page: account (edit, switch on or off, set password), roles held with a substitute select and remove, "Covers for" list, add a role | 26/11 |
+| POST `/settings/users/<id>/roles/add`, `/settings/users/<id>/roles/<aid>/substitute`, `/settings/users/<id>/roles/<aid>/remove`, `/settings/users/<id>/covers/<aid>/remove` | `settings.manage` | Person page changes. They call the same functions as the roles page (`ehire/services/role_admin.py`). Adding a single-holder role that has another holder is refused unless `replace=1`. A hidden `next` (only `/settings/roles` or `/settings/users/<n>`) sets where the redirect goes | 26/11 |
+| POST `/settings/roles/reassign` | removed | Waiting tasks now move on their own (contract 02, C8) | 26/11 |
 
 Language: a GET with `?lang=el|en` stores the choice (session and user) and redirects to the same path without `lang`, other parameters kept. Other methods are not redirected. The target is always a path on this site.
 

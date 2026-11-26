@@ -7,17 +7,21 @@ from sqlalchemy.exc import IntegrityError
 
 from ..auth import ad, current_user, hash_password, lockout, permission_required
 from ..extensions import db
-from ..models import AuditLog, LoginAttempt, User, audit
+from ..models import AuditLog, Directorate, LoginAttempt, RoleAssignment, User, audit
+from ..services import role_admin as ra
 from ..services.request_flash import flash_key
 from . import bp
-from .roles import active_admin_ids
+from .roles import _user_arg, back, finish
 
 USERNAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._@-]{1,79}$")
 EMAIL = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 
-def _back():
-    return redirect(url_for("settings.users"))
+def _back(user_id=None):
+    """Back to the page the form came from (`next`), else to the person page, else to the list."""
+    if user_id is None:
+        return back("users")
+    return back("user_page", user_id=user_id)
 
 
 def _read(creating):
@@ -59,16 +63,131 @@ def _pending_ids(rows):
     return set(ids) - handled
 
 
+def _assignments_by_user():
+    """Active role rows, loaded once: ({user_id: [rows held]}, {user_id: [rows covered as substitute]})."""
+    held, covers = {}, {}
+    for a in RoleAssignment.query.order_by(RoleAssignment.role, RoleAssignment.id).all():
+        if not a.is_active_on():
+            continue
+        held.setdefault(a.user_id, []).append(a)
+        if a.substitute_user_id:
+            covers.setdefault(a.substitute_user_id, []).append(a)
+    return held, covers
+
+
+def _matches(user, held, covers, role, directorate):
+    """True when the person holds, or covers for, `role` and/or something in `directorate` ("" = no filter,
+    "central" = no Directorate)."""
+    rows = held.get(user.id, []) + covers.get(user.id, [])
+    for a in rows:
+        if role and a.role != role:
+            continue
+        if directorate == "central" and a.directorate_id is not None:
+            continue
+        if directorate not in ("", "central") and a.directorate_id != int(directorate):
+            continue
+        return True
+    return False
+
+
 @bp.get("/users")
 @permission_required("settings.manage")
 def users():
     rows = User.query.order_by(User.is_active.desc(), User.full_name, User.username).all()
     pending = _pending_ids(rows)
     only_pending = request.args.get("show") == "pending"
-    return render_template("settings/users.html", rows=[u for u in rows if u.id in pending] if only_pending else rows,
-                           managers=[u for u in rows if u.is_active], pending=pending, only_pending=only_pending,
-                           ad_configured=ad.configured(), me=current_user(),
+    q = (request.args.get("q") or "").strip()
+    role = request.args.get("role") or ""
+    directorate = request.args.get("directorate") or ""
+    status = request.args.get("status") or ""
+    if role not in ra.ALL_ROLES:
+        role = ""
+    if directorate != "central" and not directorate.isdigit():
+        directorate = ""
+    if status not in ("active", "inactive"):
+        status = ""
+    held, covers = _assignments_by_user()
+    shown = [u for u in rows if u.id in pending] if only_pending else list(rows)
+    if q:
+        needle = q.casefold()
+        shown = [u for u in shown if needle in (u.full_name or "").casefold() or needle in u.username.casefold()]
+    if status:
+        shown = [u for u in shown if u.is_active == (status == "active")]
+    if role or directorate:
+        shown = [u for u in shown if _matches(u, held, covers, role, directorate)]
+    directorates = Directorate.query.order_by(Directorate.id).all()
+    return render_template("settings/users.html", rows=shown, held=held, covers=covers, pending=pending,
+                           only_pending=only_pending, ad_configured=ad.configured(), me=current_user(),
+                           managers=[u for u in rows if u.is_active], directorates=directorates,
+                           roles=ra.ALL_ROLES, filters={"q": q, "role": role, "directorate": directorate,
+                                                        "status": status},
+                           filtered=bool(q or role or directorate or status), total=len(rows),
                            min_length=current_app.config["PASSWORD_MIN_LENGTH"])
+
+
+@bp.get("/users/<int:user_id>")
+@permission_required("settings.manage")
+def user_page(user_id):
+    user = db.session.get(User, user_id) or abort(404)
+    held, covers = _assignments_by_user()
+    mine = sorted(held.get(user.id, []), key=lambda a: (ra.ALL_ROLES.index(a.role) if a.role in ra.ALL_ROLES else 99,
+                                                        a.directorate_id or 0))
+    everyone = User.query.order_by(User.full_name, User.username).all()
+    active = [u for u in everyone if u.is_active]
+    directorates = Directorate.query.order_by(Directorate.id).all()
+    return render_template("settings/user.html", u=user, mine=mine, covers=covers.get(user.id, []),
+                           roles=ra.ALL_ROLES, directorates=directorates, people=[p for p in active if p.id != user.id],
+                           managers=active, pending=user.id in _pending_ids([user]), me=current_user(),
+                           ad_configured=ad.configured(), min_length=current_app.config["PASSWORD_MIN_LENGTH"],
+                           dir_roles=[r for r in ra.ALL_ROLES if ra.needs_directorate(r)],
+                           single_roles=[r for r in ra.ALL_ROLES if ra.is_single(r)],
+                           sci_ids=[d.id for d in directorates if d.has_sci_director])
+
+
+def _assignment_arg(user_id, aid, covering=False):
+    """An active row held by this person (or, when covering, one where they are the substitute)."""
+    row = db.session.get(RoleAssignment, aid) or abort(404)
+    owner = row.substitute_user_id if covering else row.user_id
+    if owner != user_id or not row.is_active_on():
+        abort(404)
+    return row
+
+
+@bp.post("/users/<int:user_id>/roles/add")
+@permission_required("settings.manage")
+def user_role_add(user_id):
+    user = db.session.get(User, user_id) or abort(404)
+    raw = (request.form.get("directorate_id") or "").strip()
+    directorate = db.session.get(Directorate, int(raw)) if raw.isdigit() else None
+    sub = _user_arg("substitute_id")
+    outcome = ra.add_to_role(current_user().id, user, request.form.get("role") or "", directorate, sub,
+                             request.form.get("replace") == "1")
+    return finish(outcome, "user_page", user_id=user.id)
+
+
+@bp.post("/users/<int:user_id>/roles/<int:aid>/substitute")
+@permission_required("settings.manage")
+def user_role_substitute(user_id, aid):
+    row = _assignment_arg(user_id, aid)
+    if not ra.is_single(row.role):
+        abort(404)
+    return finish(ra.set_substitute(current_user().id, row, _user_arg("substitute_id")),
+                  "user_page", user_id=user_id)
+
+
+@bp.post("/users/<int:user_id>/roles/<int:aid>/remove")
+@permission_required("settings.manage")
+def user_role_remove(user_id, aid):
+    row = _assignment_arg(user_id, aid)
+    return finish(ra.remove_assignment(current_user().id, row), "user_page", user_id=user_id)
+
+
+@bp.post("/users/<int:user_id>/covers/<int:aid>/remove")
+@permission_required("settings.manage")
+def user_cover_remove(user_id, aid):
+    """Stop someone covering for a holder: clears the substitute on that row."""
+    row = _assignment_arg(user_id, aid, covering=True)
+    return finish(ra.set_substitute(current_user().id, row, None), "user_page", user_id=user_id)
 
 
 @bp.post("/users/add")
@@ -126,10 +245,10 @@ def users_edit(user_id):
     values, key, params = _read(False)
     if values is None:
         flash_key(key, "danger", **params)
-        return _back()
+        return _back(user_id)
     if values["line_manager_user_id"] == user.id:
         flash("validation.choose", "danger")
-        return _back()
+        return _back(user_id)
     before = _snapshot(user)
     for k, v in values.items():
         setattr(user, k, v)
@@ -137,25 +256,14 @@ def users_edit(user_id):
           detail={"action": "edit", "before": before, "after": _snapshot(user)})
     db.session.commit()
     flash("settings.saved", "success")
-    return _back()
+    return _back(user_id)
 
 
 @bp.post("/users/<int:user_id>/toggle")
 @permission_required("settings.manage")
 def users_toggle(user_id):
     user = db.session.get(User, user_id) or abort(404)
-    if user.id == current_user().id and user.is_active:
-        flash("settings.self_deactivate", "danger")
-        return _back()
-    if user.is_active and active_admin_ids() == {user.id}:
-        flash("settings.last_admin", "danger")
-        return _back()
-    user.is_active = not user.is_active
-    audit("user_changed", user_id=current_user().id, object_type="user", object_id=user.id,
-          detail={"action": "activate" if user.is_active else "deactivate"})
-    db.session.commit()
-    flash("settings.saved", "success")
-    return _back()
+    return finish(ra.toggle_account(current_user().id, user), "user_page", user_id=user.id)
 
 
 @bp.post("/users/<int:user_id>/password")
@@ -166,15 +274,15 @@ def users_password(user_id):
     user = db.session.get(User, user_id) or abort(404)
     if user.auth_source != "local":
         flash("settings.user.password_ad", "danger")
-        return _back()
+        return _back(user_id)
     if user.id == current_user().id:
         flash("settings.user.password_own", "danger")
-        return _back()
+        return _back(user_id)
     password = request.form.get("new_password") or ""
     minimum = current_app.config["PASSWORD_MIN_LENGTH"]
     if len(password) < minimum:
         flash_key("password.too_short", "danger", n=minimum)
-        return _back()
+        return _back(user_id)
     user.password_hash = hash_password(password)
     user.must_change_password = True
     cleared = LoginAttempt.query.filter_by(username=lockout.key(user.username)).delete()
@@ -182,4 +290,4 @@ def users_password(user_id):
           detail={"by": "admin", "target_user_id": user.id, "attempts_cleared": cleared})
     db.session.commit()
     flash("settings.user.password_set", "success")
-    return _back()
+    return _back(user_id)

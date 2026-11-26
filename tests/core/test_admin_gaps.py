@@ -73,10 +73,12 @@ def test_set_password_refusals(seeded, client):
     db.session.commit()
     client.post("/settings/users/%d/password" % ad_user.id, data={"new_password": "Another-long-1234"})
     assert db.session.get(User, ad_user.id).password_hash is None and not rows_for("password_changed")
-    page = messages(client)
-    assert 'action="/settings/users/%d/password"' % uid("nic.requester") in page
-    assert 'action="/settings/users/%d/password"' % me.id not in page
-    assert 'action="/settings/users/%d/password"' % ad_user.id not in page
+    def person(user_id):
+        return messages(client, "/settings/users/%d?lang=en" % user_id)
+
+    assert 'action="/settings/users/%d/password"' % uid("nic.requester") in person(uid("nic.requester"))
+    assert 'action="/settings/users/%d/password"' % me.id not in person(me.id)
+    assert 'action="/settings/users/%d/password"' % ad_user.id not in person(ad_user.id)
     assert client.post("/settings/users/9999/password", data={"new_password": "Another-long-1234"}).status_code == 404
 
 
@@ -264,12 +266,10 @@ def test_the_login_lock_message_is_singular_for_one_minute(seeded, client):
     assert "in 1 minute." in page
 
 
-def test_reassign_forms_and_message(seeded):
+def test_reassigned_message_forms(seeded):
     for lang in ("el", "en"):
-        one, many = i18n.translate("settings.reassign.one", lang), i18n.translate("settings.reassign.many", lang, n=3)
-        assert "1" in one and "3" in many and one != many
-        assert i18n.translate("settings.reassigned.one", lang, who="X").count("1") == 1
-    assert i18n.translate("settings.reassign.one", "el") == "Μεταφορά 1 ανοιχτής εργασίας στον νέο Κάτοχο"
+        one, many = i18n.translate("settings.reassigned.one", lang, who="X"), i18n.translate("settings.reassigned.many", lang, n=3, who="X")
+        assert "1" in one and "3" in many and one != many and one.count("1") == 1
     assert "substitute" not in i18n.translate("settings.reassigned.many", "en", n=2, who="X")
     assert "αναπληρωτή" not in i18n.translate("settings.reassigned.many", "el", n=2, who="X")
 

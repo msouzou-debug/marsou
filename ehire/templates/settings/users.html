@@ -53,37 +53,64 @@
   <div class="mt-3 d-grid d-md-block"><button class="btn btn-primary" type="submit">{{ t('settings.add') }}</button></div>
 </form>
 
-{% for u in rows %}
-<form method="post" action="{{ url_for('settings.users_edit', user_id=u.id) }}" class="border-bottom py-3">
-  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-  <div class="row g-2 align-items-end">
-    <div class="col-12 col-md-2"><div class="small text-secondary">{{ t('settings.user.username') }}</div><div class="fw-semibold">{{ u.username }}</div>
-      <div class="small text-secondary">{{ t('settings.user.source') }}: {{ t('settings.user.source.' ~ u.auth_source) }}</div>
-      {% if u.id in pending %}<span class="badge text-bg-warning">{{ t('settings.user.pending') }}</span>{% endif %}</div>
-    <div class="col-12 col-md"><label class="form-label small mb-1" for="u{{ u.id }}-name">{{ t('settings.user.full_name') }}</label><input class="form-control" id="u{{ u.id }}-name" name="full_name" value="{{ u.full_name }}" required></div>
-    <div class="col-12 col-md"><label class="form-label small mb-1" for="u{{ u.id }}-email">{{ t('settings.user.email') }}</label><input class="form-control" id="u{{ u.id }}-email" name="email" type="email" value="{{ u.email or '' }}"></div>
-    <div class="col-6 col-md-1"><label class="form-label small mb-1" for="u{{ u.id }}-lang">{{ t('settings.user.language') }}</label>{{ lang_select(u.language, 'u' ~ u.id ~ '-lang') }}</div>
-    <div class="col-12 col-md"><label class="form-label small mb-1" for="u{{ u.id }}-boss">{{ t('settings.col.line_manager') }}</label>{{ manager_select(u.line_manager_user_id, u.id, 'u' ~ u.id ~ '-boss') }}</div>
-    <div class="col-12 col-xxl-auto d-flex flex-wrap gap-2 align-items-center justify-content-xxl-end">
-      <span class="badge {{ 'text-bg-success' if u.is_active else 'text-bg-secondary' }}">{{ t('settings.active') if u.is_active else t('settings.inactive') }}</span>
-      <button class="btn btn-outline-primary" type="submit">{{ t('settings.save') }}</button>
-      <button class="btn {{ 'btn-outline-danger' if u.is_active else 'btn-outline-secondary' }}" type="submit" formaction="{{ url_for('settings.users_toggle', user_id=u.id) }}">{{ t('settings.deactivate') if u.is_active else t('settings.activate') }}</button>
-    </div>
+<form method="get" action="{{ url_for('settings.users') }}" class="border rounded p-3 mb-3" role="search">
+  {% if only_pending %}<input type="hidden" name="show" value="pending">{% endif %}
+  <div class="row g-3 align-items-end">
+    <div class="col-12 col-md-6 col-lg-3"><label class="form-label small mb-1" for="f-q">{{ t('settings.users.search') }}</label>
+      <input class="form-control" id="f-q" name="q" value="{{ filters.q }}" type="search"></div>
+    <div class="col-12 col-md-6 col-lg-3"><label class="form-label small mb-1" for="f-role">{{ t('settings.col.role') }}</label>
+      <select class="form-select" id="f-role" name="role">
+        <option value="">{{ t('settings.filter.any') }}</option>
+        {% for r in roles %}<option value="{{ r }}" {{ 'selected' if r == filters.role }}>{{ t('role.' ~ r) }}</option>{% endfor %}
+      </select></div>
+    <div class="col-12 col-md-6 col-lg-3"><label class="form-label small mb-1" for="f-dir">{{ t('settings.col.directorate') }}</label>
+      <select class="form-select" id="f-dir" name="directorate">
+        <option value="">{{ t('settings.filter.any') }}</option>
+        <option value="central" {{ 'selected' if filters.directorate == 'central' }}>{{ t('settings.central') }}</option>
+        {% for d in directorates %}<option value="{{ d.id }}" {{ 'selected' if filters.directorate == d.id | string }}>{{ d['name_' ~ lang] }}</option>{% endfor %}
+      </select></div>
+    <div class="col-12 col-md-6 col-lg-3"><label class="form-label small mb-1" for="f-status">{{ t('settings.col.state') }}</label>
+      <select class="form-select" id="f-status" name="status">
+        <option value="">{{ t('settings.filter.any') }}</option>
+        <option value="active" {{ 'selected' if filters.status == 'active' }}>{{ t('settings.active') }}</option>
+        <option value="inactive" {{ 'selected' if filters.status == 'inactive' }}>{{ t('settings.inactive') }}</option>
+      </select></div>
+  </div>
+  <div class="mt-3 d-flex flex-wrap gap-2">
+    <button class="btn btn-primary" type="submit">{{ t('settings.filter.apply') }}</button>
+    {% if filtered %}<a class="btn btn-outline-secondary" href="{{ url_for('settings.users', show='pending' if only_pending) }}">{{ t('settings.users.clear') }}</a>{% endif %}
   </div>
 </form>
-{% if u.auth_source == 'local' and u.id != me.id %}
-<details class="border-bottom pb-2">
-  <summary class="small py-2">{{ t('settings.user.set_password') }}: {{ u.username }}</summary>
-  <form method="post" action="{{ url_for('settings.users_password', user_id=u.id) }}" class="row g-2 align-items-end pb-2" autocomplete="off">
-    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+<p class="small text-secondary" role="status">{{ tn('settings.users.count', rows | length, total=total) }}</p>
+
+{% macro pill(a, covering) %}<li><span class="badge {{ 'text-bg-light border' if covering else 'text-bg-primary' }}">{% if covering %}{{ t('settings.users.covers') }}: {% endif %}{{ t('role.' ~ a.role) }}{% if a.directorate_id %} · {{ a.directorate.code }}{% endif %}</span></li>{% endmacro %}
+
+{% if rows %}
+<div class="ehire-rows">
+  <div class="row g-2 ehire-rows__head ehire-colhead d-none d-md-flex">
+    <div class="col-md-3">{{ t('settings.user.full_name') }}</div>
+    <div class="col-md-2">{{ t('settings.user.username') }}</div>
+    <div class="col-md-5">{{ t('settings.users.roles') }}</div>
+    <div class="col-md-2">{{ t('settings.col.state') }}</div>
+  </div>
+  {% for u in rows %}
+  <div class="row g-2 ehire-row align-items-center">
+    <div class="col-12 col-md-3 fw-semibold"><a class="ehire-touchlink" href="{{ url_for('settings.user_page', user_id=u.id) }}">{{ u.full_name or u.username }}</a></div>
+    <div class="col-12 col-md-2 small">{{ u.username }}<div class="text-secondary">{{ t('settings.user.source.' ~ u.auth_source) }}</div></div>
     <div class="col-12 col-md-5">
-      <label class="form-label small mb-1" for="u{{ u.id }}-pw">{{ t('settings.user.new_password') }}</label>
-      <input class="form-control" id="u{{ u.id }}-pw" name="new_password" type="password" minlength="{{ min_length }}" required autocomplete="new-password" aria-describedby="u{{ u.id }}-pw-hint">
-      <div class="form-text" id="u{{ u.id }}-pw-hint">{{ t('settings.user.temp_password_hint') }}</div>
+      {% set h = held.get(u.id, []) %}{% set c = covers.get(u.id, []) %}
+      {% if h or c %}<ul class="ehire-rolepills">{% for a in h %}{{ pill(a, false) }}{% endfor %}{% for a in c %}{{ pill(a, true) }}{% endfor %}</ul>
+      {% else %}<span class="small text-secondary">{{ t('settings.users.no_role') }}</span>{% endif %}
     </div>
-    <div class="col-12 col-md-auto"><button class="btn btn-outline-primary w-100" type="submit">{{ t('settings.user.set_password') }}</button></div>
-  </form>
-</details>
+    <div class="col-12 col-md-2">
+      <span class="badge {{ 'text-bg-success' if u.is_active else 'text-bg-secondary' }}">{{ t('settings.active') if u.is_active else t('settings.inactive') }}</span>
+      {% if u.id in pending %}<span class="badge text-bg-warning">{{ t('settings.user.pending') }}</span>{% endif %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="ehire-empty"><p>{{ t('settings.users.none_found') }}</p></div>
 {% endif %}
-{% endfor %}
 {% endblock %}
