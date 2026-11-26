@@ -538,7 +538,7 @@ def build_instructions(ws, wbd, rows, view, testdata, lang):
 
     # who needs more than a browser
     heading(ins["needs_h"])
-    server_keys = ("auto_withdraw", "timer_run")
+    server_keys = ("auto_withdraw", "timer_run", "efin_unavailable")
     ids = {x["key"]: x["id"] for x in rows}
     server = [ids[k] for k in server_keys]
     admin = [x["id"] for x in rows if "test.demo.admin" in x["who"] and x["key"] not in server_keys]

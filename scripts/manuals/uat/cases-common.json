@@ -238,7 +238,7 @@
   {
    "key": "unassigned",
    "area": "conflict",
-   "ref": "C5",
+   "ref": "C5, C8",
    "priority": "Medium"
   },
   {
@@ -340,7 +340,7 @@
   {
    "key": "set_roles",
    "area": "settings",
-   "ref": "R4, C1",
+   "ref": "R4, C1, C8",
    "priority": "High"
   },
   {
@@ -390,6 +390,246 @@
    "area": "phone",
    "ref": "03 §5",
    "priority": "Low"
+  },
+  {
+   "key": "users_roles_shown",
+   "area": "users",
+   "ref": "03 §1",
+   "priority": "High"
+  },
+  {
+   "key": "users_filters",
+   "area": "users",
+   "ref": "03 §1",
+   "priority": "Medium"
+  },
+  {
+   "key": "person_page",
+   "area": "users",
+   "ref": "03 §1",
+   "priority": "High"
+  },
+  {
+   "key": "person_add_role",
+   "area": "users",
+   "ref": "C8",
+   "priority": "High"
+  },
+  {
+   "key": "person_holder_exists",
+   "area": "users",
+   "ref": "C8",
+   "priority": "High"
+  },
+  {
+   "key": "person_substitute",
+   "area": "users",
+   "ref": "C1, C8",
+   "priority": "Medium"
+  },
+  {
+   "key": "roles_no_holder",
+   "area": "users",
+   "ref": "C5, C8",
+   "priority": "Medium"
+  },
+  {
+   "key": "admin_guards",
+   "area": "users",
+   "ref": "03 §1",
+   "priority": "High"
+  },
+  {
+   "key": "admin_as_requester",
+   "area": "users",
+   "ref": "C3",
+   "priority": "Medium"
+  },
+  {
+   "key": "viewer_holders",
+   "area": "users",
+   "ref": "03 §1, §2",
+   "priority": "Medium"
+  },
+  {
+   "key": "pw_set_new",
+   "area": "users",
+   "ref": "03 §1",
+   "priority": "High"
+  },
+  {
+   "key": "ad_user_advance",
+   "area": "users",
+   "ref": "03 §1",
+   "priority": "Medium"
+  },
+  {
+   "key": "move_stays_substitute",
+   "area": "reassign",
+   "ref": "C8",
+   "priority": "High"
+  },
+  {
+   "key": "move_deactivated",
+   "area": "reassign",
+   "ref": "C8",
+   "priority": "High"
+  },
+  {
+   "key": "move_nobody_left",
+   "area": "reassign",
+   "ref": "C5, C8",
+   "priority": "High"
+  },
+  {
+   "key": "move_not_to_requester",
+   "area": "reassign",
+   "ref": "C3, C8",
+   "priority": "High"
+  },
+  {
+   "key": "move_substitute_changed",
+   "area": "reassign",
+   "ref": "C2, C8",
+   "priority": "Medium"
+  },
+  {
+   "key": "viewer_role",
+   "area": "visibility",
+   "ref": "03 §1, §2",
+   "priority": "High"
+  },
+  {
+   "key": "manuals_page",
+   "area": "manuals",
+   "ref": "03 §1",
+   "priority": "Medium"
+  },
+  {
+   "key": "pw_helpers",
+   "area": "signin",
+   "ref": "03 §1",
+   "priority": "Low"
+  },
+  {
+   "key": "num_shape",
+   "area": "submit",
+   "ref": "01 {reqnumber}",
+   "priority": "High"
+  },
+  {
+   "key": "num_draft_resubmit",
+   "area": "submit",
+   "ref": "01 {reqnumber}",
+   "priority": "High"
+  },
+  {
+   "key": "num_position_code",
+   "area": "submit",
+   "ref": "01 {reqnumber}",
+   "priority": "Medium"
+  },
+  {
+   "key": "cc_by_directorate",
+   "area": "costcentres",
+   "ref": "07 §1",
+   "priority": "High"
+  },
+  {
+   "key": "cc_search",
+   "area": "costcentres",
+   "ref": "07 §1",
+   "priority": "Medium"
+  },
+  {
+   "key": "cc_inactive",
+   "area": "costcentres",
+   "ref": "07 §1",
+   "priority": "High"
+  },
+  {
+   "key": "cc_directorate_change",
+   "area": "costcentres",
+   "ref": "07 §1",
+   "priority": "Medium"
+  },
+  {
+   "key": "efin_sync_now",
+   "area": "efinance",
+   "ref": "07 §1",
+   "priority": "High"
+  },
+  {
+   "key": "efin_sync_restores",
+   "area": "efinance",
+   "ref": "07 §1",
+   "priority": "Medium"
+  },
+  {
+   "key": "efin_unknown_cc",
+   "area": "efinance",
+   "ref": "B1, 07 §2",
+   "priority": "High"
+  },
+  {
+   "key": "efin_setup",
+   "area": "efinance",
+   "ref": "07 §1",
+   "priority": "High"
+  },
+  {
+   "key": "efin_card_lines",
+   "area": "efinance",
+   "ref": "07 §2",
+   "priority": "High"
+  },
+  {
+   "key": "efin_no_budget_comment",
+   "area": "efinance",
+   "ref": "B1",
+   "priority": "High"
+  },
+  {
+   "key": "efin_pick_line",
+   "area": "efinance",
+   "ref": "B1, 07 §2",
+   "priority": "Medium"
+  },
+  {
+   "key": "efin_budget_loaded",
+   "area": "efinance",
+   "ref": "B1, 07 §2",
+   "priority": "Low"
+  },
+  {
+   "key": "efin_step4",
+   "area": "efinance",
+   "ref": "B1, T5b",
+   "priority": "High"
+  },
+  {
+   "key": "efin_unavailable",
+   "area": "efinance",
+   "ref": "07 §2",
+   "priority": "Medium"
+  },
+  {
+   "key": "import_position_code",
+   "area": "import",
+   "ref": "{import}",
+   "priority": "Medium"
+  },
+  {
+   "key": "import_cc_directorate",
+   "area": "import",
+   "ref": "{import}",
+   "priority": "Medium"
+  },
+  {
+   "key": "import_roles_move",
+   "area": "import",
+   "ref": "C8, {import}",
+   "priority": "Medium"
   }
  ]
 }

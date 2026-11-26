@@ -65,14 +65,19 @@
     "return": "Return and resubmission",
     "withdraw": "Withdrawal",
     "conflict": "Conflict of interest and out of office",
+    "reassign": "Automatic move of waiting tasks",
     "comments": "Required comments",
     "visibility": "Who can see what",
     "lists": "List, search and export",
     "emails": "Emails (email log)",
     "timers": "Reminders and escalation",
     "settings": "Settings",
+    "users": "Users and roles",
     "import": "Excel import",
+    "costcentres": "Cost centres",
+    "efinance": "eFinance link and budget check",
     "audit": "Audit log",
+    "manuals": "Manuals",
     "phone": "Phone-width layout"
   },
   "instructions": {
@@ -202,8 +207,9 @@
     "needs_wait": "The lock in case {id} lasts 15 minutes; an administrator can unlock the name instead of waiting.",
     "scope_h": "In scope and out of scope",
     "scope": [
-      "In scope: the position approval flow, Settings, the Excel import, the audit log and the list export.",
-      "Out of scope for now: sign-in with Active Directory, real email sending, deposits to eArchive and figures served by eFinance. A line about eArchive may appear on a request page; ignore it. The financial figures are typed by hand."
+      "In scope: the position approval flow, Settings (users, role holders, lists), the Excel import, the eFinance link (cost centres and the budget check, without amounts), the audit log and the list export.",
+      "Out of scope for now: sign-in with Active Directory, real email sending, deposits to eArchive, ΟΑΥ activity figures served by eFinance, and budget amounts. A line about eArchive may appear on a request page; ignore it. The financial figures are typed by hand.",
+      "While the eFinance link is on, eFinance does not know the test cost centres (codes T-). The cards of steps 2 and 4 then show a warning, and a “Yes” needs a comment in every case, also where the steps do not say so."
     ],
     "example_h": "Example of a filled row",
     "example_cols": [
@@ -226,7 +232,7 @@
     "edit_h": "Which cells you fill in",
     "edit": "On “Test cases” only the columns Result, Tester, Date, Comments and Defect no. On “Defects” every column. Do not edit the Summary: it holds formulas only.",
     "refs_h": "Rule references",
-    "refs": "R, T, C, W and O codes are the rule ids of docs/contracts/02-state-machine.md (R route, T transition, C who gets a task, W time rule, O owner decision). “03 §n” is section n of docs/contracts/03-routes-forms.md; “01” is docs/contracts/01-data-model.md."
+    "refs": "R, T, C, W, O and B codes are the rule ids of docs/contracts/02-state-machine.md (R route, T transition, C who gets a task, W time rule, O owner decision, B budget check). “03 §n” is section n of docs/contracts/03-routes-forms.md; “01” is docs/contracts/01-data-model.md; “07 §n” is section n of docs/contracts/07-efinance-link.md."
   },
   "cases_note": "Fill in the last five columns only. Filter with the arrows in the header.",
   "summary": {
@@ -325,6 +331,7 @@
   "ref_words": {
     "lock": "lock after 5 failures",
     "numsearch": "number search",
-    "import": "Excel import"
+    "import": "Excel import",
+    "reqnumber": "request number"
   }
 }

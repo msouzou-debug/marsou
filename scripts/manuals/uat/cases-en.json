@@ -662,20 +662,22 @@
     ]
   },
   "unassigned": {
-    "title": "A role with nobody: the task stays unassigned",
-    "who": ["Administrator: test.demo.admin", "[[role.requester]]: test.nic.requester"],
-    "pre": "The Directorates Mental Health and Ambulance Service have no role holders and no requesters.",
+    "title": "A role with nobody: the task waits, then goes to the new holder by itself",
+    "who": ["Administrator: test.demo.admin", "[[role.requester]]: test.nic.requester", "[[role.dir_accountant]]: test.nic.accountant"],
+    "pre": "The Directorates Mental Health (test) and Ambulance Service (test) have no role holders and no requesters.",
     "steps": [
       "As the administrator open “[[nav.settings]]”, “[[settings.roles]]”, the group Mental Health (test), and add test.nic.requester under “[[role.requester]]” with “[[settings.add]]”.",
       "As test.nic.requester submit an administrative request for Mental Health (test).",
       "Open the request and the email log (administrator).",
-      "As the administrator set a holder for [[role.dir_accountant]] of Mental Health (test) and press the button “[[settings.reassign.one|n=1]]”.",
-      "Remove test.nic.requester from the Mental Health requesters when you finish."
+      "As the administrator choose test.nic.accountant as holder of [[role.dir_accountant]] of Mental Health (test) and press “[[settings.save]]”.",
+      "Open the request as test.nic.accountant.",
+      "Clean up: as test.nic.requester withdraw the request. As the administrator set the holder back to “[[settings.none]]” and remove test.nic.requester from the Mental Health requesters."
     ],
     "exp": [
       "Step 2: the request is submitted; step 2 is current and the line says “[[statusline.waiting_on|who=[[role.dir_accountant]]]]” with no name. Nobody has a card.",
       "The email log has a mail to the administrator labelled “[[mail.status.problem]]” with “[[mail.task_unassigned.intro|role=[[role.dir_accountant]]]]”.",
-      "Setting the holder does not move the task by itself. The button offers to move 1 task. After pressing it the new holder has the task."
+      "Step 4: the page says “[[settings.saved]]” and “[[settings.reassigned.one|who=(name of test.nic.accountant)]]”. There is no button to press: the task moves by itself.",
+      "Step 5: the new holder has the card and an email labelled “[[mail.status.action]]”."
     ]
   },
   "only_assignee": {
@@ -951,22 +953,22 @@
     ]
   },
   "set_roles": {
-    "title": "Settings: role holders and substitutes",
+    "title": "Settings: a new holder gets the waiting tasks at once",
     "who": ["Administrator: test.demo.admin", "test.nic.requester", "test.nic.accountant", "test.nic.deputy"],
-    "pre": "A Nicosia request waiting on test.nic.accountant. Write down who holds the roles before you change anything, and restore them at the end.",
+    "pre": "One Nicosia request waiting on test.nic.accountant at step 2 (submit one as test.nic.requester). Write down who holds the roles before you change anything. The next case puts them back.",
     "steps": [
       "Open “[[settings.roles]]”. Look at the groups and at the rows of Primary Health Care.",
       "For [[role.dir_accountant]] of Nicosia choose the same person as holder and substitute and press “[[settings.save]]”.",
-      "Choose test.nic.deputy as holder and press “[[settings.save]]”. Open the waiting request as test.nic.accountant.",
-      "Press “[[settings.reassign.one|n=1]]”.",
-      "Add test.nic.accountant under the requesters of Nicosia, then remove the entry. Restore the original holder."
+      "Choose test.nic.deputy as holder and “[[settings.none]]” as substitute and press “[[settings.save]]”.",
+      "Open the waiting request as test.nic.deputy, then as test.nic.accountant.",
+      "As the administrator read the email log and the audit log. Add test.nic.accountant under the requesters of Nicosia, then remove the entry."
     ],
     "exp": [
       "The page has the group “[[settings.central]]” and one group per Directorate. The Scientific Director row is missing for a Directorate that has none (Primary Health Care).",
       "Same person: “[[settings.same_person]]”.",
-      "After the change the open task stays with the old holder (a change of holder does not reroute a request: R4). The page shows the button “[[settings.reassign.one|n=1]]”.",
-      "After the button the task is with the new holder and a message tells who got it. The new holder gets an email.",
-      "Each change has a row in the audit log (role_changed)."
+      "Step 3: “[[settings.saved]]” and “[[settings.reassigned.one|who=(name of test.nic.deputy)]]”. With more waiting tasks the line gives their number. There is no button to press.",
+      "The new holder has the card. The old holder has none.",
+      "The email log has a mail to test.nic.deputy labelled “[[mail.status.action]]”. The audit log has the events “[[audit.event.role_changed]]” and “[[audit.event.task_redirected]]”."
     ]
   },
   "set_users": {
@@ -1109,6 +1111,739 @@
       "The form is one column. The route preview comes after the fields. All buttons are reachable.",
       "Settings pages and the audit table can be used. The audit table scrolls inside its own frame, not the whole page.",
       "There is no sideways scrolling on any page you opened."
+    ]
+  },
+
+  "users_roles_shown": {
+    "title": "The Users list shows each person's roles",
+    "who": ["Administrator: test.demo.admin"],
+    "pre": "The test data is loaded.",
+    "steps": [
+      "Open “[[nav.settings]]” and “[[settings.users]]”. Read the line above the list and the column headings.",
+      "Find the row of test.nic.accountant.",
+      "Find the rows of test.nic.deputy, test.central.ceo and test.lar.sci.",
+      "Press the name in the row of test.nic.accountant."
+    ],
+    "exp": [
+      "The line says “[[settings.users.count.many|n=…|total=…]]” with the same number twice. The columns are “[[settings.user.full_name]]”, “[[settings.user.username]]”, “[[settings.users.roles]]” and “[[settings.col.state]]”.",
+      "test.nic.accountant: one label “[[role.dir_accountant]] · T-NIC”, the text “[[settings.user.source.local]]” under the username, and “[[settings.active]]”.",
+      "test.nic.deputy: four pale labels that start with “[[settings.users.covers]]:”, one for each Nicosia role it covers. test.central.ceo: “[[role.ceo]]” with no Directorate code. test.lar.sci: two labels.",
+      "The name opens that person's page. The list itself has no buttons to change a person."
+    ]
+  },
+  "users_filters": {
+    "title": "Filter the Users list by name, role, Directorate and state",
+    "who": ["Administrator: test.demo.admin"],
+    "pre": "The test data is loaded.",
+    "steps": [
+      "On “[[settings.users]]” type test.nic in “[[settings.users.search]]” and press “[[settings.filter.apply]]”.",
+      "Press “[[settings.users.clear]]”. Choose “[[role.dir_accountant]]” in the list “[[settings.col.role]]” and press “[[settings.filter.apply]]”.",
+      "Keep the role and choose Nicosia (test) in the list “[[settings.col.directorate]]”. Press “[[settings.filter.apply]]”.",
+      "Clear the filters. Choose “[[settings.central]]” in the list “[[settings.col.directorate]]” and press “[[settings.filter.apply]]”.",
+      "Clear the filters. Type zzz in the search box, choose “[[settings.inactive]]” in the list “[[settings.col.state]]” and press “[[settings.filter.apply]]”."
+    ],
+    "exp": [
+      "Step 1: the six Nicosia test accounts, and the line “[[settings.users.count.many|n=6|total=…]]”.",
+      "Step 2: every Directorate Accountant and every person who covers for one.",
+      "Step 3: only test.nic.accountant and test.nic.deputy.",
+      "Step 4: the holders of the central roles, test.central.deputy, the viewers and the administrators. Nobody from a Directorate.",
+      "Step 5: “[[settings.users.none_found]]”. “[[settings.users.clear]]” brings the whole list back."
+    ]
+  },
+  "person_page": {
+    "title": "A person's page: account, roles, substitute and whom they cover for",
+    "who": ["Administrator: test.demo.admin"],
+    "pre": "The test data is loaded, with the holders as loaded.",
+    "steps": [
+      "On “[[settings.users]]” press the name of test.nic.accountant. Read the headings.",
+      "Read the sections “[[settings.person.roles]]” and “[[settings.person.covers_title]]”.",
+      "Press “[[settings.person.back]]” and open the page of test.nic.deputy.",
+      "Open the page of test.nic.requester and read the row of the role.",
+      "On the page of test.nic.accountant change the email to another address that ends in @test.invalid and press “[[settings.save]]”."
+    ],
+    "exp": [
+      "The page has the person's name, the label “[[settings.active]]” and the sections “[[settings.person.account]]”, “[[settings.person.roles]]”, “[[settings.person.covers_title]]” and “[[settings.person.add_title]]”. The username and “[[settings.user.source]]” are shown as text.",
+      "test.nic.accountant: one row, “[[role.dir_accountant]]” of Nicosia (test), with test.nic.deputy chosen in “[[settings.col.substitute]]” and the buttons “[[settings.save]]” and “[[settings.remove]]”. Below it: “[[settings.person.covers_empty]]”.",
+      "test.nic.deputy: “[[settings.person.no_roles]]”. Under “[[settings.person.covers_title]]” four rows, each with “[[settings.person.covers_for|who=(name)]]” and the button “[[settings.person.stop_covering]]”.",
+      "The row “[[role.requester]]” has no substitute field.",
+      "“[[settings.saved]]” and you stay on the person's page."
+    ]
+  },
+  "person_add_role": {
+    "title": "Add a role on the person's page and see it on the roles page, and the reverse",
+    "who": ["Administrator: test.demo.admin"],
+    "pre": "The account test.uat.one exists and is active (case “Settings: users and the first password change”; if it shows “[[settings.inactive]]”, press “[[settings.activate]]” on its page). Mental Health (test) has no holders.",
+    "steps": [
+      "Open the page of test.uat.one. Under “[[settings.person.add_title]]” choose the role “[[role.dir_accountant]]”, leave “[[settings.col.directorate]]” on “[[settings.none_directorate]]” and press “[[settings.add]]”.",
+      "Choose Mental Health (test) as Directorate and test.nic.deputy as substitute. Press “[[settings.add]]”.",
+      "Open “[[settings.roles]]” and read the group Mental Health (test).",
+      "In that group choose test.uat.one as holder of “[[role.dir_hr_officer]]” and press “[[settings.save]]”.",
+      "Press “[[settings.person.open]]” under the role name. Then open “[[settings.users]]” and find test.uat.one."
+    ],
+    "exp": [
+      "Step 1: the browser asks for the Directorate and saves nothing (sent without one, the page says “[[validation.required]]”).",
+      "Step 2: “[[settings.saved]]”. The row “[[role.dir_accountant]]”, Mental Health (test), appears under “[[settings.person.roles]]” with the substitute.",
+      "Step 3: the roles page shows the same holder and substitute, with the link “[[settings.person.open]]” under the role name.",
+      "Step 5: the person's page now has two rows, and the Users list shows two labels that end in “· T-MH”. The two pages always show the same holders.",
+      "The audit log has an “[[audit.event.role_changed]]” row for each change."
+    ]
+  },
+  "person_holder_exists": {
+    "title": "A role that already has a holder is refused unless you tick the replace box",
+    "who": ["Administrator: test.demo.admin"],
+    "pre": "Straight after the case above: test.uat.one holds “[[role.dir_accountant]]” and “[[role.dir_hr_officer]]” of Mental Health (test).",
+    "steps": [
+      "Open the page of test.lim.deputy. Under “[[settings.person.add_title]]” choose “[[role.dir_accountant]]” and Mental Health (test). Leave the box “[[settings.person.replace]]” empty and press “[[settings.add]]”.",
+      "Choose the same role and Directorate, tick the box “[[settings.person.replace]]” and press “[[settings.add]]”.",
+      "Open the page of test.uat.one, then “[[settings.roles]]”.",
+      "Choose the role “[[role.requester]]” in the list of “[[settings.person.add_title]]” and look for the box.",
+      "Clean up: press “[[settings.remove]]” on the Mental Health row of test.lim.deputy and on the remaining row of test.uat.one."
+    ],
+    "exp": [
+      "Step 1: a red message, “[[settings.person.holder_exists|who=(name of test.uat.one)]]”. Nothing changes: test.lim.deputy still shows “[[settings.person.no_roles]]”.",
+      "Step 2: “[[settings.saved]]”. test.lim.deputy has the row.",
+      "Step 3: test.uat.one no longer has “[[role.dir_accountant]]” and keeps “[[role.dir_hr_officer]]”. The roles page shows test.lim.deputy as the holder.",
+      "Step 4: the box and the substitute field show only for roles with one holder. They are hidden for “[[role.requester]]”, “[[role.viewer]]” and “[[role.admin]]”.",
+      "Step 5: “[[settings.saved]]” each time, and both roles are back in the panel “[[settings.roles.empty_title]]” of the roles page."
+    ]
+  },
+  "person_substitute": {
+    "title": "Change the substitute on a row, and stop covering",
+    "who": ["Administrator: test.demo.admin"],
+    "pre": "Primary Health Care (test) has its holders as loaded: test.phc.deputy is the substitute for all three roles.",
+    "steps": [
+      "Open the page of test.phc.accountant. In the row “[[role.dir_accountant]]” choose “[[settings.none]]” in “[[settings.col.substitute]]” and press “[[settings.save]]”.",
+      "Open “[[settings.roles]]” and read the row of Primary Health Care (test).",
+      "Open the page of test.phc.deputy. In the row “[[role.dir_exec]]” press “[[settings.person.stop_covering]]”.",
+      "Open “[[settings.roles]]” again. Choose test.phc.deputy as substitute in both rows and press “[[settings.save]]” on each."
+    ],
+    "exp": [
+      "Step 1: “[[settings.saved]]”. The list of substitutes does not offer the person themselves.",
+      "Step 2: the roles page shows “[[settings.none]]” as substitute of “[[role.dir_accountant]]”.",
+      "Step 3: “[[settings.saved]]”. The row disappears from “[[settings.person.covers_title]]”: one row is left. On the roles page the substitute of “[[role.dir_exec]]” is “[[settings.none]]”.",
+      "Step 4: “[[settings.saved]]” twice, and the page of test.phc.deputy shows three rows again.",
+      "If a task of the role was waiting with the substitute, a second line says that it moved and to whom."
+    ]
+  },
+  "roles_no_holder": {
+    "title": "The panel of roles with no holder",
+    "who": ["Administrator: test.demo.admin"],
+    "pre": "Ambulance Service (test) has no holders, as loaded.",
+    "steps": [
+      "Open “[[settings.roles]]” and read the panel “[[settings.roles.empty_title]]” at the top.",
+      "Press the line “[[role.dir_accountant]], Ambulance Service (test)”.",
+      "In that row choose test.nic.deputy as holder and press “[[settings.save]]”. Read the panel again.",
+      "Set the holder back to “[[settings.none]]” and press “[[settings.save]]”."
+    ],
+    "exp": [
+      "The panel says “[[settings.roles.empty_hint]]” and lists each role with no active holder, with its Directorate. For Ambulance Service (test) it lists three roles (it has no Scientific Director).",
+      "Step 2: the page jumps to that row. The holder is “[[settings.none]]”.",
+      "Step 3: “[[settings.saved]]”. The line is gone from the panel and the row shows the link “[[settings.person.open]]”.",
+      "Step 4: the line is back. (When every role has an active holder the panel says “[[settings.roles.empty_none]]”.)"
+    ]
+  },
+  "admin_guards": {
+    "title": "An administrator cannot remove or switch off their own administrator access",
+    "who": ["Administrator: test.demo.admin"],
+    "pre": "The account test.uat.one exists and is active.",
+    "steps": [
+      "On “[[settings.users]]” open your own page (test.demo.admin). Look for “[[settings.user.set_password]]”.",
+      "Press “[[settings.deactivate]]” on your own page.",
+      "In “[[settings.person.roles]]” press “[[settings.remove]]” on the row “[[role.admin]]”.",
+      "Open “[[settings.roles]]”. In the section “[[settings.roles.other_title]]” press “[[settings.remove]]” next to your own name under “[[role.admin]]”.",
+      "In the same section add test.uat.one under “[[role.admin]]” with “[[settings.add]]”. Then press “[[settings.remove]]” next to test.uat.one."
+    ],
+    "exp": [
+      "Step 1: your own page has no “[[settings.user.set_password]]”. You change your own password with “[[nav.password]]” in the menu.",
+      "Step 2: “[[settings.self_deactivate]]”. The account stays “[[settings.active]]”.",
+      "Steps 3 and 4: “[[settings.admin_self_remove]]”. The row stays.",
+      "Step 5: “[[settings.saved]]” both times. Another administrator can be added and removed.",
+      "So one active administrator always remains: nobody can remove or switch off themselves."
+    ]
+  },
+  "admin_as_requester": {
+    "title": "An administrator who is also a requester raises a request and still cannot act on it",
+    "who": ["Administrator: test.demo.admin", "[[role.dir_accountant]]: test.nic.accountant"],
+    "pre": "Use test.demo.admin only. A real administrator account that holds a role in a test Directorate, or that made a test request, stops the clear-up of the test data before go-live.",
+    "steps": [
+      "As test.demo.admin open “[[nav.requests]]” and look for the button “[[list.new]]”.",
+      "Open your own page under “[[settings.users]]”. Under “[[settings.person.add_title]]” choose “[[role.requester]]” and Nicosia (test) and press “[[settings.add]]”.",
+      "Open “[[nav.requests]]”, press “[[list.new]]” and submit an administrative request for Nicosia (test).",
+      "Read the request page.",
+      "Open the request as test.nic.accountant.",
+      "As the administrator press “[[settings.remove]]” on the row “[[role.requester]]” of your own page."
+    ],
+    "exp": [
+      "Step 1: an administrator alone has no “[[list.new]]” button.",
+      "Step 2: “[[settings.saved]]”, and the button appears.",
+      "Step 4: the request is “[[status.in_progress]]” and waits on [[role.dir_accountant]]. The administrator has no card “[[action.title]]”: nobody acts on a request they submitted.",
+      "Step 5: the accountant has the card as usual.",
+      "Step 6: the button “[[list.new]]” is gone. The request stays in the tab “[[list.tab.all]]”."
+    ]
+  },
+  "viewer_holders": {
+    "title": "Add and remove a viewer",
+    "who": ["Administrator: test.demo.admin", "New user: test.uat.one"],
+    "pre": "The account test.uat.one exists, is active and has no role. The sample requests are loaded.",
+    "steps": [
+      "Sign in as test.uat.one and look at the list.",
+      "As the administrator open “[[settings.roles]]”. In the section “[[settings.roles.other_title]]” choose test.uat.one under “[[role.viewer]]” and press “[[settings.add]]”.",
+      "Sign in as test.uat.one again.",
+      "As the administrator open the page of test.uat.one and press “[[settings.remove]]” on the row “[[role.viewer]]”.",
+      "Sign in as test.uat.one once more."
+    ],
+    "exp": [
+      "Step 1: an empty list.",
+      "Step 2: “[[settings.saved]]”. The name is listed under “[[role.viewer]]” with a “[[settings.remove]]” button. The section says “[[settings.roles.other_hint]]”.",
+      "Step 3: test.uat.one sees the submitted requests of every Directorate in the tab “[[list.tab.all]]”.",
+      "Step 4: the person's page showed the row “[[role.viewer]]” with no Directorate and no substitute. After removing it: “[[settings.saved]]”.",
+      "Step 5: the list is empty again."
+    ]
+  },
+  "pw_set_new": {
+    "title": "Set a new password for a user; they must change it at the next sign-in",
+    "who": ["Administrator: test.demo.admin", "User: test.uat.one"],
+    "pre": "The account test.uat.one exists, is active and is a local account.",
+    "steps": [
+      "As the administrator open the page of test.uat.one and open “[[settings.user.set_password]]”. Type a password of five characters and press the button “[[settings.user.set_password]]”.",
+      "Type a password of eight characters or more and press the button.",
+      "Sign out. Sign in as test.uat.one with the old password, then with the new one.",
+      "Type /requests in the address bar.",
+      "Type a new password twice and press “[[password.submit]]”. Sign out and sign in again with it."
+    ],
+    "exp": [
+      "Step 1: the browser does not send the short password (sent anyway, the page says “[[password.too_short|n=8]]”).",
+      "Step 2: “[[settings.user.password_set]]”.",
+      "Step 3: the old password gives “[[login.failed]]”. The new one signs in and opens “[[password.title]]”.",
+      "Step 4: the same page opens again. Nothing else can be opened before the password is changed.",
+      "Step 5: the list opens. The next sign-in asks for no change. The audit log has two “[[audit.event.password_changed]]” rows and shows no password."
+    ]
+  },
+  "ad_user_advance": {
+    "title": "Add an Active Directory user in advance",
+    "who": ["Administrator: test.demo.admin"],
+    "pre": "None. Sign-in through Active Directory itself is out of scope until IT sets it up. Start the usernames with test. so the clear-up removes them.",
+    "steps": [
+      "On “[[settings.users]]” choose “[[settings.user.source.ad]]” in “[[settings.user.source]]”. Type the username test.ad1, a name that ends with “(test)” and an email that ends in @test.invalid. Leave the password empty and press “[[settings.add]]”.",
+      "Find the new row and open the person's page.",
+      "Add a second Active Directory user with the username TEST.AD2.",
+      "Add a third with the username test.ad3@example.local.",
+      "Add test.ad1 again."
+    ],
+    "exp": [
+      "Step 1: “[[settings.saved]]”, with no password asked. The hint under the field “[[settings.user.source]]” says “[[settings.user.ad_hint]]”. While Active Directory is not set up, a note at the top says “[[settings.user.ad_not_set_up]]”.",
+      "Step 2: the row shows “[[settings.user.source.ad]]” and “[[settings.active]]”, without the label “[[settings.user.pending]]”. The person's page has no “[[settings.user.set_password]]”.",
+      "Step 3: saved in lower case, as test.ad2.",
+      "Step 4: “[[settings.user.ad_username_invalid]]”.",
+      "Step 5: “[[settings.user.duplicate]]”."
+    ]
+  },
+
+  "move_stays_substitute": {
+    "title": "A task stays with a person who is still the substitute",
+    "who": ["Administrator: test.demo.admin", "test.nic.requester", "test.nic.accountant", "test.nic.deputy"],
+    "pre": "Straight after the case “Settings: a new holder gets the waiting tasks at once”: test.nic.deputy is the holder of [[role.dir_accountant]] of Nicosia and has the waiting task.",
+    "steps": [
+      "On “[[settings.roles]]” choose test.nic.accountant as holder and test.nic.deputy as substitute of [[role.dir_accountant]] of Nicosia. Press “[[settings.save]]”.",
+      "Open the waiting request as test.nic.deputy, then as test.nic.accountant.",
+      "As test.nic.requester submit a new Nicosia request. Look at who has its task."
+    ],
+    "exp": [
+      "Step 1: only “[[settings.saved]]”. No line about moved tasks.",
+      "Step 2: the task is still with test.nic.deputy, who is the substitute again. test.nic.accountant has no card on that request.",
+      "Step 3: the new request goes to test.nic.accountant, the holder.",
+      "The roles are now as they were loaded."
+    ]
+  },
+  "move_deactivated": {
+    "title": "A switched-off holder: the task goes to the substitute",
+    "who": ["Administrator: test.demo.admin", "test.lim.requester", "test.lim.accountant", "test.lim.deputy"],
+    "pre": "One Limassol – Paphos request waiting at step 2 on test.lim.accountant (submit one as test.lim.requester).",
+    "steps": [
+      "As the administrator open the page of test.lim.accountant and press “[[settings.deactivate]]”.",
+      "Open the request as test.lim.deputy. Then try to sign in as test.lim.accountant.",
+      "As the administrator open “[[settings.roles]]”. Read the panel at the top and the row of Limassol – Paphos (test).",
+      "As test.lim.requester submit a second request and look at who has its task.",
+      "As the administrator press “[[settings.activate]]” on the page of test.lim.accountant. Open both requests again."
+    ],
+    "exp": [
+      "Step 1: “[[settings.saved]]” and “[[settings.reassigned.one|who=(name of test.lim.deputy)]]”. The page shows “[[settings.inactive]]” and the note “[[settings.person.inactive_note]]”. Under “[[settings.person.add_title]]” it says “[[settings.person.add_inactive]]”.",
+      "Step 2: the substitute has the card. The switched-off account gets “[[login.failed]]”.",
+      "Step 3: the panel “[[settings.roles.empty_title]]” lists “[[role.dir_accountant]], Limassol – Paphos (test) ([[settings.roles.holder_inactive]])”, and the row carries the label “[[settings.roles.holder_inactive]]”.",
+      "Step 4: the new task goes straight to the substitute. No task is ever given to a switched-off account.",
+      "Step 5: “[[settings.saved]]”. Both tasks stay with test.lim.deputy, who is still the substitute. The role leaves the panel, and later requests go to the holder again."
+    ]
+  },
+  "move_nobody_left": {
+    "title": "Nobody left for a role: the task waits with nobody and the page warns",
+    "who": ["Administrator: test.demo.admin", "test.lim.requester", "test.lim.accountant", "test.lim.deputy"],
+    "pre": "One Limassol – Paphos request waiting at step 2 (with test.lim.accountant or, after the case above, with test.lim.deputy). If more than one waits, the messages give that number.",
+    "steps": [
+      "As the administrator open the page of test.lim.accountant and press “[[settings.remove]]” on the row “[[role.dir_accountant]]”.",
+      "Open the request as the administrator, then as test.lim.deputy.",
+      "Open “[[settings.roles]]” and read the panel at the top.",
+      "On the page of test.lim.accountant, under “[[settings.person.add_title]]”, choose “[[role.dir_accountant]]”, Limassol – Paphos (test) and the substitute test.lim.deputy. Press “[[settings.add]]”.",
+      "Open the request as test.lim.accountant."
+    ],
+    "exp": [
+      "Step 1: “[[settings.saved]]” and a yellow warning, “[[settings.unassigned_now.one]]”. Removing the row removes its substitute too.",
+      "Step 2: the line under the tracker says “[[statusline.waiting_on|who=[[role.dir_accountant]]]]” with no name. Nobody has a card. The other administrators get an email labelled “[[mail.status.problem]]”; the administrator who made the change does not.",
+      "Step 3: the panel “[[settings.roles.empty_title]]” lists the role.",
+      "Step 4: “[[settings.saved]]” and “[[settings.reassigned.one|who=(name of test.lim.accountant)]]”. The roles page shows the holder and the substitute as before.",
+      "Step 5: the holder has the card and an email labelled “[[mail.status.action]]”."
+    ]
+  },
+  "move_not_to_requester": {
+    "title": "A requester who becomes the holder never gets the task of their own request",
+    "who": ["Administrator: test.demo.admin", "test.nic.requester", "test.nic.accountant", "test.nic.deputy"],
+    "pre": "One Nicosia request made by test.nic.requester, waiting at step 2 on test.nic.accountant. The roles of Nicosia are as loaded.",
+    "steps": [
+      "On “[[settings.roles]]” choose test.nic.requester as holder of [[role.dir_accountant]] of Nicosia and keep test.nic.deputy as substitute. Press “[[settings.save]]”.",
+      "Open the request as test.nic.requester.",
+      "Open the request as test.nic.deputy.",
+      "As the administrator read the email log.",
+      "Put the roles back: test.nic.accountant as holder, test.nic.deputy as substitute. Press “[[settings.save]]”."
+    ],
+    "exp": [
+      "Step 1: “[[settings.saved]]” and “[[settings.reassigned.one|who=(name of test.nic.deputy)]]”. The task goes to the substitute, not to the new holder.",
+      "Step 2: the requester has no card. Step 2 of the tracker says “[[tracker.acting_for|who=(substitute)|holder=(requester)]]” with “[[tracker.redirect.conflict_of_interest]]”.",
+      "Step 3: the substitute has the card.",
+      "Step 4: a mail to test.nic.deputy labelled “[[mail.status.action]]”, and a mail to the requester with “[[mail.task_redirected.intro.conflict_of_interest|who=(substitute)]]”.",
+      "Step 5: “[[settings.saved]]”. The task stays with test.nic.deputy, who is still the substitute."
+    ]
+  },
+  "move_substitute_changed": {
+    "title": "A new substitute gets the tasks the old one held",
+    "who": ["Administrator: test.demo.admin", "test.nic.accountant", "test.nic.requester", "test.nic.deputy", "test.nic.hr"],
+    "pre": "The roles of Nicosia are as loaded.",
+    "steps": [
+      "As test.nic.accountant press “[[ooo.switch_on]]” in the panel “[[ooo.title]]” of the list.",
+      "As test.nic.requester submit a Nicosia request. Check that test.nic.deputy has its task.",
+      "As the administrator open the page of test.nic.accountant. In the row “[[role.dir_accountant]]” choose test.nic.hr in “[[settings.col.substitute]]” and press “[[settings.save]]”.",
+      "Open the request as test.nic.hr, then as test.nic.deputy.",
+      "As the administrator choose test.nic.deputy as substitute again and press “[[settings.save]]”. Then, as test.nic.accountant, press “[[ooo.switch_off]]”."
+    ],
+    "exp": [
+      "Step 3: “[[settings.saved]]” and “[[settings.reassigned.one|who=(name of test.nic.hr)]]”.",
+      "Step 4: test.nic.hr has the card, “[[tracker.acting_for|who=(test.nic.hr)|holder=(test.nic.accountant)]]” with “[[tracker.redirect.out_of_office]]”. test.nic.deputy has none.",
+      "Step 5: the save moves the task back to test.nic.deputy, with the same kind of line. “[[ooo.switch_off]]” then moves nothing: the task stays with the substitute."
+    ]
+  },
+
+  "viewer_role": {
+    "title": "A viewer sees every request and can act on none",
+    "who": ["[[role.viewer]]: test.demo.viewer"],
+    "pre": "The sample requests are loaded. Sample request 3 waits for the CEO.",
+    "steps": [
+      "Sign in as test.demo.viewer. Look at the tab that opens and at the menu.",
+      "Look for the button “[[list.new]]”. Type /requests/new in the address bar.",
+      "Open sample request 3.",
+      "Type /settings and then /audit in the address bar.",
+      "Go back to the list and look for “[[list.export]]”."
+    ],
+    "exp": [
+      "The list opens on the tab “[[list.tab.all]]” with the submitted requests of every Directorate and no drafts. The menu has “[[nav.requests]]” and “[[nav.manuals]]” only.",
+      "There is no “[[list.new]]” button. /requests/new shows “[[error.404]]”.",
+      "The request page shows the details, “[[page.checks]]” and “[[page.history]]”. There is no card “[[action.title]]” and no “[[action.withdraw]]” button.",
+      "Both addresses show “[[error.404]]”.",
+      "The viewer has the button “[[list.export]]”."
+    ]
+  },
+
+  "manuals_page": {
+    "title": "The Manuals page: user guide for all, administrator files for administrators",
+    "who": ["[[role.requester]]: test.nic.requester", "Administrator: test.demo.admin"],
+    "pre": "None.",
+    "steps": [
+      "As test.nic.requester press “[[nav.manuals]]” in the menu.",
+      "Press “[[manuals.user_guide]]”.",
+      "Type /manuals/admin_guide in the address bar.",
+      "As test.demo.admin press “[[nav.manuals]]”.",
+      "Press “[[manuals.uat_scripts]]”. Switch the language and press it again.",
+      "Sign out and type /manuals/user_guide in the address bar."
+    ],
+    "exp": [
+      "Step 1: the page “[[manuals.title]]” has one item, “[[manuals.user_guide]]”, with the line “[[manuals.user_guide.about]]”.",
+      "Step 2: the guide opens as a PDF in a new tab, in the language of the page.",
+      "Step 3: “[[error.404]]”.",
+      "Step 4: four items: “[[manuals.user_guide]]”, “[[manuals.admin_guide]]”, “[[manuals.uat_plan]]” and “[[manuals.uat_scripts]]”.",
+      "Step 5: the browser downloads eHire-UAT-test-scripts-en.xlsx in English and eHire-UAT-test-scripts-el.xlsx in Greek.",
+      "Step 6: the sign-in page. No manual is served to someone who is not signed in."
+    ]
+  },
+
+  "pw_helpers": {
+    "title": "Password fields: show or hide, Caps Lock and keyboard language",
+    "who": ["Any account, for example test.nic.requester"],
+    "pre": "A computer keyboard that can type Greek and English. Signed out.",
+    "steps": [
+      "On the sign-in page click in the field “[[login.password]]” and type an English letter.",
+      "Switch the keyboard to Greek and type a letter.",
+      "Switch on Caps Lock and type a letter. Switch it off and type another.",
+      "Press the button with the eye at the end of the field. Press it again.",
+      "Sign in and press “[[nav.password]]” in the menu. Type in both fields."
+    ],
+    "exp": [
+      "Step 1: under the field, “[[pw.kbd_en]]” and “[[pw.caps_off]]”.",
+      "Step 2: “[[pw.kbd_el]]”, highlighted.",
+      "Step 3: “[[pw.caps_on]]”, highlighted, then “[[pw.caps_off]]”.",
+      "Step 4: the characters show and the button is named “[[pw.hide]]”. The second press hides them and the name is “[[pw.show]]” again.",
+      "Step 5: both fields of “[[password.title]]” have the same button and the same lines."
+    ]
+  },
+
+  "num_shape": {
+    "title": "The request number: Directorate, position code, date and counter",
+    "who": ["[[role.requester]]: test.nic.requester"],
+    "pre": "None.",
+    "steps": [
+      "Submit a nursing request for Nicosia (test) with the position “Staff Nurse (test)”. Write down the number.",
+      "Submit a second request with the same position on the same day.",
+      "Submit a third request with the position “Midwife (test)”.",
+      "In “[[list.search]]” type today's date as it stands in the number (for example 20261126)."
+    ],
+    "exp": [
+      "The first number has the shape EHIRE-TNIC-NUR-20261126-01: EHIRE, the Directorate code without its dash (T-NIC), the position code, the day of submission in Cyprus time as year, month, day, and a two-digit counter.",
+      "The second number is the same up to the date and its counter is one higher.",
+      "The third number carries MID and its own counter, which starts at 01 for that Directorate, position and day.",
+      "The search finds the three requests."
+    ]
+  },
+  "num_draft_resubmit": {
+    "title": "A draft has no number; a resubmission keeps its number",
+    "who": ["[[role.requester]]: test.nic.requester"],
+    "pre": "A returned request of this requester (sample request 6, or the one from the case “Return a request to the requester”).",
+    "steps": [
+      "Press “[[list.new]]”, fill the facility and the category and press “[[action.save_draft]]”. Look at the row in the tab “[[list.tab.mine]]”.",
+      "Open the draft, fill the rest and press “[[form.submit]]”.",
+      "Open the returned request and write down its number. Press “[[form.title.resubmit]]”.",
+      "Change the text “[[field.need_text]]”, fill “[[form.resubmit_note]]” and press “[[action.resubmit]]”.",
+      "Read the number on the request page and in the list."
+    ],
+    "exp": [
+      "Step 1: the row shows “[[status.draft]]” where the number would be. A draft has no number.",
+      "Step 2: the number is given at submission and carries the date of that day.",
+      "Step 5: “[[done.resubmit]]”. The number is exactly the one you wrote down, whatever today's date is. A request never gets a second number."
+    ]
+  },
+  "num_position_code": {
+    "title": "The position code in the positions list goes into the number",
+    "who": ["Administrator: test.demo.admin", "[[role.requester]]: test.nic.requester"],
+    "pre": "The position “Secretary (test)” has the code SEC, as loaded. Put it back at the end.",
+    "steps": [
+      "As the administrator open “[[nav.settings]]” and “[[settings.list.position]]”. Read the column “[[settings.col.position_code]]”.",
+      "In the row of “Secretary (test)” type ΓΡΑ (Greek letters) as the code and press “[[settings.save]]”.",
+      "Type tst and press “[[settings.save]]”.",
+      "As test.nic.requester submit an administrative request with that position. Read the number.",
+      "As the administrator empty the code and save. Submit one more request with the position. Then set the code back to SEC."
+    ],
+    "exp": [
+      "Each test position has a code of two to six Latin letters or digits.",
+      "Step 2: the browser does not send the form and shows the hint “[[settings.position_code_hint]]” (sent anyway, the page says “[[settings.position_code_invalid]]”).",
+      "Step 3: “[[settings.saved]]”. The code is stored in capitals, TST.",
+      "Step 4: the number carries TST, for example EHIRE-TNIC-TST-20261126-01.",
+      "Step 5: with no code the number carries the code of the staff category: ADM for administrative (MED, NUR, ALH and OTH for the others). Numbers given earlier do not change."
+    ]
+  },
+
+  "cc_by_directorate": {
+    "title": "The form offers only the cost centres of the chosen Directorate",
+    "who": ["[[role.requester]]: test.nic.requester", "[[role.central_hr_officer]]: test.central.hr"],
+    "pre": "The test data is loaded: T-1001 to T-1003 belong to Nicosia (test), T-1004 to Limassol – Paphos (test), T-1009 and T-1010 to no Directorate.",
+    "steps": [
+      "As test.nic.requester press “[[list.new]]” and open the list “[[field.cost_centre]]”.",
+      "As test.central.hr press “[[list.new]]”, choose Limassol – Paphos (test) as Directorate and open the list.",
+      "Change the Directorate to Nicosia (test) and choose T-1001.",
+      "Change the Directorate back to Limassol – Paphos (test) and look at the field."
+    ],
+    "exp": [
+      "Step 1: T-1001, T-1002 and T-1003, then the cost centres with no Directorate (T-1009, T-1010 and any you added without one). No cost centre of another Directorate and none of eFinance's. Each line shows the code, then the name.",
+      "Step 2: T-1004 and the cost centres with no Directorate.",
+      "Step 3: the list changes as soon as the Directorate changes.",
+      "Step 4: T-1001 is no longer chosen or offered. You must choose again."
+    ]
+  },
+  "cc_search": {
+    "title": "Search the cost centres on the form",
+    "who": ["[[role.requester]]: test.nic.requester"],
+    "pre": "On the form “[[form.title.new]]”, with the Directorate Nicosia (test).",
+    "steps": [
+      "In “[[form.cost_centre_search]]” type 1002.",
+      "Clear the box and type ward (on the Greek screen: κλινικη, without the accent).",
+      "Clear the box, type 1003 and choose T-1003 in the list. Then type zzz in the box.",
+      "Clear the box. Then press Enter inside it."
+    ],
+    "exp": [
+      "The box shows the hint “[[form.cost_centre_search.placeholder]]”.",
+      "Step 1: “[[form.cost_centre_matches.one]]” and the list holds only T-1002.",
+      "Step 2: “[[form.cost_centre_matches.many|n=2]]”: T-1001 and T-1002. Capitals and accents make no difference.",
+      "Step 3: “[[form.cost_centre_matches.many|n=0]]”. The cost centre you chose stays in the list and stays chosen.",
+      "Step 4: the whole list is back and the count line is empty. Enter does not submit the form."
+    ]
+  },
+  "cc_inactive": {
+    "title": "A deactivated cost centre is not offered on the form",
+    "who": ["Administrator: test.demo.admin", "[[role.requester]]: test.nic.requester"],
+    "pre": "T-1003 is active. Use a test cost centre (code T-): the sync leaves those alone.",
+    "steps": [
+      "As the administrator open “[[nav.settings]]” and “[[settings.list.cost_centre]]”. Read the line at the foot of the list.",
+      "Choose Nicosia (test) in “[[settings.filter.directorate]]” and press “[[settings.filter.apply]]”.",
+      "In the row T-1003 press “[[settings.deactivate]]”.",
+      "As test.nic.requester open “[[list.new]]” and the list “[[field.cost_centre]]”. Type 1003 in the search box.",
+      "As the administrator press “[[settings.activate]]” in the row T-1003."
+    ],
+    "exp": [
+      "Step 1: the list shows 50 cost centres a page, with “[[settings.page|n=1|total=…]]” and the button “[[settings.next]]”.",
+      "Step 2: only T-1001, T-1002 and T-1003.",
+      "Step 3: “[[settings.saved]]”. The row shows “[[settings.inactive]]” and the page keeps the filter.",
+      "Step 4: T-1003 is not in the list, and the search gives “[[form.cost_centre_matches.many|n=0]]”.",
+      "Step 5: “[[settings.saved]]”, and the form offers T-1003 again."
+    ]
+  },
+  "cc_directorate_change": {
+    "title": "A cost centre follows the Directorate set in Settings",
+    "who": ["Administrator: test.demo.admin", "test.nic.requester", "test.lim.requester"],
+    "pre": "T-1010 belongs to no Directorate, as loaded. Put it back at the end.",
+    "steps": [
+      "As the administrator open “[[settings.list.cost_centre]]”, choose “[[settings.filter.none]]” in “[[settings.filter.directorate]]” and press “[[settings.filter.apply]]”.",
+      "In the row T-1010 choose Limassol – Paphos (test) in “[[field.directorate]]” and press “[[settings.save]]”.",
+      "As test.nic.requester open “[[list.new]]” and the list “[[field.cost_centre]]”.",
+      "As test.lim.requester do the same.",
+      "As the administrator find T-1010 under the filter Limassol – Paphos (test), choose “[[settings.cost_centre.none]]” in “[[field.directorate]]” and press “[[settings.save]]”."
+    ],
+    "exp": [
+      "Step 1: T-1009 and T-1010, and any cost centre added without a Directorate.",
+      "Step 2: “[[settings.saved]]”. T-1010 leaves the filtered list.",
+      "Step 3: Nicosia no longer offers T-1010.",
+      "Step 4: Limassol – Paphos offers it.",
+      "Step 5: “[[settings.saved]]”. Every Directorate offers T-1010 again."
+    ]
+  },
+
+  "efin_sync_now": {
+    "title": "The eFinance panel and “Sync now”",
+    "who": ["Administrator: test.demo.admin"],
+    "pre": "The eFinance link is on. If the panel shows “[[settings.inactive]]” there is no button: write “Blocked” and tell the project owner.",
+    "steps": [
+      "Open “[[nav.settings]]” and “[[settings.list.cost_centre]]”. Read the panel “[[settings.efinance.title]]”.",
+      "Press “[[settings.efinance.sync_now]]”.",
+      "Read the line “[[settings.efinance.last_run|date=…]]” in the panel.",
+      "Choose Nicosia (test) in “[[settings.filter.directorate]]” and press “[[settings.filter.apply]]”."
+    ],
+    "exp": [
+      "The panel shows the label “[[settings.active]]”, the line “[[settings.efinance.state_http]]”, the line “[[settings.efinance.budget_label]]: [[settings.efinance.budget.exists]]”, the last sync and the note “[[settings.efinance.hand_edit]]”.",
+      "Step 2: a green message, “[[settings.efinance.result.unchanged]]”. If eFinance changed since the last sync it gives the counts instead: “[[settings.efinance.result.changed|added=…|updated=…|deactivated=…|reactivated=…]]”.",
+      "Step 3: the date and time of now, in Cyprus time, with the same result.",
+      "Step 4: the test cost centres (codes T-) are still “[[settings.active]]”. The sync never switches them off."
+    ]
+  },
+  "efin_sync_restores": {
+    "title": "The sync sets a hand change back to eFinance's values",
+    "who": ["Administrator: test.demo.admin"],
+    "pre": "The eFinance link is on. You change one of eFinance's cost centres for a minute; the sync puts it back, so nothing stays changed.",
+    "steps": [
+      "On “[[settings.list.cost_centre]]” filter by a Directorate of eFinance (not a test one). Write down the code and the names of the first active cost centre.",
+      "Add the letter X to “[[settings.col.name_en]]” of that row and press “[[settings.save]]”.",
+      "Press “[[settings.efinance.sync_now]]” and find the row again.",
+      "Press “[[settings.deactivate]]” in that row. Then press “[[settings.efinance.sync_now]]”."
+    ],
+    "exp": [
+      "Step 2: “[[settings.saved]]”.",
+      "Step 3: “[[settings.efinance.result.changed|added=0|updated=1|deactivated=0|reactivated=0]]”. The name is as you wrote it down.",
+      "Step 4: “[[settings.efinance.result.changed|added=0|updated=0|deactivated=0|reactivated=1]]”. The row is “[[settings.active]]” again.",
+      "The audit log has an “[[audit.event.list_changed]]” row for each hand change and for each sync that changed something."
+    ]
+  },
+  "efin_unknown_cc": {
+    "title": "Step 2 on a test cost centre: eFinance does not know it, so “Yes” needs a comment",
+    "who": ["[[role.requester]]: test.nic.requester", "[[role.dir_accountant]]: test.nic.accountant"],
+    "pre": "The eFinance link is on. An administrative Nicosia (test) request at step 2, with the cost centre T-1001.",
+    "steps": [
+      "As test.nic.accountant open the request and read the panel “[[card.budget.title]]” on the card.",
+      "Answer “[[card.position_available]]” and “[[card.funds_available]]” with “[[answer.yes]]”, leave the comment empty and press “[[card.send]]”.",
+      "Write a comment and press “[[card.send]]”.",
+      "Read the accountant's answer under “[[page.checks]]”."
+    ],
+    "exp": [
+      "Step 1: the panel shows “[[card.budget.scope|code=T-1001|year=(year)]]” and a yellow warning: “[[card.budget.warning.unknown_cost_centre|code=T-1001]] [[card.budget.warning.comment]]”. It lists no budget lines.",
+      "Step 2: the card is not sent. Under the comment it says “[[error.comment_required]]” (if the browser check does not run, the page says “[[error.budget_comment_required]]”).",
+      "Step 3: “[[done.check]]” and the request moves to step 3.",
+      "Step 4: under “[[card.budget.title]]” the answer shows “[[card.budget.stored.unknown_cost_centre|code=T-1001]]”, with the comment.",
+      "This holds for every request on a test cost centre. While the link is on, a “[[answer.yes]]” at step 2 or step 4 of the other cases needs a comment too."
+    ]
+  },
+  "efin_setup": {
+    "title": "Prepare a Directorate of eFinance for the budget cases",
+    "who": ["Administrator: test.demo.admin", "[[role.requester]]: test.nic.requester"],
+    "pre": "Ask the project owner which Directorate of eFinance to use (for example HQ). Its roles must have no holder: check the panel “[[settings.roles.empty_title]]”. Never replace a real holder. Use test accounts only.",
+    "steps": [
+      "As the administrator open “[[settings.roles]]” and the group of that Directorate. Add test.nic.requester under “[[role.requester]]” with “[[settings.add]]”.",
+      "Choose test.nic.accountant as holder of “[[role.dir_accountant]]”, test.nic.hr of “[[role.dir_hr_officer]]” and test.nic.exec of “[[role.dir_exec]]” (and test.nic.sci of “[[role.sci_director]]” if the row exists). Press “[[settings.save]]” on each row.",
+      "As test.nic.requester press “[[list.new]]”, choose that Directorate and open the lists “[[field.facility]]” and “[[field.cost_centre]]”.",
+      "Submit two administrative requests on one of its cost centres (position “Secretary (test)”, reason “[[reason.new_need]]”). Write down the numbers and the cost centre."
+    ],
+    "exp": [
+      "Steps 1 and 2: “[[settings.saved]]” each time. The roles leave the panel “[[settings.roles.empty_title]]”.",
+      "Step 3: the requester can now choose between two Directorates. The cost-centre list holds that Directorate's cost centres with eFinance's codes, and the search box narrows it.",
+      "Step 4: the numbers carry the code of that Directorate, for example EHIRE-HQ-SEC-20261126-01. Both requests wait on test.nic.accountant.",
+      "Keep these roles for the budget cases that follow. The case “Step 4: the line from step 2, the commitment article and the comment” tells you when to remove them."
+    ]
+  },
+  "efin_card_lines": {
+    "title": "The budget panel at step 2: salary lines, loaded or not, and no amounts",
+    "who": ["[[role.dir_accountant]]: test.nic.accountant"],
+    "pre": "The eFinance link is on. The first request of the case “Prepare a Directorate of eFinance for the budget cases”, at step 2.",
+    "steps": [
+      "Open the request and find the panel “[[card.budget.title]]” on the card.",
+      "Read the lines above the table.",
+      "Read the table and its last row.",
+      "Look over the whole page for amounts of money."
+    ],
+    "exp": [
+      "The panel has the title “[[card.budget.title]]” and, next to it, “[[card.budget.as_of|date=(date and time)]]”.",
+      "Step 2: “[[card.budget.scope|code=(code)|year=(year)]]”, then the notes “[[card.budget.note.level|code=(code)]]” and “[[card.budget.note.no_spending]]”.",
+      "Step 3: under “[[card.budget.pick_step2]]” the table has the columns “[[card.budget.line]]” and “[[card.budget.col.state|year=(year)]]”. It lists salary lines only (codes 2102 to 2499), each with its description and either “[[card.budget.state.loaded]]” or “[[card.budget.state.missing]]”. The last row, “[[card.budget.none]]”, is chosen.",
+      "Step 4: no amount shows anywhere: no budget, spending, commitments or balance.",
+      "When this was written eFinance had no budget loaded, so expect “[[card.budget.state.missing]]” on every line."
+    ]
+  },
+  "efin_no_budget_comment": {
+    "title": "No budget loaded: “Yes” at step 2 needs a comment",
+    "who": ["[[role.dir_accountant]]: test.nic.accountant"],
+    "pre": "The same request as in the case above, still at step 2. No salary line of the Directorate has a budget loaded.",
+    "steps": [
+      "Read the yellow warning at the foot of the panel.",
+      "Answer both questions with “[[answer.yes]]”, leave “[[card.budget.none]]” chosen and the comment empty, and press “[[card.send]]”.",
+      "Write a comment and press “[[card.send]]”.",
+      "Read the accountant's answer under “[[page.checks]]”."
+    ],
+    "exp": [
+      "Step 1: “[[card.budget.warning.no_budget|year=(year)]] [[card.budget.warning.comment]]”.",
+      "Step 2: the card is not sent. Under the comment it says “[[error.comment_required]]” (if the browser check does not run, the page says “[[error.budget_comment_required]]”). The request does not change.",
+      "Step 3: “[[done.check]]”. The warning never blocks: a person decides, and the comment records why.",
+      "Step 4: under “[[card.budget.title]]” the answer shows “[[card.budget.no_line]]”, “[[card.budget.stored.loaded_count|year=(year)|loaded=0|total=(lines)]]”, the warning “[[card.budget.stored.no_budget|year=(year)]]” and “[[card.budget.scope_entity|code=(code)|entity=(Directorate code)|year=(year)]]”. No amount.",
+      "The requester sees none of this, only “[[tracker.state.done]]” for the step."
+    ]
+  },
+  "efin_pick_line": {
+    "title": "Picking a budget line is optional",
+    "who": ["[[role.dir_accountant]]: test.nic.accountant"],
+    "pre": "The second request of the case “Prepare a Directorate of eFinance for the budget cases”, at step 2. In the case above the answer was sent with “[[card.budget.none]]”.",
+    "steps": [
+      "Open the request. In the panel “[[card.budget.title]]” press the row of the first budget line.",
+      "Answer both questions with “[[answer.yes]]”, write a comment and press “[[card.send]]”.",
+      "Read the accountant's answer under “[[page.checks]]”."
+    ],
+    "exp": [
+      "Step 1: the row is marked as chosen. A click anywhere on the row picks it.",
+      "Step 2: “[[done.check]]”. The answer is accepted with a line, as it was accepted without one in the case above. The card never asks for a line.",
+      "Step 3: the answer shows “[[card.budget.line]]:” with the code and description of the line, and “[[card.budget.state.missing]]” (or “[[card.budget.state.loaded]]” if eFinance has a budget for it)."
+    ]
+  },
+  "efin_budget_loaded": {
+    "title": "A budget is loaded: no warning, and the warning for a line without one",
+    "who": ["[[role.dir_accountant]]: test.nic.accountant"],
+    "pre": "Only when eFinance has a budget loaded for at least one salary line of the Directorate, and not for all of them (ask the project owner). Otherwise write “Not run” with that reason. A new request of that Directorate at step 2 (submit one as test.nic.requester, as in the setup case).",
+    "steps": [
+      "Open the card and read the table of the panel “[[card.budget.title]]”.",
+      "Press the row of a line marked “[[card.budget.state.missing]]”.",
+      "Press the row of a line marked “[[card.budget.state.loaded]]”.",
+      "Answer both questions with “[[answer.yes]]”, leave the comment empty and press “[[card.send]]”."
+    ],
+    "exp": [
+      "Step 1: at least one line shows “[[card.budget.state.loaded]]”. With “[[card.budget.none]]” chosen there is no warning.",
+      "Step 2: a warning appears at once: “[[card.budget.warning.line_no_budget|year=(year)]] [[card.budget.warning.comment]]”.",
+      "Step 3: the warning disappears.",
+      "Step 4: “[[done.check]]” without a comment. Under “[[page.checks]]” the answer shows “[[card.budget.state.loaded]]” and “[[card.budget.stored.no_warning]]”. Still no amount."
+    ]
+  },
+  "efin_step4": {
+    "title": "Step 4: the line from step 2, the commitment article and the comment",
+    "who": ["test.nic.hr and test.nic.exec (to reach step 4)", "[[role.fin_mgmt_head]]: test.central.finmgmt", "Administrator: test.demo.admin (clean-up)"],
+    "pre": "The request of the case “Picking a budget line is optional”, taken through step 3: test.nic.hr answers “[[documentation.complete]]” and test.nic.exec presses “[[action.approve]]”.",
+    "steps": [
+      "As test.central.finmgmt open the request and read the panel “[[card.budget.title]]”.",
+      "Press the row of another budget line and look at the field “[[card.commitment_article]]”.",
+      "Answer “[[card.credit]]” with “[[answer.yes]]”, leave the comment empty and press “[[card.send]]”.",
+      "Write a comment and press “[[card.send]]”.",
+      "When the budget cases are done: as test.nic.requester withdraw the test requests of that Directorate. Then, as the administrator, open “[[settings.roles]]”, set its holders back to “[[settings.none]]” and remove test.nic.requester from its requesters."
+    ],
+    "exp": [
+      "Step 1: the same salary lines, under “[[card.budget.pick_step4]]”. The line picked at step 2 is already chosen.",
+      "Step 2: the code of the line you pressed fills “[[card.commitment_article]]”.",
+      "Step 3: the card is not sent and asks for a comment, as at step 2 (the server's own message is “[[error.budget_comment_required]]”).",
+      "Step 4: “[[done.check]]”. Under “[[page.checks]]” the answer shows the commitment article and, under “[[card.budget.title]]”, the line and the warning. No amount.",
+      "Step 5: “[[settings.saved]]” each time, with no line about tasks left with nobody. The Directorate is back in the panel “[[settings.roles.empty_title]]”."
+    ]
+  },
+  "efin_unavailable": {
+    "title": "eFinance cannot answer: the card says so and works as before",
+    "who": ["Server administrator", "[[role.dir_accountant]]: test.nic.accountant", "Administrator: test.demo.admin"],
+    "pre": "Needs a server administrator, who makes eFinance unreachable for eHire for a few minutes (for example a wrong port in EHIRE_EFINANCE_URL in /etc/ehire/ehire.env and a restart of ehire) and then sets it back. eFinance's own service is never stopped. An administrative Nicosia (test) request at step 2.",
+    "steps": [
+      "The server administrator makes eFinance unreachable for eHire.",
+      "As test.nic.accountant open the request and read the card.",
+      "Answer both questions with “[[answer.yes]]”, leave the comment empty and press “[[card.send]]”.",
+      "As test.demo.admin open “[[settings.list.cost_centre]]” and press “[[settings.efinance.sync_now]]”.",
+      "The server administrator sets the address back and restarts ehire. Open the card of another request at step 2."
+    ],
+    "exp": [
+      "Step 2: in place of the panel one grey line: “[[card.budget.unavailable]]”.",
+      "Step 3: “[[done.check]]” without a comment. With no answer from eFinance there is no warning. The stored answer has no eFinance lines.",
+      "Step 4: a red message, “[[settings.efinance.result.failed|reason=…]]”. The cost centres stay as they were.",
+      "Step 5: the panel “[[card.budget.title]]” is back."
+    ]
+  },
+
+  "import_position_code": {
+    "title": "Excel import: the position code column",
+    "who": ["Administrator: test.demo.admin"],
+    "pre": "Excel or LibreOffice on your computer. The position “Secretary (test)” has the code SEC; put it back at the end.",
+    "steps": [
+      "Open “[[import.menu]]”, press “[[import.template.download]]” and open the sheet positions.",
+      "In the row of “Secretary (test)” type TOOLONG1 in the column code. Save the file and upload it with “[[import.upload.submit]]”.",
+      "Change the cell to ts1, save and upload again.",
+      "Press “[[import.confirm]]”. Open “[[settings.list.position]]”.",
+      "Set the code back to SEC there."
+    ],
+    "exp": [
+      "Step 2: “[[import.errors.title]]”. The table names the sheet positions, the row number, the column code and the message “[[import.err.position_code]]”.",
+      "Step 3: the summary “[[import.preview.title]]” shows one row under “[[import.preview.update]]” for positions and nothing else to change.",
+      "Step 4: “[[import.done|add=0|update=1]]”. The positions list shows the code in capitals, TS1.",
+      "A blank cell in the column keeps the stored code."
+    ]
+  },
+  "import_cc_directorate": {
+    "title": "Excel import: a cost centre with its Directorate",
+    "who": ["Administrator: test.demo.admin", "test.lim.requester", "test.nic.requester"],
+    "pre": "Excel or LibreOffice on your computer.",
+    "steps": [
+      "Download the template. On the sheet cost_centres add one row: code T-3301, a Greek name ending “(δοκιμή)”, an English name ending “(test)”, directorate_code T-XXX, active yes. Save and upload the file.",
+      "Change directorate_code to T-LIM, save and upload again. Press “[[import.confirm]]”.",
+      "Open “[[settings.list.cost_centre]]” and filter by Limassol – Paphos (test).",
+      "As test.lim.requester open “[[list.new]]” and the cost-centre list. Do the same as test.nic.requester."
+    ],
+    "exp": [
+      "Step 1: “[[import.errors.title]]”. The table names the sheet cost_centres, the row, the column directorate_code and the message “[[import.err.unknown_directorate|code=T-XXX]]”. Nothing is imported.",
+      "Step 2: the summary shows one new row, then “[[import.done|add=1|update=0]]”.",
+      "Step 3: T-3301 is in the list of that Directorate.",
+      "Step 4: Limassol – Paphos offers T-3301. Nicosia does not."
+    ]
+  },
+  "import_roles_move": {
+    "title": "Excel import: a new holder in the file gets the waiting task",
+    "who": ["Administrator: test.demo.admin", "test.lar.sci (requester)", "test.lar.accountant", "test.lar.deputy"],
+    "pre": "One Larnaca – Famagusta request waiting at step 2 on test.lar.accountant (submit one as test.lar.sci). Excel or LibreOffice on your computer.",
+    "steps": [
+      "Download the template and open the sheet role_holders. In the row dir_accountant, T-LAR, change username to test.lar.deputy and empty substitute_username. Save the file.",
+      "Upload it and read the summary. Press “[[import.confirm]]”.",
+      "Open the request as test.lar.deputy. As the administrator read “[[settings.roles]]” and the audit log.",
+      "Put the row back in the file (test.lar.accountant, test.lar.deputy) and import it again."
+    ],
+    "exp": [
+      "Step 2: one row under “[[import.preview.update]]” for role_holders, then “[[import.done|add=0|update=1]]”.",
+      "Step 3: test.lar.deputy has the card and an email labelled “[[mail.status.action]]”. The roles page shows the new holder. The audit log has “[[audit.event.role_changed]]” and “[[audit.event.task_redirected]]”. The import page itself shows no line about moved tasks.",
+      "Step 4: the roles are as before. The task stays with test.lar.deputy, who is the substitute again."
     ]
   }
 }
