@@ -47,6 +47,7 @@
                           "technician",
                           "finance",
                           "clinical_approver",
+                          "technical_approver",
                           "executive_readonly",
                           "auditor_readonly"
                         ]
@@ -81,6 +82,7 @@
                           "forecastWarnings",
                           "permitRequest",
                           "permitClinical",
+                          "permitTechnical",
                           "permitOperate",
                           "permitCalendar",
                           "assetRegister",
@@ -130,6 +132,7 @@
                         "forecastWarnings",
                         "permitRequest",
                         "permitClinical",
+                        "permitTechnical",
                         "permitOperate",
                         "permitCalendar",
                         "assetRegister",
@@ -274,6 +277,7 @@
                               "technician",
                               "finance",
                               "clinical_approver",
+                              "technical_approver",
                               "executive_readonly",
                               "auditor_readonly"
                             ]
@@ -308,6 +312,7 @@
                               "forecastWarnings",
                               "permitRequest",
                               "permitClinical",
+                              "permitTechnical",
                               "permitOperate",
                               "permitCalendar",
                               "assetRegister",
@@ -357,6 +362,7 @@
                             "forecastWarnings",
                             "permitRequest",
                             "permitClinical",
+                            "permitTechnical",
                             "permitOperate",
                             "permitCalendar",
                             "assetRegister",
@@ -513,6 +519,7 @@
                               "technician",
                               "finance",
                               "clinical_approver",
+                              "technical_approver",
                               "executive_readonly",
                               "auditor_readonly"
                             ]
@@ -547,6 +554,7 @@
                               "forecastWarnings",
                               "permitRequest",
                               "permitClinical",
+                              "permitTechnical",
                               "permitOperate",
                               "permitCalendar",
                               "assetRegister",
@@ -596,6 +604,7 @@
                             "forecastWarnings",
                             "permitRequest",
                             "permitClinical",
+                            "permitTechnical",
                             "permitOperate",
                             "permitCalendar",
                             "assetRegister",
@@ -787,6 +796,7 @@
                           "forecastWarnings",
                           "permitRequest",
                           "permitClinical",
+                          "permitTechnical",
                           "permitOperate",
                           "permitCalendar",
                           "assetRegister",
@@ -818,6 +828,7 @@
                             "technician",
                             "finance",
                             "clinical_approver",
+                            "technical_approver",
                             "executive_readonly",
                             "auditor_readonly"
                           ]
@@ -839,6 +850,7 @@
                           "technician",
                           "finance",
                           "clinical_approver",
+                          "technical_approver",
                           "executive_readonly",
                           "auditor_readonly"
                         ]
@@ -862,6 +874,7 @@
                         "forecastWarnings",
                         "permitRequest",
                         "permitClinical",
+                        "permitTechnical",
                         "permitOperate",
                         "permitCalendar",
                         "assetRegister",
@@ -973,6 +986,7 @@
                 "technician",
                 "finance",
                 "clinical_approver",
+                "technical_approver",
                 "executive_readonly",
                 "auditor_readonly"
               ]
@@ -1016,6 +1030,7 @@
                     "forecastWarnings",
                     "permitRequest",
                     "permitClinical",
+                    "permitTechnical",
                     "permitOperate",
                     "permitCalendar",
                     "assetRegister",
@@ -1065,6 +1080,7 @@
                   "forecastWarnings",
                   "permitRequest",
                   "permitClinical",
+                  "permitTechnical",
                   "permitOperate",
                   "permitCalendar",
                   "assetRegister",
@@ -1119,6 +1135,7 @@
                           "forecastWarnings",
                           "permitRequest",
                           "permitClinical",
+                          "permitTechnical",
                           "permitOperate",
                           "permitCalendar",
                           "assetRegister",
@@ -1150,6 +1167,7 @@
                             "technician",
                             "finance",
                             "clinical_approver",
+                            "technical_approver",
                             "executive_readonly",
                             "auditor_readonly"
                           ]
@@ -1171,6 +1189,7 @@
                           "technician",
                           "finance",
                           "clinical_approver",
+                          "technical_approver",
                           "executive_readonly",
                           "auditor_readonly"
                         ]
@@ -1194,6 +1213,7 @@
                         "forecastWarnings",
                         "permitRequest",
                         "permitClinical",
+                        "permitTechnical",
                         "permitOperate",
                         "permitCalendar",
                         "assetRegister",
@@ -1398,6 +1418,7 @@
                           "forecastWarnings",
                           "permitRequest",
                           "permitClinical",
+                          "permitTechnical",
                           "permitOperate",
                           "permitCalendar",
                           "assetRegister",
@@ -1429,6 +1450,7 @@
                             "technician",
                             "finance",
                             "clinical_approver",
+                            "technical_approver",
                             "executive_readonly",
                             "auditor_readonly"
                           ]
@@ -1450,6 +1472,7 @@
                           "technician",
                           "finance",
                           "clinical_approver",
+                          "technical_approver",
                           "executive_readonly",
                           "auditor_readonly"
                         ]
@@ -1473,6 +1496,7 @@
                         "forecastWarnings",
                         "permitRequest",
                         "permitClinical",
+                        "permitTechnical",
                         "permitOperate",
                         "permitCalendar",
                         "assetRegister",
@@ -72814,6 +72838,7 @@
                           "technician",
                           "finance",
                           "clinical_approver",
+                          "technical_approver",
                           "executive_readonly",
                           "auditor_readonly"
                         ]
@@ -73009,6 +73034,7 @@
                                 "technician",
                                 "finance",
                                 "clinical_approver",
+                                "technical_approver",
                                 "executive_readonly",
                                 "auditor_readonly"
                               ]
@@ -73196,6 +73222,7 @@
                         "technician",
                         "finance",
                         "clinical_approver",
+                        "technical_approver",
                         "executive_readonly",
                         "auditor_readonly"
                       ]
@@ -73270,6 +73297,7 @@
                           "technician",
                           "finance",
                           "clinical_approver",
+                          "technical_approver",
                           "executive_readonly",
                           "auditor_readonly"
                         ]
@@ -73492,6 +73520,7 @@
                           "technician",
                           "finance",
                           "clinical_approver",
+                          "technical_approver",
                           "executive_readonly",
                           "auditor_readonly"
                         ]
@@ -73647,6 +73676,7 @@
                         "technician",
                         "finance",
                         "clinical_approver",
+                        "technical_approver",
                         "executive_readonly",
                         "auditor_readonly"
                       ]
@@ -73723,6 +73753,7 @@
                           "technician",
                           "finance",
                           "clinical_approver",
+                          "technical_approver",
                           "executive_readonly",
                           "auditor_readonly"
                         ]
@@ -73998,6 +74029,7 @@
                           "technician",
                           "finance",
                           "clinical_approver",
+                          "technical_approver",
                           "executive_readonly",
                           "auditor_readonly"
                         ]

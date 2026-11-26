@@ -60,7 +60,8 @@ describe("migrations", () => {
     expect(result.applied).toContain("0030_rfi_recipient_and_sap_asset_class");
     expect(result.applied).toContain("0031_vat");
     expect(result.applied).toContain("0032_rfi_close_and_contractor_contact");
-    expect(result.lastMigrationId).toBe("0032_rfi_close_and_contractor_contact");
+    expect(result.applied).toContain("0033_technical_approver_role");
+    expect(result.lastMigrationId).toBe("0033_technical_approver_role");
 
     const client = new Client({ connectionString: targetUrl });
     await client.connect();
@@ -1139,6 +1140,101 @@ describe("migrations", () => {
                  (select count(*) from ecapital.audit_log)::text as audit`)).rows[0];
       const first = await snapshot();
       await client.query(close!.sql);
+      expect(await snapshot()).toEqual(first);
+    } finally {
+      await client.end();
+      const cleanup = new Client({ connectionString: adminUrl });
+      await cleanup.connect();
+      await cleanup.query(`drop database if exists ${legacyDb}`);
+      await cleanup.end();
+    }
+  }, 180_000);
+
+  /**
+   * ADR-0039, 0033. On a database at 0032 with an administrator's own choice
+   * in the matrix: the enum and both CHECK constraints take the new role and
+   * area, the defaults are seeded without touching that choice, the new
+   * value is usable once the file has committed, and a second run changes
+   * nothing and writes no audit row.
+   */
+  it("0033 adds the technical approver to a database at 0032, keeps the administrator's choices, and is idempotent", async () => {
+    const legacyDb = "ecapital_migration_0033_test";
+    const legacyUrl = adminUrl.replace(/\/postgres$/, `/${legacyDb}`);
+
+    const admin = new Client({ connectionString: adminUrl });
+    await admin.connect();
+    await admin.query(`drop database if exists ${legacyDb}`);
+    await admin.query(`create database ${legacyDb}`);
+    await admin.end();
+
+    const client = new Client({ connectionString: legacyUrl });
+    await client.connect();
+    try {
+      const files = readMigrations();
+      const before0033 = files.filter((m) => m.id < "0033");
+      const technical = files.find((m) => m.id === "0033_technical_approver_role");
+      expect(technical).toBeDefined();
+
+      await client.query("create schema if not exists ecapital");
+      for (const migration of before0033) await client.query(migration.sql);
+
+      // An administrator's change, made before 0033: it must survive.
+      await client.query(`update ecapital.role_permission set level = 'READ', updated_at = now()
+                           where role = 'estates_head' and area_key = 'permitRequest'`);
+      const before = await client.query<{ count: string }>("select count(*) from ecapital.role_permission");
+      expect(Number(before.rows[0].count)).toBe(8 * 36);
+
+      // As the runner applies it: one transaction for the whole file.
+      await client.query("begin");
+      await client.query(technical!.sql);
+      await client.query("commit");
+
+      const { rows: cells } = await client.query<{
+        role: string;
+        area_key: string;
+        level: string;
+        updated_at: Date | null;
+      }>("select role, area_key, level, updated_at from ecapital.role_permission");
+      expect(cells).toHaveLength(9 * 37);
+      const cell = (role: string, area: string) => cells.find((c) => c.role === role && c.area_key === area);
+      expect(cell("estates_head", "permitRequest")?.level).toBe("READ");
+      expect(cell("technical_approver", "permitTechnical")?.level).toBe("APPROVE");
+      expect(cell("estates_head", "permitTechnical")?.level).toBe("APPROVE");
+      expect(cell("admin", "permitTechnical")?.level).toBe("APPROVE");
+      expect(cell("clinical_approver", "permitTechnical")?.level).toBe("READ");
+      expect(cell("technical_approver", "permitClinical")?.level).toBe("READ");
+      expect(cell("technical_approver", "workOrderRaise")?.level).toBe("WRITE");
+      expect(cell("technical_approver", "permitTechnical")?.updated_at).toBeNull();
+
+      // The value is usable once committed, and the checks refuse the unknown.
+      const U = "00000000-0000-4000-8000-0000000033a1";
+      await client.query(`insert into ecapital.app_user (id, subject, name, email)
+        values ('${U}', 'technical', 'Τεχνικός εγκρίνων', 'technical@example.test')`);
+      await client.query(
+        `insert into ecapital.app_user_role (app_user_id, role) values ('${U}', 'technical_approver')`,
+      );
+      await expect(
+        client.query(
+          `insert into ecapital.role_permission (role, area_key, level) values ('nobody', 'portfolio', 'READ')`,
+        ),
+      ).rejects.toThrow(/role_permission_role_known/);
+      await expect(
+        client.query(
+          `insert into ecapital.role_permission (role, area_key, level) values ('admin', 'nowhere', 'READ')`,
+        ),
+      ).rejects.toThrow(/role_permission_area_known/);
+
+      const snapshot = async () =>
+        (
+          await client.query(`
+          select (select json_agg(r order by r.role, r.area_key)
+                    from (select role, area_key, level from ecapital.role_permission) r)::text as r,
+                 (select count(*) from ecapital.audit_log)::text as audit`)
+        ).rows[0];
+      const first = await snapshot();
+      await client.query("begin");
+      await client.query(technical!.sql);
+      await client.query("commit");
       expect(await snapshot()).toEqual(first);
     } finally {
       await client.end();

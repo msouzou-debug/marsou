@@ -145,7 +145,7 @@ Every route below is behind the bearer token and inside the row-level-security t
 | `POST /admin/efinance/sync-master` | Read eFinance's entities (into `org_unit.efinance_code`) and vendors now (the timer does it daily). `admin` only. | eFinance |
 | `GET /efinance/vendors?q=` | Search eFinance's vendors by name or code, twenty at most, from the local copy. Signed in, no role. | eFinance |
 
-Who may write to the register: `admin`, `estates_head` and `project_engineer`, in units they belong to. `finance`, `technician` and `clinical_approver` read it; `executive_readonly` and `auditor_readonly` read everything and write nothing. All of that is in the policies, not in the controllers (ADR-0010).
+Who may write to the register: `admin`, `estates_head` and `project_engineer`, in units they belong to. `finance`, `technician`, `clinical_approver` and `technical_approver` read it; `executive_readonly` and `auditor_readonly` read everything and write nothing. All of that is in the policies, not in the controllers (ADR-0010).
 
 One exception, and it is a policy too. A `technician` may create and update a **defect** whose source is `INSPECTION` or `WORK_ORDER`, in their own unit — the field persona of CAPEX-01 §2 and §8. Not a `HANDOVER` one, which is a contractual position on somebody else's work, and not a `CONDITION_SURVEY` one, which is an estates exercise. `ecapital.can_manage_defect` is the first policy in the schema that reads a column other than `org_unit_id` (ADR-0017).
 

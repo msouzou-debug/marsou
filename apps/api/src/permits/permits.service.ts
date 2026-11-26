@@ -712,8 +712,8 @@ export class PermitsService {
     // rule (ADR-0026 Errata), not a row of the matrix (ADR-0033). Everyone
     // else decides only their own line, and only while the matrix gives
     // their role APPROVE on a row that line accepts (`LINE_NEEDS`: the
-    // clinical row for the clinical lines, and the request row as well for
-    // the estates head's TECHNICAL and SAFETY lines — OWNER UAT 25/11/2026).
+    // clinical row for the clinical lines; the technical row, or the clinical
+    // row for an appointment made before ADR-0039, for TECHNICAL and SAFETY).
     const isAdmin = tx.context.roles.includes("admin");
     if (!isAdmin && line.approverId !== caller) {
       throw AppError.forbidden("errors.permitDecisionNotYours");

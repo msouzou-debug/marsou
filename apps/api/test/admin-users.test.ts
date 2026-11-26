@@ -100,12 +100,13 @@ describe("/admin/users", () => {
     expect(off.items.every((u) => !u.active)).toBe(true);
   });
 
-  it("answers the eight roles with their scope, so the screen hardcodes none", async () => {
+  it("answers every role with its scope, so the screen hardcodes none", async () => {
     const token = await tokenFor(app, USERS.admin);
     const response = await request(app.getHttpServer()).get("/admin/roles").set(bearer(token));
     expect(response.status).toBe(200);
     const catalogue = RoleCatalogue.parse(response.body);
-    expect(catalogue).toHaveLength(8);
+    expect(catalogue).toHaveLength(9);
+    expect(catalogue.find((r) => r.role === "technical_approver")?.scope).toBe("unit");
     expect(catalogue.find((r) => r.role === "admin")?.scope).toBe("all");
     expect(catalogue.find((r) => r.role === "finance")?.scope).toBe("all");
     expect(catalogue.find((r) => r.role === "project_engineer")?.scope).toBe("unit");

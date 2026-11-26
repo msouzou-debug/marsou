@@ -17,6 +17,7 @@ A project's cost is read as four figures: approved budget, commitments («Δεσ
 - **Technician.** From a phone: records an asset's condition and readings, logs fault calls and runs work orders.
 - **Finance.** Imports the SAP files, matches postings to projects, changes the approved budget, receives and pays payment certificates, produces the accruals.
 - **Clinical approver.** Approves the shutdown permits that touch their area: infection control, nursing, unit director. The nursing side also logs fault calls.
+- **Technical and safety approver.** Approves the Technical Services and Safety lines of the shutdown permits in the units the administrator appointed them for. Decides no clinical line. Logs fault calls.
 - **Executive** and **Auditor.** See everything, change nothing. The auditor also sees the full audit trail.
 - **System administrator.** Users, roles, units, contractors, the eFinance link.
 

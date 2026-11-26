@@ -503,7 +503,7 @@ export function useAccruals(year: number, orgUnitId?: string) {
   });
 }
 
-/** The eight roles and their scope, so the screen hardcodes neither. */
+/** The roles and their scope, so the screen hardcodes neither. */
 export function useRoleCatalogue() {
   return useQuery({
     queryKey: ["admin-roles"],

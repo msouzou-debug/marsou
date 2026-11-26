@@ -9,6 +9,7 @@
       "technician",
       "finance",
       "clinical_approver",
+      "technical_approver",
       "executive_readonly",
       "admin",
       "auditor_readonly"
@@ -46,7 +47,8 @@
       "project_engineer",
       "technician",
       "finance",
-      "clinical_approver"
+      "clinical_approver",
+      "technical_approver"
     ]
   },
   "S03": {
@@ -95,7 +97,8 @@
       "project_engineer",
       "technician",
       "finance",
-      "clinical_approver"
+      "clinical_approver",
+      "technical_approver"
     ]
   },
   "S16": {
@@ -378,6 +381,7 @@
       "project_engineer",
       "technician",
       "clinical_approver",
+      "technical_approver",
       "executive_readonly",
       "auditor_readonly"
     ]
@@ -412,6 +416,7 @@
       "project_engineer",
       "technician",
       "clinical_approver",
+      "technical_approver",
       "executive_readonly",
       "auditor_readonly"
     ]
@@ -435,7 +440,8 @@
       "estates_head",
       "project_engineer",
       "technician",
-      "clinical_approver"
+      "clinical_approver",
+      "technical_approver"
     ]
   },
   "S14": {
@@ -445,7 +451,8 @@
     "persona": [
       "admin",
       "estates_head",
-      "clinical_approver"
+      "clinical_approver",
+      "technical_approver"
     ]
   },
   "S15": {
@@ -457,6 +464,7 @@
       "estates_head",
       "project_engineer",
       "clinical_approver",
+      "technical_approver",
       "executive_readonly",
       "auditor_readonly"
     ]
@@ -472,6 +480,7 @@
       "technician",
       "finance",
       "clinical_approver",
+      "technical_approver",
       "executive_readonly",
       "auditor_readonly"
     ]
@@ -571,6 +580,7 @@
       "project_engineer",
       "technician",
       "clinical_approver",
+      "technical_approver",
       "admin",
       "executive_readonly",
       "auditor_readonly"
@@ -585,6 +595,7 @@
       "project_engineer",
       "technician",
       "clinical_approver",
+      "technical_approver",
       "admin",
       "executive_readonly",
       "auditor_readonly"
@@ -607,6 +618,7 @@
     "persona": [
       "technician",
       "clinical_approver",
+      "technical_approver",
       "project_engineer",
       "estates_head",
       "admin"

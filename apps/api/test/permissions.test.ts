@@ -82,6 +82,22 @@ describe("the editable role matrix (ADR-0033)", () => {
     expect([...listed].sort()).toEqual([...MatrixArea.options].sort());
   });
 
+  it("lists the same roles in the CHECK constraint and the enum as AppRole in the shared package (ADR-0039)", async () => {
+    const { rows } = await owner.query<{ def: string }>(
+      `select pg_get_constraintdef(oid) as def from pg_constraint
+        where conname = 'role_permission_role_known'`,
+    );
+    const listed = [...rows[0].def.matchAll(/'(\w+)'::text/g)].map((match) => match[1]);
+    expect([...listed].sort()).toEqual([...AppRole.options].sort());
+
+    const { rows: labels } = await owner.query<{ label: string }>(
+      `select e.enumlabel as label from pg_enum e
+         join pg_type t on t.oid = e.enumtypid join pg_namespace n on n.oid = t.typnamespace
+        where n.nspname = 'ecapital' and t.typname = 'app_role' order by e.enumsortorder`,
+    );
+    expect(labels.map((row) => row.label)).toEqual([...AppRole.options]);
+  });
+
   it("is seeded from ROLE_MATRIX cell for cell, every role on every area", async () => {
     const { rows } = await owner.query<{ role: AppRole; area_key: MatrixArea; level: AccessLevel }>(
       "select role, area_key, level from ecapital.role_permission",
@@ -217,7 +233,7 @@ describe("the editable role matrix (ADR-0033)", () => {
   it("GET /admin/roles still answers the role catalogue the users screen reads", async () => {
     const response = await http().get("/admin/roles").set(bearer(await token(USERS.admin)));
     expect(response.status).toBe(200);
-    expect(response.body).toHaveLength(8);
+    expect(response.body).toHaveLength(AppRole.options.length);
   });
 
   it("refuses the writes to anybody but the administrator (403) and a short body (400)", async () => {

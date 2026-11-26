@@ -40,12 +40,12 @@ describe("S24r — who may open the page", () => {
 });
 
 describe("S24r — the table", () => {
-  it("has the eight roles as columns, a short label on screen and the full one as the title", () => {
+  it("has every role as a column, a short label on screen and the full one as the title", () => {
     renderMatrix();
     const headers = within(screen.getByTestId("s24r-table"))
       .getAllByRole("columnheader")
       .filter((th) => th.getAttribute("scope") === "col");
-    expect(headers).toHaveLength(9);
+    expect(headers).toHaveLength(10);
     const technician = headers.find((th) => th.getAttribute("title") === "Τεχνίτης")!;
     expect(technician).toHaveTextContent("Τεχνίτης");
     const estates = headers.find((th) => th.getAttribute("title") === "Προϊστάμενος Τεχνικών Υπηρεσιών")!;
@@ -155,7 +155,7 @@ describe("S24r — the legend, the cards and the notes", () => {
   it("gives the phone one card per role, with the areas it has no access to in one line", () => {
     renderMatrix();
     const cards = within(screen.getByTestId("s24r-cards")).getAllByRole("article");
-    expect(cards).toHaveLength(8);
+    expect(cards).toHaveLength(9);
     const technician = within(screen.getByTestId("s24r-cards")).getByRole("article", { name: "Τεχνίτης" });
     expect(technician).toHaveTextContent("Μονάδες: Οι δικές του");
     expect(within(technician).getByTestId("s24r-none")).toHaveTextContent("Αναφορές");

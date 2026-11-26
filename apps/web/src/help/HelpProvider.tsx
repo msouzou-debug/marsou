@@ -53,6 +53,7 @@ const ROLE_LABEL_KEYS: Record<string, string> = {
   technician: "help.roles.technician",
   finance: "help.roles.finance",
   clinical_approver: "help.roles.clinicalApprover",
+  technical_approver: "help.roles.technicalApprover",
   executive_readonly: "help.roles.executiveReadonly",
   admin: "help.roles.admin",
   auditor_readonly: "help.roles.auditorReadonly",

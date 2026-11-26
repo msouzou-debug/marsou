@@ -10,7 +10,7 @@
  * |-------------|-----------------------|--------------------------------------------------------------|
  * | data        | AdminUser[]?          | Ignored in `noPermission`, `loading` and `error`.             |
  * | state       | UsersScreenState      | Which of the five states to draw (plus `offline`).            |
- * | catalogue   | RoleCatalogueEntry[]  | From `GET /admin/roles`; the screen hardcodes neither the eight roles nor which of them carry units. |
+ * | catalogue   | RoleCatalogueEntry[]  | From `GET /admin/roles`; the screen hardcodes neither the roles nor which of them carry units. |
  * | orgUnits    | OrgUnit[]             | For the unit filter and the sheet's multi-select.             |
  * | filters     | UsersFilters          | Search term, role, unit, active.                              |
  *

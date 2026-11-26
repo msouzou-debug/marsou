@@ -43,8 +43,15 @@ describe("the matrix's shape", () => {
     expect(new Set(grouped).size).toBe(grouped.length);
   });
 
-  it("shows each of the eight roles once, as a column", () => {
+  it("shows each role once, as a column", () => {
     expect([...MATRIX_ROLES].sort()).toEqual([...ROLES].sort());
+  });
+
+  it("puts the technical and safety approver right after the clinical approver (ADR-0039)", () => {
+    const at = MATRIX_ROLES.indexOf("clinical_approver");
+    expect(MATRIX_ROLES[at + 1]).toBe("technical_approver");
+    expect(AppRole.options.indexOf("technical_approver")).toBe(AppRole.options.indexOf("clinical_approver") + 1);
+    expect(ROLE_SCOPE.technical_approver).toBe("unit");
   });
 
   it("takes the «Μονάδες» row from the role catalogue, so finance reads all units", () => {
@@ -97,6 +104,32 @@ describe("the rules the matrix states", () => {
 
   it("only the clinical approver decides a clinical approval line", () => {
     expect(ROLES.filter((role) => atLeast(accessOf("permitClinical", role), "APPROVE"))).toEqual(["clinical_approver"]);
+  });
+
+  it("ADR-0039: the technical row is the new role's, the estates head's and the administrator's", () => {
+    const deciders = ["admin", "estates_head", "technical_approver"];
+    expect(ROLES.filter((role) => atLeast(accessOf("permitTechnical", role), "APPROVE")).sort()).toEqual(deciders);
+    for (const role of ROLES.filter((r) => !deciders.includes(r))) {
+      expect(accessOf("permitTechnical", role)).toBe("READ");
+    }
+    expect(MATRIX_GROUPS.find((g) => g.group === "permits")?.areas).toContain("permitTechnical");
+  });
+
+  it("ADR-0039: the technical approver has the clinical approver's column, less the clinical decision", () => {
+    for (const area of AREAS) {
+      if (area === "permitClinical") {
+        expect(accessOf(area, "technical_approver")).toBe("READ");
+      } else if (area === "permitTechnical") {
+        expect(accessOf(area, "technical_approver")).toBe("APPROVE");
+      } else {
+        expect({ area, level: accessOf(area, "technical_approver") }).toEqual({
+          area,
+          level: accessOf(area, "clinical_approver"),
+        });
+      }
+    }
+    // The clinical approver gains nothing on the technical row.
+    expect(accessOf("permitTechnical", "clinical_approver")).toBe("READ");
   });
 });
 

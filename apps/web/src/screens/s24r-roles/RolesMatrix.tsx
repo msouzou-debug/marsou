@@ -3,7 +3,7 @@
 // S24r «Ρόλοι και δικαιώματα» — R01, R42 (CAPEX-01 §10, ADR-0010, ADR-0020, ADR-0033)
 //
 /**
- * RolesMatrix — what each of the eight roles sees and does, area by area,
+ * RolesMatrix — what each role sees and does, area by area,
  * and, for the administrator, the place to change it (ADR-0033).
  *
  * | Prop         | Type                                              | Notes                                                        |

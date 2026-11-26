@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { AreaType, PatientRiskGroup } from "./area";
+import type { AppRole } from "./auth";
 import type { DateRules } from "./calendar-date";
 import { SlaState } from "./site";
 
@@ -202,8 +203,10 @@ export const PermitApproval = z.object({
   // For WARD_MANAGER: which area this line is for. Null for unit-wide roles.
   areaId: z.string().nullable(),
   areaNameEl: z.string().nullable(),
-  // Who may decide: resolved from `clinical_approver` users scoped to the
-  // area (WARD_MANAGER, NURSING, INFECTION_CONTROL) or the unit (the rest).
+  // Who may decide: resolved from the approvers scoped to the area
+  // (WARD_MANAGER, NURSING, INFECTION_CONTROL) or the unit (the rest). The
+  // TECHNICAL and SAFETY appointments may be held by a technical approver or
+  // an estates head as well as a clinical approver (ADR-0039).
   approverId: z.string().nullable(),
   approverName: z.string().nullable(),
   decision: ApprovalDecision,
@@ -494,3 +497,75 @@ export const ApproverScopes = z.object({
   units: z.array(ApproverUnitScope),
 });
 export type ApproverScopes = z.infer<typeof ApproverScopes>;
+
+// --------------------------------------- who may hold which scope, ADR-0039
+// Owner decision 26/11/2026: the TECHNICAL and SAFETY lines get their own
+// role, so the estate's people decide them without clinical approval rights.
+// Both ends read these two lists: the API refuses a scope the account's roles
+// do not allow (422), and S24's editor offers only the scopes they allow.
+
+/** The unit scopes that are the estate's, not the ward's. */
+export const TECHNICAL_UNIT_APPROVAL_ROLES: readonly UnitApprovalRole[] = ["TECHNICAL", "SAFETY"];
+
+/**
+ * The account roles that may hold a TECHNICAL or SAFETY unit scope. The
+ * clinical approver stays on the list so the appointments made before the
+ * new role existed keep working; the estates head is the seeded TECHNICAL
+ * approver (ADR-0026).
+ */
+export const TECHNICAL_SCOPE_HOLDERS: readonly AppRole[] = [
+  "technical_approver",
+  "clinical_approver",
+  "estates_head",
+];
+
+/** Every other scope, by area or by unit, is a clinical approver's alone. */
+export const CLINICAL_SCOPE_HOLDERS: readonly AppRole[] = ["clinical_approver"];
+
+function holdsAny(roles: readonly AppRole[], holders: readonly AppRole[]): boolean {
+  return roles.some((role) => holders.includes(role));
+}
+
+export function isTechnicalUnitApprovalRole(role: UnitApprovalRole): boolean {
+  return TECHNICAL_UNIT_APPROVAL_ROLES.includes(role);
+}
+
+/** The scopes an account with these roles may be given; empty lists for none. */
+export function allowedApproverScopeRoles(roles: readonly AppRole[]): {
+  areas: AreaApprovalRole[];
+  units: UnitApprovalRole[];
+} {
+  const clinical = holdsAny(roles, CLINICAL_SCOPE_HOLDERS);
+  const technical = holdsAny(roles, TECHNICAL_SCOPE_HOLDERS);
+  return {
+    areas: clinical ? [...AreaApprovalRole.options] : [],
+    units: UnitApprovalRole.options.filter((role) =>
+      isTechnicalUnitApprovalRole(role) ? technical : clinical,
+    ),
+  };
+}
+
+/** True when the account can be given any scope at all — what S24 shows the editor for. */
+export function mayHoldApproverScopes(roles: readonly AppRole[]): boolean {
+  const allowed = allowedApproverScopeRoles(roles);
+  return allowed.areas.length > 0 || allowed.units.length > 0;
+}
+
+/**
+ * Why a replacement may not be saved on an account with these roles, as the
+ * API error key, or null when every scope in it is allowed. The clinical
+ * refusal is checked first: it is the older sentence and the wider rule.
+ */
+export function approverScopesRefusal(
+  roles: readonly AppRole[],
+  scopes: ApproverScopes,
+): "errors.approverScopesNeedRole" | "errors.approverScopesNeedTechnicalRole" | null {
+  const wantsClinical =
+    scopes.areas.length > 0 || scopes.units.some((scope) => !isTechnicalUnitApprovalRole(scope.role));
+  const wantsTechnical = scopes.units.some((scope) => isTechnicalUnitApprovalRole(scope.role));
+  if (wantsClinical && !holdsAny(roles, CLINICAL_SCOPE_HOLDERS)) return "errors.approverScopesNeedRole";
+  if (wantsTechnical && !holdsAny(roles, TECHNICAL_SCOPE_HOLDERS)) {
+    return "errors.approverScopesNeedTechnicalRole";
+  }
+  return null;
+}

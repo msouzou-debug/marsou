@@ -46,6 +46,7 @@ export const MatrixArea = z.enum([
   // Διακοπές και άδειες
   "permitRequest",
   "permitClinical",
+  "permitTechnical",
   "permitOperate",
   "permitCalendar",
   // Πάγια

@@ -6,7 +6,7 @@ import { ROLE_SCOPE, type RoleScope } from "./roles";
 export { AccessLevel, ACCESS_RANK, MatrixArea, atLeast } from "./access";
 
 /**
- * S24r «Ρόλοι και δικαιώματα» — what each of the eight roles sees and does.
+ * S24r «Ρόλοι και δικαιώματα» — what each role sees and does.
  *
  * ADR-0033: the matrix is the rule, not a description of it. It is stored in
  * `ecapital.role_permission`, the administrator edits it on the roles tab,
@@ -64,7 +64,10 @@ export const MATRIX_GROUPS: ReadonlyArray<{ group: MatrixGroup; areas: readonly 
     ],
   },
   { group: "cost", areas: ["sapImport", "budgetLines", "accruals", "forecastWarnings"] },
-  { group: "permits", areas: ["permitRequest", "permitClinical", "permitOperate", "permitCalendar"] },
+  {
+    group: "permits",
+    areas: ["permitRequest", "permitClinical", "permitTechnical", "permitOperate", "permitCalendar"],
+  },
   { group: "assets", areas: ["assetRegister", "assetCondition", "assetDocuments", "assetForecast", "assetLabels"] },
   {
     group: "maintenance",
@@ -86,6 +89,7 @@ export const MATRIX_ROLES: readonly AppRole[] = [
   "technician",
   "finance",
   "clinical_approver",
+  "technical_approver",
   "executive_readonly",
   "auditor_readonly",
   "admin",
@@ -93,19 +97,30 @@ export const MATRIX_ROLES: readonly AppRole[] = [
 
 type Cells = Record<AppRole, AccessLevel>;
 
-/** Every role at `rest`, then the named roles at their own level. */
+/**
+ * Every role at `rest`, then the named roles at their own level.
+ *
+ * RULE (ADR-0039, owner decision 26/11/2026): the technical and safety
+ * approver starts from what the clinical approver has on every row, so a
+ * person moved from one role to the other loses nothing but the clinical
+ * decision. The two rows that tell them apart, `permitClinical` and
+ * `permitTechnical`, name the new role's level explicitly below.
+ */
 function row(rest: AccessLevel, named: Partial<Cells> = {}): Cells {
-  return {
+  const cells: Cells = {
     admin: rest,
     estates_head: rest,
     project_engineer: rest,
     technician: rest,
     finance: rest,
     clinical_approver: rest,
+    technical_approver: rest,
     executive_readonly: rest,
     auditor_readonly: rest,
     ...named,
   };
+  if (named.technical_approver === undefined) cells.technical_approver = cells.clinical_approver;
+  return cells;
 }
 
 // The three roles that run a project's works (ADR-0015's `can_manage_project`).
@@ -155,7 +170,12 @@ export const ROLE_MATRIX: Record<MatrixArea, Cells> = {
   // (CAPEX-01 §10's segregation): that is the APPROVE on this row.
   permitRequest: row("READ", { admin: "APPROVE", estates_head: "APPROVE", project_engineer: "WRITE" }),
   // Only the approver a line is assigned to decides it (CAPEX-01 §9).
-  permitClinical: row("READ", { clinical_approver: "APPROVE" }),
+  permitClinical: row("READ", { clinical_approver: "APPROVE", technical_approver: "READ" }),
+  // ADR-0039: the TECHNICAL and SAFETY lines. The estates head and the
+  // administrator held them through the request row until 26/11/2026; they
+  // hold this row now, beside the new role. The assignment is still checked
+  // separately (apps/api/src/permits/line-needs.ts).
+  permitTechnical: row("READ", { technical_approver: "APPROVE", estates_head: "APPROVE", admin: "APPROVE" }),
   permitOperate: row("READ", RUNS_WORKS),
   permitCalendar: row("READ"),
 
@@ -221,6 +241,8 @@ export const RoleNoteKey = z.enum([
   "clinicalAreas",
   "clinicalLine",
   "clinicalCalls",
+  "technicalLine",
+  "technicalCalls",
   "executiveReads",
   "auditorTrail",
   "auditorServer",
@@ -240,6 +262,7 @@ export const ROLE_NOTES: Record<AppRole, readonly RoleNoteKey[]> = {
   technician: ["technicianReads", "technicianField", "technicianDefects"],
   finance: ["financeAllUnits", "financeBudget", "financeNoRegister"],
   clinical_approver: ["clinicalAreas", "clinicalLine", "clinicalCalls"],
+  technical_approver: ["technicalLine", "technicalCalls"],
   executive_readonly: ["executiveReads"],
   auditor_readonly: ["auditorTrail", "auditorServer"],
   admin: ["adminPhaseBack", "adminBudget", "adminApprovers", "adminAuditor"],

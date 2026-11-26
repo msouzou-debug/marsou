@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import { ApproverScopes } from "@ecapital/shared";
+import { ApproverScopes, approverScopesRefusal } from "@ecapital/shared";
 import { asc, eq } from "drizzle-orm";
 import { UUID } from "../common/actor";
 import { AppError } from "../common/errors";
@@ -22,9 +22,15 @@ import * as schema from "../db/schema";
  *
  * Two rules, each said once here and once where it matters:
  *
- *   **Only a clinical approver gets scopes.** A scope on somebody without the
- *   role grants nothing — the route resolves to them, the permit waits, and
- *   nobody can decide it. 422 with `errors.approverScopesNeedRole`.
+ *   **Only a role that can decide the line gets the scope.** A scope on
+ *   somebody without the role grants nothing — the route resolves to them,
+ *   the permit waits, and nobody can decide it. ADR-0039 (owner decision
+ *   26/11/2026): a TECHNICAL or SAFETY unit scope goes to a technical and
+ *   safety approver, a clinical approver or an estates head, 422 with
+ *   `errors.approverScopesNeedTechnicalRole` otherwise; every other scope,
+ *   by area or by unit, still goes to a clinical approver alone, 422 with
+ *   `errors.approverScopesNeedRole`. The rule is `approverScopesRefusal` in
+ *   packages/shared/src/permit.ts, which S24's editor reads too.
  *
  *   **A replacement is one transaction.** The administrator sends the whole
  *   picture and gets the whole picture; a half-applied scope would leave a
@@ -75,10 +81,11 @@ export class ApproverScopesService {
       .select({ role: schema.appUserRole.role })
       .from(schema.appUserRole)
       .where(eq(schema.appUserRole.appUserId, userId));
-    const holdsRole = roles.some((row) => row.role === "clinical_approver");
-    if (!holdsRole && (scopes.areas.length || scopes.units.length)) {
-      throw AppError.unprocessable("errors.approverScopesNeedRole");
-    }
+    const refusal = approverScopesRefusal(
+      roles.map((row) => row.role),
+      scopes,
+    );
+    if (refusal) throw AppError.unprocessable(refusal);
 
     // Every area has to exist and to be one the administrator may write to.
     // A scope over a room in a unit they cannot see is a scope they should

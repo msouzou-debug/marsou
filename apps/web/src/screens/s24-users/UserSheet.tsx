@@ -10,7 +10,7 @@
  * |-------------|------------------------|-----------------------------------------------------------------------|
  * | open        | boolean                |                                                                       |
  * | user        | AdminUser?             | Omit for «Προσθήκη»; pass the row for an edit.                        |
- * | catalogue   | RoleCatalogueEntry[]   | The eight roles and their scope, from `GET /admin/roles`. The screen does not hardcode which roles carry units. |
+ * | catalogue   | RoleCatalogueEntry[]   | The roles and their scope, from `GET /admin/roles`. The screen does not hardcode which roles carry units. |
  * | orgUnits    | OrgUnit[]              | Everything the caller may see, which for an administrator is all of them. |
  * | saving      | boolean                |                                                                       |
  * | apiError    | string?                | The API's own sentence for `errors.selfLockout`, `errors.lastAdmin`, `errors.auditorProtected` and `errors.unitRequired`, shown inline. |
@@ -34,7 +34,7 @@ import { useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { LoaderCircle } from "lucide-react";
-import type { AdminUser, AppRole, OrgUnit, RoleCatalogueEntry } from "@ecapital/shared";
+import { mayHoldApproverScopes, type AdminUser, type AppRole, type OrgUnit, type RoleCatalogueEntry } from "@ecapital/shared";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { ApproverScopesEditor } from "./ApproverScopesEditor";
 import { PasswordEditor } from "./PasswordEditor";
@@ -258,11 +258,13 @@ export function UserSheet({
             </p>
           )}
 
-          {/* item 8 (M3, R22): only for an existing clinical_approver — routing
-              scopes have no meaning before the account exists or the role is
-              ticked. */}
-          {user && roles.includes("clinical_approver") && (
-            <ApproverScopesEditor userId={user.id} orgUnits={orgUnits} />
+          {/* item 8 (M3, R22): only for an existing account whose roles may
+              hold a scope — routing scopes have no meaning before the account
+              exists or a role that decides a line is ticked. ADR-0039: the
+              clinical approver, the technical and safety approver and the
+              estates head, each offered only the scopes their role allows. */}
+          {user && mayHoldApproverScopes(roles) && (
+            <ApproverScopesEditor userId={user.id} orgUnits={orgUnits} roles={roles} />
           )}
 
           {/* ADR-0030: only where the deployment signs people in with an

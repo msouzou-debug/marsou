@@ -72,6 +72,7 @@ export const appRole = ecapital.enum("app_role", [
   "technician",
   "finance",
   "clinical_approver",
+  "technical_approver",
   "executive_readonly",
   "auditor_readonly",
 ]);

@@ -76,6 +76,7 @@ const ROLE_EL: Record<string, string> = {
   technician: "Τεχνίτης",
   finance: "Οικονομική Διεύθυνση",
   clinical_approver: "Κλινικός εγκριτής",
+  technical_approver: "Εγκρίνων τεχνικών και ασφάλειας",
   executive_readonly: "Διοίκηση",
   auditor_readonly: "Ελεγκτής",
 };

@@ -17,12 +17,20 @@ import { M3_USERS, draftPermit, runIcra, submit } from "./permit-support";
  * with live decide buttons on her own record. The seed now appoints the
  * Larnaca estates head instead; these tests make her the requester so the
  * same collision is exercised on purpose.
+ *
+ * ADR-0039 seeds a second TECHNICAL holder at Λάρνακα, the technical and
+ * safety approver. These tests are about the requester being the only
+ * holder, so they take his appointments away for the length of the file
+ * and give them back at the end.
  */
 const ESTATES_LARNACA = "estates.larnaca@ecapital.test";
+const TECHNICAL_LARNACA = "technical.larnaca@ecapital.test";
 describe("segregation of duties on the permit route", () => {
   let app: INestApplication;
   let adminToken: string;
   let larnacaPlantAreaId: string;
+  let technicalId: string;
+  let technicalScopes: ApproverScopes | undefined;
   let stamp = 0;
 
   beforeAll(async () => {
@@ -39,8 +47,12 @@ describe("segregation of duties on the permit route", () => {
       .find((a) => a.code === "PLT-01");
     if (!found) throw new Error("no seeded Larnaca area PLT-01");
     larnacaPlantAreaId = found.id;
+    technicalId = await userId(TECHNICAL_LARNACA);
+    technicalScopes = await scopesOf(technicalId);
+    await putScopes(technicalId, { areas: [], units: [] });
   });
   afterAll(async () => {
+    if (technicalScopes) await putScopes(technicalId, technicalScopes);
     await app.close();
   });
 

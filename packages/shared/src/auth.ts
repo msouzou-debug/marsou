@@ -1,7 +1,9 @@
 import { z } from "zod";
 import { AccessLevel, MatrixArea } from "./access";
 
-// CAPEX-01 §10 — the eight roles. Row access is by org unit; `admin`,
+// CAPEX-01 §10 — the roles. `technical_approver` is the ninth (ADR-0039,
+// owner decision 26/11/2026): it decides the TECHNICAL and SAFETY permit
+// lines without the clinical approver's rights. Row access is by org unit; `admin`,
 // `executive_readonly` and `auditor_readonly` see every unit, and
 // `auditor_readonly` writes nothing, enforced by the database policies
 // rather than by the controllers (ADR-0010).
@@ -12,6 +14,7 @@ export const AppRole = z.enum([
   "technician",
   "finance",
   "clinical_approver",
+  "technical_approver",
   "executive_readonly",
   "auditor_readonly",
 ]);

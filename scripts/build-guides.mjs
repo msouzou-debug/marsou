@@ -36,7 +36,7 @@ const GUIDES_DIR = resolve(WEB_ROOT, "public/guides");
 const MAP_PATH = resolve(WEB_ROOT, "src/help/map.json");
 const LOGO_PATH = resolve(ROOT, "brand/logo/okypy_logo_full.png");
 
-// The eight personas (build brief §1, R02), in the order they read best in —
+// The personas (build brief §1, R02; ADR-0039 added the ninth), in the order they read best in —
 // matches the key order of the `roles` block in apps/web/src/i18n/{el,en}.json.
 export const PERSONA_ORDER = [
   "admin",
@@ -45,6 +45,7 @@ export const PERSONA_ORDER = [
   "technician",
   "finance",
   "clinical_approver",
+  "technical_approver",
   "executive_readonly",
   "auditor_readonly",
 ];

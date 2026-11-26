@@ -210,7 +210,7 @@ export const seedBuilding = {
   ],
 };
 
-// Ten users, so every access path the API has has somebody to walk it —
+// The seeded users, so every access path the API has has somebody to walk it —
 // including the finance account that ADR-0014 gives the approved budget to.
 // They exist only where DEV_AUTH is on; on the real server the users come
 // from Entra ID.
@@ -260,6 +260,16 @@ export const seedUsers: SeedUser[] = [
     name: "Χριστίνα Λοΐζου",
     email: "estates.larnaca@ecapital.test",
     roles: ["estates_head"],
+    orgUnitIds: ["larnaca-general"],
+  },
+  {
+    // ADR-0039 (owner decision 26/11/2026): the technical and safety
+    // approver decides the TECHNICAL and SAFETY lines without clinical
+    // approval rights. Appointed for both at Λάρνακα in `seedUnitApprovers`.
+    subject: "dev-technical-larnaca",
+    name: "Παναγιώτης Ευαγγέλου",
+    email: "technical.larnaca@ecapital.test",
+    roles: ["technical_approver"],
     orgUnitIds: ["larnaca-general"],
   },
   {
@@ -2005,6 +2015,11 @@ export const seedUnitApprovers: SeedUnitApprover[] = [
   { email: "estates.nicosia@ecapital.test", orgUnitId: "nicosia-general", approvalRole: "TECHNICAL" },
   { email: "estates.nicosia@ecapital.test", orgUnitId: "nicosia-general", approvalRole: "SAFETY" },
   { email: "estates.larnaca@ecapital.test", orgUnitId: "larnaca-general", approvalRole: "TECHNICAL" },
+  // ADR-0039: the Larnaca technical and safety approver, after the estates
+  // head so the TECHNICAL line still resolves to her first (the oldest
+  // appointment wins), and to him when she is the requester.
+  { email: "technical.larnaca@ecapital.test", orgUnitId: "larnaca-general", approvalRole: "TECHNICAL" },
+  { email: "technical.larnaca@ecapital.test", orgUnitId: "larnaca-general", approvalRole: "SAFETY" },
 ];
 
 export const seedAreaOwners: SeedAreaOwner[] = [

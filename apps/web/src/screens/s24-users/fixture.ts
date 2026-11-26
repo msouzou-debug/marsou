@@ -9,6 +9,7 @@ export const roleCatalogue: RoleCatalogueEntry[] = [
   { role: "technician", scope: "unit" },
   { role: "finance", scope: "all" },
   { role: "clinical_approver", scope: "unit" },
+  { role: "technical_approver", scope: "unit" },
   { role: "executive_readonly", scope: "all" },
   { role: "auditor_readonly", scope: "all" },
 ];

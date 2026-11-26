@@ -12,10 +12,10 @@ Owner decision, 20/09/2026 (docs/briefs/README.md Errata "Screen tiers"): the pi
 
 | Screen id | Title (EL) | Title (EN) | Personas |
 |---|---|---|---|
-| S00 | Σύνδεση | Signing in | estates_head, project_engineer, technician, finance, clinical_approver, executive_readonly, admin, auditor_readonly |
+| S00 | Σύνδεση | Signing in | estates_head, project_engineer, technician, finance, clinical_approver, technical_approver, executive_readonly, admin, auditor_readonly |
 | S01 | Χαρτοφυλάκιο έργων | Portfolio | estates_head, executive_readonly, finance |
 | S02 | Έργα | Projects | estates_head, project_engineer, finance, executive_readonly, auditor_readonly |
-| S02a-edit | Νέο έργο και επεξεργασία έργου | New project and editing a project | admin, estates_head, project_engineer, technician, finance, clinical_approver |
+| S02a-edit | Νέο έργο και επεξεργασία έργου | New project and editing a project | admin, estates_head, project_engineer, technician, finance, clinical_approver, technical_approver |
 | S03 | Επισκόπηση έργου | Project overview | estates_head, project_engineer, finance, executive_readonly, auditor_readonly |
 | S04 | Κόστος | Cost | admin, estates_head, project_engineer, finance, executive_readonly, auditor_readonly |
 | S05 | Χρονοδιάγραμμα | Schedule | estates_head, project_engineer, finance, executive_readonly, auditor_readonly |
@@ -32,15 +32,15 @@ Owner decision, 20/09/2026 (docs/briefs/README.md Errata "Screen tiers"): the pi
 | S17 | Πάγιο | Asset | admin, estates_head, project_engineer, technician, finance, executive_readonly, auditor_readonly |
 | S17a-edit | Νέο πάγιο / Επεξεργασία παγίου | New asset / Edit asset | admin, estates_head, project_engineer, technician |
 | S17b | Ετικέτες παγίων | Asset labels | admin, estates_head, project_engineer, technician, finance |
-| S18 | Εντολές εργασίας | Work orders | estates_head, project_engineer, technician, clinical_approver, admin, executive_readonly, auditor_readonly |
-| S18a | Εντολή εργασίας | Work order | estates_head, project_engineer, technician, clinical_approver, admin, executive_readonly, auditor_readonly |
+| S18 | Εντολές εργασίας | Work orders | estates_head, project_engineer, technician, clinical_approver, technical_approver, admin, executive_readonly, auditor_readonly |
+| S18a | Εντολή εργασίας | Work order | estates_head, project_engineer, technician, clinical_approver, technical_approver, admin, executive_readonly, auditor_readonly |
 | S18b | Προληπτική συντήρηση | Preventive maintenance | estates_head, admin, project_engineer |
 | S19 | Εκτέλεση εντολής | Run a work order | technician, project_engineer, estates_head |
-| S20 | Καταγραφή κλήσης | Log a call | technician, clinical_approver, project_engineer, estates_head, admin |
+| S20 | Καταγραφή κλήσης | Log a call | technician, clinical_approver, technical_approver, project_engineer, estates_head, admin |
 | S24 | Ανάδοχοι | Contractors | admin, estates_head |
 | S24r | Ρόλοι και δικαιώματα | Roles and permissions | admin, estates_head |
 | S24u | Χρήστες | Users | admin |
-| S26 | Οδηγός χρήσης | User guide | admin, estates_head, project_engineer, technician, finance, clinical_approver, executive_readonly, auditor_readonly |
+| S26 | Οδηγός χρήσης | User guide | admin, estates_head, project_engineer, technician, finance, clinical_approver, technical_approver, executive_readonly, auditor_readonly |
 
 ### Optional
 
@@ -51,12 +51,12 @@ Owner decision, 20/09/2026 (docs/briefs/README.md Errata "Screen tiers"): the pi
 | S07c | Οδηγίες εργοταξίου | Site instructions | admin, estates_head, project_engineer, finance, executive_readonly, auditor_readonly |
 | S07d | Ελλείψεις | Defects | admin, estates_head, project_engineer, finance, executive_readonly, auditor_readonly |
 | S09a | Δεδουλευμένα | Accruals | admin, estates_head, finance, executive_readonly, auditor_readonly |
-| S11 | Διακοπές και άδειες | Shutdowns and permits | admin, estates_head, project_engineer, technician, clinical_approver, executive_readonly, auditor_readonly |
+| S11 | Διακοπές και άδειες | Shutdowns and permits | admin, estates_head, project_engineer, technician, clinical_approver, technical_approver, executive_readonly, auditor_readonly |
 | S11a-edit | Αίτημα διακοπής | Shutdown request | admin, estates_head, project_engineer |
 | S12 | Εκτίμηση κινδύνου λοιμώξεων (ICRA) | Infection control risk assessment (ICRA) | admin, estates_head, project_engineer |
-| S13 | Άδεια εργασίας (εκτύπωση) | Permit to work (print) | admin, estates_head, project_engineer, technician, clinical_approver |
-| S14 | Εγκρίσεις | Approvals | admin, estates_head, clinical_approver |
-| S15 | Ημερολόγιο διαταράξεων | Disruption calendar | admin, estates_head, project_engineer, clinical_approver, executive_readonly, auditor_readonly |
+| S13 | Άδεια εργασίας (εκτύπωση) | Permit to work (print) | admin, estates_head, project_engineer, technician, clinical_approver, technical_approver |
+| S14 | Εγκρίσεις | Approvals | admin, estates_head, clinical_approver, technical_approver |
+| S15 | Ημερολόγιο διαταράξεων | Disruption calendar | admin, estates_head, project_engineer, clinical_approver, technical_approver, executive_readonly, auditor_readonly |
 | S17c | Πρόβλεψη αντικαταστάσεων | Replacement forecast | estates_head, finance, executive_readonly, admin |
 | S21 | Εκκρεμότητες συντήρησης | Maintenance backlog | estates_head, project_engineer, finance, executive_readonly, admin |
 | S22 | Αξιολόγηση αναδόχων | Contractor scorecard | estates_head, finance, executive_readonly, auditor_readonly, admin |

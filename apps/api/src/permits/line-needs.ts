@@ -11,11 +11,16 @@ import type { AccessLevel, ApprovalRole, MatrixArea } from "@ecapital/shared";
  * lines to somebody the decide route then refused with «περιμένει άλλο
  * πρόσωπο», and the inbox offered both buttons on a line nobody could move.
  *
- * The estate-side lines now also accept APPROVE on the request row, which is
- * exactly the estates head's and the administrator's (CAPEX-01 §10). The
- * clinical lines keep the clinical row alone. The assignment itself is still
- * checked separately: holding the row never lets anybody decide a line that
- * is waiting on someone else.
+ * ADR-0039 (owner decision 26/11/2026): the estate-side lines have their
+ * own row, `permitTechnical`, held by default by the technical and safety
+ * approver, the estates head and the administrator. It replaces the request
+ * row these lines borrowed on 25/11/2026, so rejecting a request and deciding
+ * a technical line can now be given out separately. The TECHNICAL and SAFETY
+ * lines still accept the clinical row as well: clinical approvers appointed
+ * to them before the new role existed keep deciding them until the
+ * administrator moves them. The clinical lines keep the clinical row alone.
+ * The assignment itself is still checked separately: holding a row never
+ * lets anybody decide a line that is waiting on someone else.
  */
 export const LINE_NEEDS: Record<ApprovalRole, ReadonlyArray<readonly [MatrixArea, AccessLevel]>> = {
   INFECTION_CONTROL: [["permitClinical", "APPROVE"]],
@@ -23,12 +28,12 @@ export const LINE_NEEDS: Record<ApprovalRole, ReadonlyArray<readonly [MatrixArea
   NURSING: [["permitClinical", "APPROVE"]],
   HOSPITAL_DIRECTOR: [["permitClinical", "APPROVE"]],
   TECHNICAL: [
+    ["permitTechnical", "APPROVE"],
     ["permitClinical", "APPROVE"],
-    ["permitRequest", "APPROVE"],
   ],
   SAFETY: [
+    ["permitTechnical", "APPROVE"],
     ["permitClinical", "APPROVE"],
-    ["permitRequest", "APPROVE"],
   ],
 };
 

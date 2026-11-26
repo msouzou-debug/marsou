@@ -1038,7 +1038,8 @@
         "title": "Approval areas and roles",
         "areasLabel": "Roles by area",
         "unitsLabel": "Roles by unit",
-        "pickArea": "Choose an area"
+        "pickArea": "Choose an area",
+        "noScopes": "This account's roles allow no approver scopes."
       },
       "newHintLocal": "The user signs in with their account name and an eCapital password. After saving, open their row again to set the password.",
       "password": {
@@ -1102,6 +1103,7 @@
         "technician": "Technician",
         "finance": "Finance",
         "clinical_approver": "Clinical",
+        "technical_approver": "Technical",
         "executive_readonly": "Executive",
         "auditor_readonly": "Auditor"
       },
@@ -1136,6 +1138,7 @@
         "forecastWarnings": "Forecast inputs and cost warnings",
         "permitRequest": "Shutdown request: submit and reject",
         "permitClinical": "Clinical approval",
+        "permitTechnical": "Technical and safety approval",
         "permitOperate": "Start of works and close",
         "permitCalendar": "Disruption calendar",
         "assetRegister": "Asset register",
@@ -1172,6 +1175,8 @@
         "clinicalAreas": "Of the shutdowns, sees only those that touch their areas.",
         "clinicalLine": "Decides the approval line assigned to them and signs the clinical acceptance at close.",
         "clinicalCalls": "Raises a fault call but does not move the work order on.",
+        "technicalLine": "Decides the Technical Services or Safety line assigned to them; decides no clinical line.",
+        "technicalCalls": "Sees the shutdowns of their units and raises a fault call but does not move the work order on.",
         "executiveReads": "Sees every unit, the cost and the reports; changes nothing.",
         "auditorTrail": "Reads the whole audit trail and changes nothing.",
         "auditorServer": "The server administrator grants the role, not the «Χρήστες» screen.",
@@ -2710,6 +2715,7 @@
       "technician": "Technician",
       "finance": "Finance",
       "clinicalApprover": "Clinical approver",
+      "technicalApprover": "Technical and safety approver",
       "executiveReadonly": "Management",
       "admin": "Administrator",
       "auditorReadonly": "Auditor"
@@ -2832,6 +2838,7 @@
     "technician": "Technician",
     "finance": "Finance",
     "clinical_approver": "Clinical approver",
+    "technical_approver": "Technical and safety approver",
     "executive_readonly": "Executive, read-only",
     "auditor_readonly": "Auditor, read-only"
   },
@@ -2842,6 +2849,7 @@
     "technician": "Sees projects; records asset condition and readings and runs work orders.",
     "finance": "SAP import, budget lines, paying payment certificates; every unit.",
     "clinical_approver": "Approves the shutdowns that touch their areas and raises fault calls.",
+    "technical_approver": "Approves the Technical Services and Safety lines of the shutdowns in their units and raises fault calls.",
     "executive_readonly": "Sees every unit and the reports; changes nothing.",
     "auditor_readonly": "Sees everything and the audit trail; changes nothing."
   },

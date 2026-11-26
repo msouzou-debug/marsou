@@ -4,7 +4,7 @@ import { AppRole } from "./auth";
 /**
  * The role catalogue (CAPEX-01 §10, ADR-0020).
  *
- * `AppRole` in ./auth.ts is the list of the eight roles. This file says the
+ * `AppRole` in ./auth.ts is the list of the roles. This file says the
  * one thing about each of them that both ends need and neither should
  * hardcode: whether the role carries its own org units or sees every unit
  * anyway.
@@ -33,11 +33,12 @@ export const ROLE_SCOPE: Record<AppRole, RoleScope> = {
   technician: "unit",
   finance: "all",
   clinical_approver: "unit",
+  technical_approver: "unit",
   executive_readonly: "all",
   auditor_readonly: "all",
 };
 
-/** What `GET /admin/roles` answers, so the UI never hardcodes the eight. */
+/** What `GET /admin/roles` answers, so the UI never hardcodes the list. */
 export const RoleCatalogueEntry = z.object({
   role: AppRole,
   scope: RoleScope,
