@@ -125,6 +125,9 @@ export interface PermitDetailProps {
   startWorkError?: string;
 }
 
+/** The states `PermitsService.reject` accepts. */
+const REJECTABLE: ShutdownPermit["status"][] = ["SUBMITTED", "CLINICAL_REVIEW", "APPROVED"];
+
 const START_WORK_REASON_KEY: Record<string, string> = {
   notApproved: "screens.s11detail.startWork.notApproved",
   beforeWindow: "screens.s11detail.startWork.beforeWindow",
@@ -552,7 +555,9 @@ export function PermitDetail(props: PermitDetailProps) {
             </button>
           </>
         )}
-        {canReject && permit.status !== "CLOSED" && permit.status !== "REJECTED" && (
+        {/* The API rejects only before the works start (`errors.permitNotRejectable`):
+            a running permit is closed through the handback, not rejected. */}
+        {canReject && REJECTABLE.includes(permit.status) && (
           <button type="button" onClick={onOpenReject} className="rounded-k border border-k-red px-s-4 py-s-3 text-fs-14 text-k-red">
             {t("screens.s11detail.decide.reject")}
           </button>

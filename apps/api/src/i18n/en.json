@@ -168,7 +168,7 @@
     "permitCloseoutRequired": "Closing a permit needs the handback checklist. Fill it in and try again.",
     "permitCloseoutIncomplete": "The handback checklist is not complete. Confirm all five items before you submit the area for acceptance.",
     "permitAcceptanceNotYours": "The clinical owner of the area accepts the handback. Ask the ward manager, Nursing or Infection Control to accept the handback and close the permit.",
-    "projectBudgetOnly": "As Finance you change only the project's approved budget. The project engineer or the head of technical services changes everything else.",
+    "projectBudgetOnly": "As Finance you change only the project's approved budget. The project engineer or the head of estates changes everything else.",
     "permitHandbackPending": "The area has already been submitted for acceptance. Wait for the clinical owner's answer.",
     "permitHandbackNotSubmitted": "The area has not been submitted for acceptance. The works side fills in the handback checklist first and presses Submit for acceptance.",
     "permitHandbackSelf": "You do not accept a handback you submitted yourself. Another clinical owner of the area accepts it.",

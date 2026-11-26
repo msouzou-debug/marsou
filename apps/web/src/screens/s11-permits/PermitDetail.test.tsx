@@ -386,6 +386,16 @@ describe("PermitDetail", () => {
     expect(onOpenGiveBack).toHaveBeenCalledTimes(1);
   });
 
+  it("offers no «Απόρριψη» once the works have started, only before", () => {
+    const { unmount } = renderWithIntl(
+      <PermitDetail {...NOOP_PROPS} roles={["estates_head"]} permit={RUNNING} state="default" now={NOW} />,
+    );
+    expect(screen.queryByRole("button", { name: "Απόρριψη" })).toBeNull();
+    unmount();
+    renderWithIntl(<PermitDetail {...NOOP_PROPS} roles={["estates_head"]} permit={BASE_PERMIT} state="default" now={NOW} />);
+    expect(screen.getByRole("button", { name: "Απόρριψη" })).toBeInTheDocument();
+  });
+
   it("offers an administrator no acceptance: the API does not let them sign", () => {
     renderWithIntl(
       <PermitDetail {...NOOP_PROPS} roles={["admin"]} myUserId="admin" permit={WAITING} state="default" now={NOW} />,

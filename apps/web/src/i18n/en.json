@@ -495,7 +495,7 @@
       "titleNew": "New project",
       "titleEdit": "Edit project",
       "titleBudget": "Change the approved budget",
-      "budgetOnlyHint": "As Finance you change only the project's approved budget, VAT included. The project engineer or the head of technical services changes everything else.",
+      "budgetOnlyHint": "As Finance you change only the project's approved budget, VAT included. The project engineer or the head of estates changes everything else.",
       "saving": "Saving…",
       "fields": {
         "unit": "Unit",
