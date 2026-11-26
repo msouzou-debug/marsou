@@ -134,6 +134,7 @@
         "inForce": "In force",
         "approved": "Approved, works not started",
         "pendingApproval": "Approval pending",
+        "awaitingAcceptance": "Handback awaiting acceptance",
         "expired": "Expired",
         "revoked": "Revoked"
       }
@@ -268,9 +269,8 @@
         "fireSystemsReenabled": "Fire systems re-enabled."
       },
       "noteLabel": "Note",
-      "clinicalAcceptance": "Accepted by the clinical owner",
       "acceptedBy": "Accepted by {name}.",
-      "notClinicalOwner": "Only the clinical owner can accept it.",
+      "whoSigns": "Once submitted, the clinical owner of the area checks it and accepts the handback or returns it with comments.",
       "incomplete": "The checklist is not complete yet."
     },
     "calendar-grid": {
@@ -494,6 +494,8 @@
     "s02a": {
       "titleNew": "New project",
       "titleEdit": "Edit project",
+      "titleBudget": "Change the approved budget",
+      "budgetOnlyHint": "As Finance you change only the project's approved budget, VAT included. The project engineer or the head of technical services changes everything else.",
       "saving": "Saving…",
       "fields": {
         "unit": "Unit",
@@ -1584,8 +1586,24 @@
         "afterWindow": "The work window ended on {end}. The permit can no longer be started. For the work, raise a new request with new dates."
       },
       "closeout": {
-        "button": "Close out",
-        "title": "Permit closeout"
+        "button": "Complete the works",
+        "title": "Complete the works and hand back the area",
+        "intro": "Confirm all five items. The area is submitted to its clinical owner for acceptance, and the permit stays in force until they accept it.",
+        "submit": "Submit for acceptance"
+      },
+      "handback": {
+        "waitingTitle": "{name} submitted the area for acceptance at {time}.",
+        "waitingYours": "Check the area. Press Accept and close, or Return with comments.",
+        "waitingOther": "The permit is waiting for the clinical owner of the area to accept it: the ward manager, Nursing or Infection Control.",
+        "returnedTitle": "{name} returned the area handback at {time}",
+        "returnedHint": "Put right what the comment says, press Complete the works and submit it for acceptance again.",
+        "accept": "Accept and close",
+        "acceptTitle": "Accept the area handback",
+        "submittedBy": "Submitted by {name} at {time}.",
+        "acceptConsequence": "By accepting you sign that you have taken the area back. The permit closes and cannot change any more.",
+        "returnTitle": "Return the handback with comments",
+        "returnConsequence": "The area goes back to the works side with your comment. The permit stays in force.",
+        "returnComment": "What needs putting right"
       },
       "decide": {
         "commentPlaceholder": "Write your comment.",
@@ -1603,7 +1621,9 @@
         "returned": "returned with comments",
         "rejected": "rejected",
         "breached": "breached the work window",
-        "closed": "closed the permit"
+        "handbackSubmitted": "submitted the area for acceptance",
+        "handbackReturned": "returned the handback with comments",
+        "closed": "accepted the handback and closed the permit"
       },
       "edit": {
         "inReview": "The request is being approved and cannot be changed. If it needs a change, the approver returns it with comments.",

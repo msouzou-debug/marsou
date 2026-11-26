@@ -18,30 +18,25 @@ const EMPTY: CloseoutChecklistValue = {
 };
 
 describe("CloseoutChecklist", () => {
-  it("renders the five boxes plus the clinical acceptance checkbox", () => {
-    renderWithIntl(
-      <CloseoutChecklist value={EMPTY} onChange={vi.fn()} isClinicalOwner approverName="Μ. Ιωάννου" approverId="u1" />,
-    );
-    expect(screen.getAllByRole("checkbox")).toHaveLength(6);
+  it("renders the five boxes and no acceptance checkbox (OWNER 26/11/2026)", () => {
+    renderWithIntl(<CloseoutChecklist value={EMPTY} onChange={vi.fn()} />);
+    expect(screen.getAllByRole("checkbox")).toHaveLength(5);
+    expect(screen.getByText(/κλινικός υπεύθυνος/)).toBeInTheDocument();
   });
 
-  it("disables the clinical-acceptance checkbox for a non-clinical-owner caller", () => {
-    renderWithIntl(
-      <CloseoutChecklist value={EMPTY} onChange={vi.fn()} isClinicalOwner={false} approverName="" approverId="" />,
-    );
-    const boxes = screen.getAllByRole("checkbox");
-    expect(boxes[boxes.length - 1]).toBeDisabled();
-  });
-
-  it("signs with the approver's own id and name when a clinical owner ticks it", async () => {
+  it("reports each box the works side ticks", async () => {
     const onChange = vi.fn();
+    renderWithIntl(<CloseoutChecklist value={EMPTY} onChange={onChange} />);
+    await userEvent.click(screen.getAllByRole("checkbox")[0]);
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ barriersRemoved: true }));
+  });
+
+  it("shows the submitted checklist read-only, with its note", () => {
     renderWithIntl(
-      <CloseoutChecklist value={EMPTY} onChange={onChange} isClinicalOwner approverName="Μ. Ιωάννου" approverId="u1" />,
+      <CloseoutChecklist value={{ ...EMPTY, barriersRemoved: true, noteEl: "Καθαρό." }} onChange={vi.fn()} readOnly />,
     );
-    const boxes = screen.getAllByRole("checkbox");
-    await userEvent.click(boxes[boxes.length - 1]);
-    expect(onChange).toHaveBeenCalledWith(
-      expect.objectContaining({ clinicalAcceptanceById: "u1", clinicalAcceptanceByName: "Μ. Ιωάννου" }),
-    );
+    for (const box of screen.getAllByRole("checkbox")) expect(box).toBeDisabled();
+    expect(screen.queryByRole("textbox")).toBeNull();
+    expect(screen.getByText("Καθαρό.")).toBeInTheDocument();
   });
 });

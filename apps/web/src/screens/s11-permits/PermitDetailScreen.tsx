@@ -4,7 +4,10 @@
 //
 // PermitDetailScreen — the network-aware wrapper around `PermitDetail`.
 // Owns `usePermit` and every mutation: `POST /permits/:id/transition`
-// (ACTIVE, CLOSED, REJECTED) and `POST /permits/:id/approvals/:approvalId/decide`.
+// (ACTIVE, CLOSED, REJECTED), `POST /permits/:id/approvals/:approvalId/decide`,
+// and the handback in two steps (OWNER 26/11/2026): `POST /permits/:id/closeout`
+// (the works side submits the area), `transition` CLOSED (the clinical owner
+// accepts it) and `POST /permits/:id/closeout/return` (they return it).
 import { useEffect, useState, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import type { AppRole, CloseoutChecklist as CloseoutChecklistValue, Me, OrgUnit, ShutdownPermit } from "@ecapital/shared";
@@ -82,9 +85,73 @@ export function PermitDetailScreen({ permitId, roles, me, orgUnits, noPermission
     state = "default";
   }
 
-  async function transition(body: { to: "ACTIVE" | "CLOSED" | "REJECTED"; commentEl?: string | null; closeout?: CloseoutChecklistValue }) {
+  async function transition(body: { to: "ACTIVE" | "CLOSED" | "REJECTED"; commentEl?: string | null }) {
     await apiMutate<ShutdownPermit>(`/permits/${encodeURIComponent(permitId)}/transition`, "POST", body, ShutdownPermitSchema);
     await refetch();
+  }
+
+  /** A handback step changes somebody's inbox: the clinical owner's, or the submitter's. */
+  async function refreshAfterHandback() {
+    await Promise.all([refetch(), queryClient.invalidateQueries({ queryKey: ["inbox"] })]);
+  }
+
+  const [acceptOpen, setAcceptOpen] = useState(false);
+  const [acceptSaving, setAcceptSaving] = useState(false);
+  const [acceptApiError, setAcceptApiError] = useState<string | undefined>(undefined);
+
+  const [giveBackOpen, setGiveBackOpen] = useState(false);
+  const [giveBackComment, setGiveBackComment] = useState("");
+  const [giveBackSaving, setGiveBackSaving] = useState(false);
+  const [giveBackApiError, setGiveBackApiError] = useState<string | undefined>(undefined);
+
+  function openAccept() {
+    setAcceptApiError(undefined);
+    setAcceptOpen(true);
+  }
+
+  async function submitAccept(): Promise<void> {
+    setAcceptSaving(true);
+    setAcceptApiError(undefined);
+    try {
+      // The signature is the caller's, stamped by the API; nothing is sent.
+      await apiMutate<ShutdownPermit>(
+        `/permits/${encodeURIComponent(permitId)}/transition`,
+        "POST",
+        { to: "CLOSED", commentEl: null },
+        ShutdownPermitSchema,
+      );
+      setAcceptOpen(false);
+      await refreshAfterHandback();
+    } catch (acceptError) {
+      setAcceptApiError(acceptError instanceof ApiError ? acceptError.message : String(acceptError));
+    } finally {
+      setAcceptSaving(false);
+    }
+  }
+
+  function openGiveBack() {
+    setGiveBackApiError(undefined);
+    setGiveBackComment("");
+    setGiveBackOpen(true);
+  }
+
+  async function submitGiveBack(): Promise<void> {
+    setGiveBackSaving(true);
+    setGiveBackApiError(undefined);
+    try {
+      await apiMutate<ShutdownPermit>(
+        `/permits/${encodeURIComponent(permitId)}/closeout/return`,
+        "POST",
+        { commentEl: giveBackComment },
+        ShutdownPermitSchema,
+      );
+      setGiveBackOpen(false);
+      await refreshAfterHandback();
+    } catch (returnError) {
+      setGiveBackApiError(returnError instanceof ApiError ? returnError.message : String(returnError));
+    } finally {
+      setGiveBackSaving(false);
+    }
   }
 
   // OWNER UAT 25/11/2026: a refusal is said in a sentence, never swallowed.
@@ -102,7 +169,8 @@ export function PermitDetailScreen({ permitId, roles, me, orgUnits, noPermission
 
   function openCloseout() {
     setCloseoutApiError(undefined);
-    setCloseoutValue(data?.closeout ?? EMPTY_CLOSEOUT);
+    // A returned handback starts from empty boxes: the return is why.
+    setCloseoutValue(EMPTY_CLOSEOUT);
     setCloseoutOpen(true);
   }
 
@@ -110,8 +178,14 @@ export function PermitDetailScreen({ permitId, roles, me, orgUnits, noPermission
     setCloseoutSaving(true);
     setCloseoutApiError(undefined);
     try {
-      await transition({ to: "CLOSED", closeout: closeoutValue });
+      await apiMutate<ShutdownPermit>(
+        `/permits/${encodeURIComponent(permitId)}/closeout`,
+        "POST",
+        { closeout: closeoutValue },
+        ShutdownPermitSchema,
+      );
       setCloseoutOpen(false);
+      await refreshAfterHandback();
     } catch (submitError) {
       setCloseoutApiError(submitError instanceof ApiError ? submitError.message : String(submitError));
     } finally {
@@ -176,6 +250,20 @@ export function PermitDetailScreen({ permitId, roles, me, orgUnits, noPermission
       onChangeCloseout={setCloseoutValue}
       onSubmitCloseout={() => void submitCloseout()}
       onCancelCloseout={() => setCloseoutOpen(false)}
+      acceptOpen={acceptOpen}
+      acceptSaving={acceptSaving}
+      acceptApiError={acceptApiError}
+      onOpenAccept={openAccept}
+      onSubmitAccept={() => void submitAccept()}
+      onCancelAccept={() => setAcceptOpen(false)}
+      giveBackOpen={giveBackOpen}
+      giveBackComment={giveBackComment}
+      giveBackSaving={giveBackSaving}
+      giveBackApiError={giveBackApiError}
+      onOpenGiveBack={openGiveBack}
+      onChangeGiveBackComment={setGiveBackComment}
+      onSubmitGiveBack={() => void submitGiveBack()}
+      onCancelGiveBack={() => setGiveBackOpen(false)}
       rejectOpen={rejectOpen}
       rejectComment={rejectComment}
       rejectSaving={rejectSaving}

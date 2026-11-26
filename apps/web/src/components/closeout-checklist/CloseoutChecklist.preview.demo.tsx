@@ -7,15 +7,17 @@ import { useState } from "react";
 import { CloseoutChecklist } from "./CloseoutChecklist";
 import { EMPTY_CLOSEOUT } from "./CloseoutChecklist.preview.fixtures";
 
-export function CloseoutChecklistDemo({ isClinicalOwner }: { isClinicalOwner: boolean }) {
-  const [value, setValue] = useState(EMPTY_CLOSEOUT);
-  return (
-    <CloseoutChecklist
-      value={value}
-      onChange={setValue}
-      isClinicalOwner={isClinicalOwner}
-      approverName="Μ. Ιωάννου"
-      approverId="u1"
-    />
-  );
+const SUBMITTED = {
+  ...EMPTY_CLOSEOUT,
+  barriersRemoved: true,
+  areaCleaned: true,
+  airBalanceRestored: true,
+  systemsTestedAndReturned: true,
+  fireSystemsReenabled: true,
+  noteEl: "Ο χώρος παραδόθηκε καθαρός.",
+};
+
+export function CloseoutChecklistDemo({ readOnly = false }: { readOnly?: boolean }) {
+  const [value, setValue] = useState(readOnly ? SUBMITTED : EMPTY_CLOSEOUT);
+  return <CloseoutChecklist value={value} onChange={setValue} readOnly={readOnly} />;
 }

@@ -11,7 +11,7 @@ import { IcraBadge, type IcraClass } from "@/components/icra-badge";
  *
  * | Prop       | Type                                                              | Notes                          |
  * |------------|-------------------------------------------------------------------|----------------------------------|
- * | state      | "inForce" \| "approved" \| "pendingApproval" \| "expired" \| "revoked" | Permit lifecycle state; "approved" = approved, works not started. |
+ * | state      | "inForce" \| "approved" \| "pendingApproval" \| "awaitingAcceptance" \| "expired" \| "revoked" | Permit lifecycle state; "approved" = approved, works not started; "awaitingAcceptance" = works finished, handback waiting for the clinical owner. |
  * | validFrom  | string (ISO)                                                       | With `validTo`, formatted as a window via `formatDateTimeRange` — a permit window is hours, not just a date. |
  * | validTo    | string (ISO)                                                       | See `validFrom`.                  |
  * | icraClass  | "I" \| "II" \| "III" \| "IV" \| "V"                                | Rendered as an on-purple IcraBadge (list size). |
@@ -25,7 +25,7 @@ import { IcraBadge, type IcraClass } from "@/components/icra-badge";
  * renders for the other three states, and only when `onDismiss` is provided.
  */
 
-export type PermitState = "inForce" | "approved" | "pendingApproval" | "expired" | "revoked";
+export type PermitState = "inForce" | "approved" | "pendingApproval" | "awaitingAcceptance" | "expired" | "revoked";
 
 export interface PermitBannerProps {
   state: PermitState;
@@ -38,7 +38,10 @@ export interface PermitBannerProps {
 
 export function PermitBanner({ state, validFrom, validTo, icraClass, onPrint, onDismiss }: PermitBannerProps) {
   const t = useTranslations();
-  const canDismiss = state !== "inForce" && state !== "approved" && Boolean(onDismiss);
+  // «Αναμονή αποδοχής παράδοσης» is still a live permit: the area has not
+  // been handed back yet (OWNER 26/11/2026).
+  const canDismiss =
+    state !== "inForce" && state !== "approved" && state !== "awaitingAcceptance" && Boolean(onDismiss);
 
   return (
     <div className="w-full flex flex-wrap items-center justify-between gap-s-4 rounded-k bg-k-purple px-s-6 py-s-4 text-k-white">

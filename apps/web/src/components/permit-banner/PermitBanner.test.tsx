@@ -36,6 +36,12 @@ describe("PermitBanner", () => {
     expect(screen.queryByLabelText("Κλείσιμο")).toBeNull();
   });
 
+  it("names the handback waiting for acceptance and cannot be dismissed (OWNER 26/11/2026)", () => {
+    renderWithIntl(<PermitBanner {...BASE} state="awaitingAcceptance" onDismiss={vi.fn()} />);
+    expect(screen.getByText("Αναμονή αποδοχής παράδοσης")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Κλείσιμο")).toBeNull();
+  });
+
   it.each(["pendingApproval", "expired", "revoked"] as const)(
     "renders a working dismiss control for state=%s when onDismiss is provided",
     async (state) => {

@@ -62,7 +62,8 @@ describe("migrations", () => {
     expect(result.applied).toContain("0032_rfi_close_and_contractor_contact");
     expect(result.applied).toContain("0033_technical_approver_role");
     expect(result.applied).toContain("0034_site_instruction_mail");
-    expect(result.lastMigrationId).toBe("0034_site_instruction_mail");
+    expect(result.applied).toContain("0035_permit_handback");
+    expect(result.lastMigrationId).toBe("0035_permit_handback");
 
     const client = new Client({ connectionString: targetUrl });
     await client.connect();
@@ -1352,6 +1353,78 @@ describe("migrations", () => {
       expect(before.policy).toHaveLength(1);
       expect(before.policy[0].cmd).toBe("INSERT");
       expect(before.policy[0].with_check).toContain("can_manage_site_log");
+
+      await client.query(file!.sql);
+      expect(await state()).toEqual(before);
+    } finally {
+      await client.end();
+    }
+  });
+
+  /**
+   * Owner decision 26/11/2026, 0035: the permit handback in two steps. Five
+   * nullable columns, two CHECKs, the breach sweep that skips a waiting
+   * handback, §9's read rule with its one narrow clause, and no policy on the
+   * permit table moves. A second run changes nothing.
+   */
+  it("0035 records the permit handback, keeps the sweep off it, moves no policy, and is idempotent", async () => {
+    const client = new Client({ connectionString: targetUrl });
+    await client.connect();
+    try {
+      const file = readMigrations().find((m) => m.id === "0035_permit_handback");
+      expect(file).toBeDefined();
+      const state = async () => {
+        const { rows: columns } = await client.query<{ column_name: string; is_nullable: string }>(
+          `select column_name, is_nullable from information_schema.columns
+            where table_schema = 'ecapital' and table_name = 'shutdown_permit'
+              and column_name like 'closeout_%' order by column_name`,
+        );
+        const { rows: checks } = await client.query<{ conname: string }>(
+          `select conname from pg_constraint
+            where conname in ('permit_handback_complete', 'permit_handback_return_complete')
+            order by conname`,
+        );
+        const { rows: fn } = await client.query<{ src: string }>(
+          `select prosrc as src from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+            where n.nspname = 'ecapital' and p.proname = 'flip_overrun_permits'`,
+        );
+        const { rows: policies } = await client.query<{ policyname: string; qual: string | null }>(
+          `select policyname, qual from pg_policies
+            where schemaname = 'ecapital' and tablename = 'shutdown_permit' order by policyname`,
+        );
+        const { rows: visible } = await client.query<{ src: string }>(
+          `select prosrc as src from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+            where n.nspname = 'ecapital' and p.proname = 'permit_visible_to_clinician'`,
+        );
+        return { columns, checks, src: fn[0]?.src ?? "", visible: visible[0]?.src ?? "", policies };
+      };
+      const before = await state();
+      expect(before.columns).toEqual([
+        { column_name: "closeout_return_comment_el", is_nullable: "YES" },
+        { column_name: "closeout_returned_at", is_nullable: "YES" },
+        { column_name: "closeout_returned_by", is_nullable: "YES" },
+        { column_name: "closeout_submitted_at", is_nullable: "YES" },
+        { column_name: "closeout_submitted_by", is_nullable: "YES" },
+      ]);
+      expect(before.checks.map((c) => c.conname)).toEqual([
+        "permit_handback_complete",
+        "permit_handback_return_complete",
+      ]);
+      expect(before.src).toContain("closeout_submitted_at is null");
+      // The one read widening: the unit-wide acceptance capacity, for the handback only.
+      expect(before.visible).toContain("permit_approval");
+      expect(before.visible).toContain("area_clinical_owner");
+      expect(before.visible).toContain("closeout_submitted_at is not null");
+      expect(before.visible).toContain("'NURSING', 'INFECTION_CONTROL'");
+      expect(before.policies.map((p) => p.policyname)).toEqual([
+        "shutdown_permit_delete",
+        "shutdown_permit_insert",
+        "shutdown_permit_read",
+        "shutdown_permit_update",
+      ]);
+      expect(before.policies.find((p) => p.policyname === "shutdown_permit_update")?.qual).toContain(
+        "permit_actionable_by",
+      );
 
       await client.query(file!.sql);
       expect(await state()).toEqual(before);

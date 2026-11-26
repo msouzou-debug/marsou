@@ -166,8 +166,12 @@
     "permitOutsideWindow": "A permit is live only inside the window it was approved for. Start inside that window, or ask for a new permit with new dates.",
     "permitNotActive": "The permit is not running. You can only close a permit that has started, or one that has run past its end.",
     "permitCloseoutRequired": "Closing a permit needs the handback checklist. Fill it in and try again.",
-    "permitCloseoutIncomplete": "The handback checklist is not complete. Confirm all five items before you close the permit.",
-    "permitAcceptanceNotYours": "The clinical owner of the area signs the handback. Ask the ward manager, Nursing or Infection Control to close the permit.",
+    "permitCloseoutIncomplete": "The handback checklist is not complete. Confirm all five items before you submit the area for acceptance.",
+    "permitAcceptanceNotYours": "The clinical owner of the area accepts the handback. Ask the ward manager, Nursing or Infection Control to accept the handback and close the permit.",
+    "projectBudgetOnly": "As Finance you change only the project's approved budget. The project engineer or the head of technical services changes everything else.",
+    "permitHandbackPending": "The area has already been submitted for acceptance. Wait for the clinical owner's answer.",
+    "permitHandbackNotSubmitted": "The area has not been submitted for acceptance. The works side fills in the handback checklist first and presses Submit for acceptance.",
+    "permitHandbackSelf": "You do not accept a handback you submitted yourself. Another clinical owner of the area accepts it.",
     "permitNotRejectable": "The permit cannot be rejected from where it is. You can reject a permit that has been submitted, is in clinical review, or has been approved.",
     "permitCommentRequired": "A decision needs a comment explaining it. Write the reason and try again.",
     "permitNotInReview": "The permit is not in clinical review. Refresh the page to see where it is now.",
@@ -536,13 +540,19 @@
       "rooms": "Rooms",
       "classAndSystems": "Class {class} · {systems}",
       "roleSuffix": "(as {role})",
-      "comment": "Approver's comment"
+      "comment": "Approver's comment",
+      "handbackNote": "Handback note",
+      "handbackComment": "Clinical owner's comment"
     },
     "returnedWhat": "Returned for correction: {ref} — {title}",
+    "handbackWhat": "Area handback for acceptance: {ref} — {title}",
+    "handbackReturnedWhat": "Area handback returned: {ref} — {title}",
     "notes": {
       "unassigned": "No approver is appointed for this role in the unit. Decide it as administrator, or appoint an approver in User management.",
       "roleMissing": "This line is assigned to you, but your role does not let you decide it. Ask an administrator to assign it to someone else.",
-      "returned": "{name} returned the request with comments. Open it, correct it and submit it again."
+      "returned": "{name} returned the request with comments. Open it, correct it and submit it again.",
+      "handback": "{name} says the works are finished. Open the permit, check the area and press Accept and close or Return with comments.",
+      "handbackReturned": "{name} returned the area handback with comments. Put right what it says and submit it for acceptance again."
     }
   },
   "asset": {

@@ -11,14 +11,18 @@
  * | permit            | ShutdownPermit?     | Ignored in `noPermission` \| `loading` \| `error`.                      |
  * | state             | PermitDetailState   | No `empty` — a record page always names one permit or none at all.      |
  * | roles             | AppRole[]           | `me.roles` — the write/decide gates (`@/auth/roles`).                   |
- * | myUserId          | string              | For "a user's own pending line" (RULE below) and the clinical-owner gate.|
+ * | myUserId          | string              | For "a user's own pending line" (RULE below).                         |
  * | orgUnits          | OrgUnit[]           | For the unit name.                                                     |
  * | now               | Date?               | Injectable clock for the window/breach rules; defaults to `new Date()`. |
  * | onRetry           | () => void?         |                                                                        |
  * | noPermission      | ReactNode           |                                                                        |
  * | onStartWork       | () => void          | «Έναρξη εργασιών».                                                    |
- * | closeout*         | —                    | The «Κλείσιμο» dialog's open/value/saving/apiError, owned by the Screen.|
+ * | closeout*         | —                    | The «Ολοκλήρωση εργασιών» dialog (step 1 of the handback): open/value/saving/apiError, owned by the Screen.|
  * | onOpenCloseout / onChangeCloseout / onSubmitCloseout / onCancelCloseout | — | Wired by the Screen. |
+ * | accept*           | —                    | The «Αποδοχή και κλείσιμο» dialog (step 2): open/saving/apiError.       |
+ * | onOpenAccept / onSubmitAccept / onCancelAccept | — | Wired by the Screen.                                      |
+ * | giveBack*         | —                    | The «Επιστροφή με σχόλια» dialog of step 2: open/comment/saving/apiError.|
+ * | onOpenGiveBack / onChangeGiveBackComment / onSubmitGiveBack / onCancelGiveBack | — | Wired by the Screen. |
  * | reject*           | —                    | The «Απόρριψη» dialog's open/comment/saving/apiError.                   |
  * | onOpenReject / onChangeRejectComment / onSubmitReject / onCancelReject | — | Wired by the Screen. |
  * | onDecide          | (approvalId, decision, comment?) => void | A user's own pending approval line.                       |
@@ -32,6 +36,16 @@
  * RULE: the Έγκριση/Επιστροφή με σχόλια/Απόρριψη buttons render only on the
  * approval line where `approval.approverId === myUserId && decision === "PENDING"`
  * — never on anyone else's line, never on a decided one.
+ *
+ * RULE (OWNER 26/11/2026, the handback in two steps; UAT found nobody could
+ * close a permit): on a running permit the works side (`canOperatePermit`)
+ * gets «Ολοκλήρωση εργασιών», ticks every box and presses «Υποβολή για
+ * αποδοχή». While that waits, the banner reads «Αναμονή αποδοχής
+ * παράδοσης» and only somebody the API says may sign (`handback.mayAccept`:
+ * a clinical owner of the permit's areas, never the submitter, never an
+ * administrator by being one) gets «Αποδοχή και κλείσιμο» and «Επιστροφή με
+ * σχόλια». A return is said on the record, with the comment, until the next
+ * submission.
  */
 import { useState, type ReactNode } from "react";
 import { useLocale, useTranslations } from "next-intl";
@@ -47,7 +61,14 @@ import { SlaChip } from "@/components/sla-chip";
 import { Timeline } from "@/components/timeline";
 import type { Locale } from "@/i18n/config";
 import { formatDate, formatDateTime, formatDateTimeRange } from "@/lib/format";
-import { closeoutComplete, permitBannerState, permitTimelineFrom, startWorkDisabledReasonKey } from "@/lib/permit-rules";
+import {
+  closeoutComplete,
+  handbackReturned,
+  handbackWaiting,
+  permitBannerState,
+  permitTimelineFrom,
+  startWorkDisabledReasonKey,
+} from "@/lib/permit-rules";
 
 export type PermitDetailState = "default" | "loading" | "error" | "noPermission" | "offline";
 
@@ -75,6 +96,20 @@ export interface PermitDetailProps {
   onChangeCloseout: (next: CloseoutChecklistValue) => void;
   onSubmitCloseout: () => void;
   onCancelCloseout: () => void;
+  acceptOpen: boolean;
+  acceptSaving: boolean;
+  acceptApiError?: string;
+  onOpenAccept: () => void;
+  onSubmitAccept: () => void;
+  onCancelAccept: () => void;
+  giveBackOpen: boolean;
+  giveBackComment: string;
+  giveBackSaving: boolean;
+  giveBackApiError?: string;
+  onOpenGiveBack: () => void;
+  onChangeGiveBackComment: (value: string) => void;
+  onSubmitGiveBack: () => void;
+  onCancelGiveBack: () => void;
   rejectOpen: boolean;
   rejectComment: string;
   rejectSaving: boolean;
@@ -180,6 +215,20 @@ export function PermitDetail(props: PermitDetailProps) {
     onChangeCloseout,
     onSubmitCloseout,
     onCancelCloseout,
+    acceptOpen,
+    acceptSaving,
+    acceptApiError,
+    onOpenAccept,
+    onSubmitAccept,
+    onCancelAccept,
+    giveBackOpen,
+    giveBackComment,
+    giveBackSaving,
+    giveBackApiError,
+    onOpenGiveBack,
+    onChangeGiveBackComment,
+    onSubmitGiveBack,
+    onCancelGiveBack,
     rejectOpen,
     rejectComment,
     rejectSaving,
@@ -214,7 +263,7 @@ export function PermitDetail(props: PermitDetailProps) {
 
   const unitName = orgUnits.find((u) => u.id === permit.orgUnitId);
   const unitLabel = unitName ? (locale === "en" ? unitName.nameEn : unitName.nameEl) : permit.orgUnitId;
-  const bannerState = permitBannerState(permit.status);
+  const bannerState = permitBannerState(permit.status, permit.handback);
   const canOperate = state !== "offline" && canOperatePermit(roles);
   const canReject = state !== "offline" && canRejectPermit(roles);
   const startDisabledKey = startWorkDisabledReasonKey(permit.status, permit.plannedStart, permit.plannedEnd, now);
@@ -234,7 +283,10 @@ export function PermitDetail(props: PermitDetailProps) {
   const directAreas = permit.affectedAreas.filter((a) => a.impact === "DIRECT");
   const indirectAreas = permit.affectedAreas.filter((a) => a.impact === "INDIRECT");
   const timeline = permitTimelineFrom(permit, (key) => t(`screens.s11detail.timeline.${key}`));
-  const isClinicalOwner = permit.closeout?.clinicalAcceptanceById === myUserId || roles.includes("clinical_approver");
+  const running = permit.status === "ACTIVE" || permit.status === "BREACH";
+  const waiting = handbackWaiting(permit);
+  const returned = handbackReturned(permit);
+  const mayAccept = state !== "offline" && waiting && permit.handback.mayAccept;
   const isAdmin = roles.includes("admin");
   const isRequester = permit.requestedById === myUserId;
   // A line is decided only while the permit is in review (the API answers
@@ -277,7 +329,7 @@ export function PermitDetail(props: PermitDetailProps) {
             validTo={permit.plannedEnd}
             icraClass={permit.icra?.icraClass ?? "I"}
           />
-          {bannerState === "expired" && (
+          {permit.status === "BREACH" && (
             <p className="mt-s-2 text-fs-14 text-k-red">{t("screens.s11detail.breachLine", { time: formatDateTime(permit.breachedAt ?? permit.plannedEnd) })}</p>
           )}
         </div>
@@ -287,6 +339,34 @@ export function PermitDetail(props: PermitDetailProps) {
             {t("screens.s11detail.closedSummary", { date: permit.closedAt ? formatDate(permit.closedAt) : "" })}
           </p>
         )
+      )}
+
+      {waiting && (
+        <div role="status" className="mb-s-5 rounded-k border border-k-grey p-s-4 text-fs-14 text-k-ink">
+          <p className="font-bold">
+            {t("screens.s11detail.handback.waitingTitle", {
+              name: permit.handback.submittedByName ?? "",
+              time: permit.handback.submittedAt ? formatDateTime(permit.handback.submittedAt) : "",
+            })}
+          </p>
+          {permit.closeout?.noteEl && <p className="mt-s-1">«{permit.closeout.noteEl}»</p>}
+          <p className="mt-s-2 text-k-text">
+            {t(mayAccept ? "screens.s11detail.handback.waitingYours" : "screens.s11detail.handback.waitingOther")}
+          </p>
+        </div>
+      )}
+
+      {returned && (
+        <div role="status" className="mb-s-5 rounded-k border border-k-amber bg-k-amber-bg p-s-4 text-fs-14 text-k-ink">
+          <p className="font-bold">
+            {t("screens.s11detail.handback.returnedTitle", {
+              name: permit.handback.returnedByName ?? "",
+              time: permit.handback.returnedAt ? formatDateTime(permit.handback.returnedAt) : "",
+            })}
+          </p>
+          {permit.handback.returnCommentEl && <p className="mt-s-1">«{permit.handback.returnCommentEl}»</p>}
+          {canOperate && <p className="mt-s-2 text-k-text">{t("screens.s11detail.handback.returnedHint")}</p>}
+        </div>
       )}
 
       {permit.clashes.length > 0 && (
@@ -445,10 +525,32 @@ export function PermitDetail(props: PermitDetailProps) {
             {t("screens.s11detail.startWork.button")}
           </button>
         )}
-        {canOperate && (permit.status === "ACTIVE" || permit.status === "BREACH") && (
-          <button type="button" onClick={onOpenCloseout} className="rounded-k border border-k-grey px-s-4 py-s-3 text-fs-14 text-k-text">
+        {canOperate && running && !waiting && (
+          <button
+            type="button"
+            onClick={onOpenCloseout}
+            className="rounded-k bg-k-blue px-s-4 py-s-3 text-fs-14 font-bold text-k-white shadow-k"
+          >
             {t("screens.s11detail.closeout.button")}
           </button>
+        )}
+        {mayAccept && (
+          <>
+            <button
+              type="button"
+              onClick={onOpenAccept}
+              className="rounded-k bg-k-blue px-s-4 py-s-3 text-fs-14 font-bold text-k-white shadow-k"
+            >
+              {t("screens.s11detail.handback.accept")}
+            </button>
+            <button
+              type="button"
+              onClick={onOpenGiveBack}
+              className="rounded-k border border-k-grey px-s-4 py-s-3 text-fs-14 text-k-text"
+            >
+              {t("buttons.returnWithComments")}
+            </button>
+          </>
         )}
         {canReject && permit.status !== "CLOSED" && permit.status !== "REJECTED" && (
           <button type="button" onClick={onOpenReject} className="rounded-k border border-k-red px-s-4 py-s-3 text-fs-14 text-k-red">
@@ -468,14 +570,9 @@ export function PermitDetail(props: PermitDetailProps) {
         <div role="dialog" aria-label={t("screens.s11detail.closeout.title")} className="fixed inset-0 z-30 flex items-center justify-center bg-k-ink/60 p-s-4">
           <div className="max-h-[90vh] w-full max-w-[560px] overflow-auto rounded-k bg-k-white p-s-6 shadow-k">
             <h2 className="text-fs-20">{t("screens.s11detail.closeout.title")}</h2>
+            <p className="mt-s-2 text-fs-14 text-k-text">{t("screens.s11detail.closeout.intro")}</p>
             <div className="mt-s-4">
-              <CloseoutChecklist
-                value={closeoutValue}
-                onChange={onChangeCloseout}
-                isClinicalOwner={isClinicalOwner}
-                approverName={permit.requestedByName}
-                approverId={myUserId}
-              />
+              <CloseoutChecklist value={closeoutValue} onChange={onChangeCloseout} />
             </div>
             {closeoutApiError && <p role="alert" className="mt-s-3 text-fs-14 text-k-red">{closeoutApiError}</p>}
             <div className="mt-s-5 flex justify-end gap-s-3">
@@ -488,7 +585,72 @@ export function PermitDetail(props: PermitDetailProps) {
                 disabled={closeoutSaving || !closeoutComplete(closeoutValue)}
                 className="rounded-k bg-k-blue px-s-5 py-s-3 text-fs-14 font-bold text-k-white shadow-k disabled:bg-k-grey disabled:text-k-text-muted"
               >
-                {t("buttons.complete")}
+                {t("screens.s11detail.closeout.submit")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {acceptOpen && permit.closeout && (
+        <div role="dialog" aria-label={t("screens.s11detail.handback.acceptTitle")} className="fixed inset-0 z-30 flex items-center justify-center bg-k-ink/60 p-s-4">
+          <div className="max-h-[90vh] w-full max-w-[560px] overflow-auto rounded-k bg-k-white p-s-6 shadow-k">
+            <h2 className="text-fs-20">{t("screens.s11detail.handback.acceptTitle")}</h2>
+            <p className="mt-s-2 text-fs-14 text-k-text">
+              {t("screens.s11detail.handback.submittedBy", {
+                name: permit.handback.submittedByName ?? "",
+                time: permit.handback.submittedAt ? formatDateTime(permit.handback.submittedAt) : "",
+              })}
+            </p>
+            <div className="mt-s-4">
+              <CloseoutChecklist value={permit.closeout} onChange={() => undefined} readOnly />
+            </div>
+            <p className="mt-s-4 text-fs-14 text-k-ink">{t("screens.s11detail.handback.acceptConsequence")}</p>
+            {acceptApiError && <p role="alert" className="mt-s-3 text-fs-14 text-k-red">{acceptApiError}</p>}
+            <div className="mt-s-5 flex justify-end gap-s-3">
+              <button type="button" onClick={onCancelAccept} className="rounded-k px-s-5 py-s-3 text-fs-14 text-k-text">
+                {t("buttons.cancel")}
+              </button>
+              <button
+                type="button"
+                onClick={onSubmitAccept}
+                disabled={acceptSaving}
+                className="rounded-k bg-k-blue px-s-5 py-s-3 text-fs-14 font-bold text-k-white shadow-k disabled:bg-k-grey disabled:text-k-text-muted"
+              >
+                {t("screens.s11detail.handback.accept")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {giveBackOpen && (
+        <div role="dialog" aria-label={t("screens.s11detail.handback.returnTitle")} className="fixed inset-0 z-30 flex items-center justify-center bg-k-ink/60 p-s-4">
+          <div className="w-full max-w-[420px] rounded-k bg-k-white p-s-6 shadow-k">
+            <h2 className="text-fs-20">{t("screens.s11detail.handback.returnTitle")}</h2>
+            <p className="mt-s-2 text-fs-14 text-k-text">{t("screens.s11detail.handback.returnConsequence")}</p>
+            <label htmlFor="handback-return-comment" className="mt-s-3 block text-fs-14 text-k-text">
+              {t("screens.s11detail.handback.returnComment")}
+            </label>
+            <textarea
+              id="handback-return-comment"
+              value={giveBackComment}
+              onChange={(e) => onChangeGiveBackComment(e.target.value)}
+              rows={3}
+              className="mt-s-1 w-full rounded-k border border-k-grey p-s-3 text-fs-14"
+            />
+            {giveBackApiError && <p role="alert" className="mt-s-2 text-fs-14 text-k-red">{giveBackApiError}</p>}
+            <div className="mt-s-4 flex justify-end gap-s-3">
+              <button type="button" onClick={onCancelGiveBack} className="rounded-k px-s-5 py-s-3 text-fs-14 text-k-text">
+                {t("buttons.cancel")}
+              </button>
+              <button
+                type="button"
+                onClick={onSubmitGiveBack}
+                disabled={giveBackSaving || !giveBackComment.trim()}
+                className="rounded-k bg-k-blue px-s-5 py-s-3 text-fs-14 font-bold text-k-white disabled:bg-k-grey disabled:text-k-text-muted"
+              >
+                {t("buttons.returnWithComments")}
               </button>
             </div>
           </div>

@@ -62552,6 +62552,67 @@
                         }
                       ]
                     },
+                    "handback": {
+                      "type": "object",
+                      "properties": {
+                        "submittedAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "submittedById": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "submittedByName": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "returnedAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "returnedById": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "returnedByName": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "returnCommentEl": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "mayAccept": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "submittedAt",
+                        "submittedById",
+                        "submittedByName",
+                        "returnedAt",
+                        "returnedById",
+                        "returnedByName",
+                        "returnCommentEl",
+                        "mayAccept"
+                      ],
+                      "additionalProperties": false
+                    },
                     "requestedById": {
                       "type": "string"
                     },
@@ -62655,6 +62716,7 @@
                     "status",
                     "approvals",
                     "closeout",
+                    "handback",
                     "requestedById",
                     "requestedByName",
                     "requestedAt",
@@ -63417,6 +63479,67 @@
                         }
                       ]
                     },
+                    "handback": {
+                      "type": "object",
+                      "properties": {
+                        "submittedAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "submittedById": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "submittedByName": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "returnedAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "returnedById": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "returnedByName": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "returnCommentEl": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "mayAccept": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "submittedAt",
+                        "submittedById",
+                        "submittedByName",
+                        "returnedAt",
+                        "returnedById",
+                        "returnedByName",
+                        "returnCommentEl",
+                        "mayAccept"
+                      ],
+                      "additionalProperties": false
+                    },
                     "requestedById": {
                       "type": "string"
                     },
@@ -63520,6 +63643,7 @@
                     "status",
                     "approvals",
                     "closeout",
+                    "handback",
                     "requestedById",
                     "requestedByName",
                     "requestedAt",
@@ -64287,6 +64411,67 @@
                         }
                       ]
                     },
+                    "handback": {
+                      "type": "object",
+                      "properties": {
+                        "submittedAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "submittedById": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "submittedByName": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "returnedAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "returnedById": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "returnedByName": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "returnCommentEl": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "mayAccept": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "submittedAt",
+                        "submittedById",
+                        "submittedByName",
+                        "returnedAt",
+                        "returnedById",
+                        "returnedByName",
+                        "returnCommentEl",
+                        "mayAccept"
+                      ],
+                      "additionalProperties": false
+                    },
                     "requestedById": {
                       "type": "string"
                     },
@@ -64390,6 +64575,7 @@
                     "status",
                     "approvals",
                     "closeout",
+                    "handback",
                     "requestedById",
                     "requestedByName",
                     "requestedAt",
@@ -65350,6 +65536,67 @@
                         }
                       ]
                     },
+                    "handback": {
+                      "type": "object",
+                      "properties": {
+                        "submittedAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "submittedById": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "submittedByName": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "returnedAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "returnedById": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "returnedByName": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "returnCommentEl": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "mayAccept": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "submittedAt",
+                        "submittedById",
+                        "submittedByName",
+                        "returnedAt",
+                        "returnedById",
+                        "returnedByName",
+                        "returnCommentEl",
+                        "mayAccept"
+                      ],
+                      "additionalProperties": false
+                    },
                     "requestedById": {
                       "type": "string"
                     },
@@ -65453,6 +65700,7 @@
                     "status",
                     "approvals",
                     "closeout",
+                    "handback",
                     "requestedById",
                     "requestedByName",
                     "requestedAt",
@@ -66286,6 +66534,67 @@
                         }
                       ]
                     },
+                    "handback": {
+                      "type": "object",
+                      "properties": {
+                        "submittedAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "submittedById": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "submittedByName": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "returnedAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "returnedById": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "returnedByName": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "returnCommentEl": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "mayAccept": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "submittedAt",
+                        "submittedById",
+                        "submittedByName",
+                        "returnedAt",
+                        "returnedById",
+                        "returnedByName",
+                        "returnCommentEl",
+                        "mayAccept"
+                      ],
+                      "additionalProperties": false
+                    },
                     "requestedById": {
                       "type": "string"
                     },
@@ -66389,6 +66698,7 @@
                     "status",
                     "approvals",
                     "closeout",
+                    "handback",
                     "requestedById",
                     "requestedByName",
                     "requestedAt",
@@ -66540,7 +66850,1994 @@
             "bearer": []
           }
         ],
-        "summary": "Submit, start, close or reject a permit",
+        "summary": "Submit, start, accept the handback and close, or reject a permit",
+        "tags": [
+          "permits"
+        ]
+      }
+    },
+    "/permits/{id}/closeout": {
+      "post": {
+        "operationId": "PermitsController_submitCloseout",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "el"
+            },
+            "description": "el or en. Greek when the header is absent."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "closeout": {
+                    "type": "object",
+                    "properties": {
+                      "barriersRemoved": {
+                        "default": false,
+                        "type": "boolean"
+                      },
+                      "areaCleaned": {
+                        "default": false,
+                        "type": "boolean"
+                      },
+                      "airBalanceRestored": {
+                        "default": false,
+                        "type": "boolean"
+                      },
+                      "systemsTestedAndReturned": {
+                        "default": false,
+                        "type": "boolean"
+                      },
+                      "fireSystemsReenabled": {
+                        "default": false,
+                        "type": "boolean"
+                      },
+                      "noteEl": {
+                        "default": null,
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "clinicalAcceptanceById": {
+                        "default": null,
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "clinicalAcceptanceByName": {
+                        "default": null,
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "clinicalAcceptanceAt": {
+                        "default": null,
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "barriersRemoved",
+                      "areaCleaned",
+                      "airBalanceRestored",
+                      "systemsTestedAndReturned",
+                      "fireSystemsReenabled",
+                      "noteEl",
+                      "clinicalAcceptanceById",
+                      "clinicalAcceptanceByName",
+                      "clinicalAcceptanceAt"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "closeout"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The permit, with the handback waiting for acceptance",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "ref": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "orgUnitId": {
+                      "type": "string"
+                    },
+                    "projectId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "contractId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "titleEl": {
+                      "type": "string"
+                    },
+                    "descriptionEl": {
+                      "type": "string"
+                    },
+                    "workKind": {
+                      "type": "string",
+                      "enum": [
+                        "CONSTRUCTION",
+                        "RENOVATION",
+                        "MAINTENANCE",
+                        "INSPECTION",
+                        "OTHER"
+                      ]
+                    },
+                    "systems": {
+                      "minItems": 1,
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "enum": [
+                          "ELECTRICAL",
+                          "HVAC",
+                          "MEDICAL_GAS",
+                          "WATER",
+                          "FIRE",
+                          "IT",
+                          "STEAM",
+                          "DRAINAGE"
+                        ]
+                      }
+                    },
+                    "affectedAreas": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "areaId": {
+                            "type": "string"
+                          },
+                          "code": {
+                            "type": "string"
+                          },
+                          "nameEl": {
+                            "type": "string"
+                          },
+                          "areaType": {
+                            "type": "string",
+                            "enum": [
+                              "THEATRE",
+                              "ICU",
+                              "WARD",
+                              "OPD",
+                              "LAB",
+                              "PLANT",
+                              "OFFICE",
+                              "OTHER"
+                            ]
+                          },
+                          "patientRiskGroup": {
+                            "type": "string",
+                            "enum": [
+                              "LOW",
+                              "MEDIUM",
+                              "HIGH",
+                              "HIGHEST"
+                            ]
+                          },
+                          "buildingCode": {
+                            "type": "string"
+                          },
+                          "floorCode": {
+                            "type": "string"
+                          },
+                          "impact": {
+                            "type": "string",
+                            "enum": [
+                              "DIRECT",
+                              "INDIRECT"
+                            ]
+                          },
+                          "viaSystem": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "ELECTRICAL",
+                                  "HVAC",
+                                  "MEDICAL_GAS",
+                                  "WATER",
+                                  "FIRE",
+                                  "IT",
+                                  "STEAM",
+                                  "DRAINAGE"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "areaId",
+                          "code",
+                          "nameEl",
+                          "areaType",
+                          "patientRiskGroup",
+                          "buildingCode",
+                          "floorCode",
+                          "impact",
+                          "viaSystem"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "plannedStart": {
+                      "type": "string"
+                    },
+                    "plannedEnd": {
+                      "type": "string"
+                    },
+                    "actualStart": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "actualEnd": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "icra": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "matrixVersionId": {
+                              "type": "string"
+                            },
+                            "activityType": {
+                              "type": "string",
+                              "enum": [
+                                "A",
+                                "B",
+                                "C",
+                                "D"
+                              ]
+                            },
+                            "riskGroup": {
+                              "type": "string",
+                              "enum": [
+                                "LOW",
+                                "MEDIUM",
+                                "HIGH",
+                                "HIGHEST"
+                              ]
+                            },
+                            "riskGroupFromAreaId": {
+                              "type": "string"
+                            },
+                            "icraClass": {
+                              "type": "string",
+                              "enum": [
+                                "I",
+                                "II",
+                                "III",
+                                "IV",
+                                "V"
+                              ]
+                            },
+                            "controls": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string"
+                                  },
+                                  "textEl": {
+                                    "type": "string"
+                                  },
+                                  "textEn": {
+                                    "type": "string"
+                                  },
+                                  "phase": {
+                                    "type": "string",
+                                    "enum": [
+                                      "DURING",
+                                      "ON_COMPLETION"
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "textEl",
+                                  "textEn",
+                                  "phase"
+                                ],
+                                "additionalProperties": false
+                              }
+                            },
+                            "permitRequired": {
+                              "type": "boolean"
+                            },
+                            "refusalKey": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "enum": [
+                                    "classTwoInvalidForWorks"
+                                  ]
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            }
+                          },
+                          "required": [
+                            "matrixVersionId",
+                            "activityType",
+                            "riskGroup",
+                            "riskGroupFromAreaId",
+                            "icraClass",
+                            "controls",
+                            "permitRequired",
+                            "refusalKey"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "surrounding": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "side": {
+                            "type": "string",
+                            "enum": [
+                              "ABOVE",
+                              "BELOW",
+                              "LATERAL",
+                              "BEHIND",
+                              "IN_FRONT"
+                            ]
+                          },
+                          "areaId": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "patientRiskGroup": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "LOW",
+                                  "MEDIUM",
+                                  "HIGH",
+                                  "HIGHEST"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "noteEl": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "side",
+                          "areaId",
+                          "patientRiskGroup",
+                          "noteEl"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "ilsm": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "triggers": {
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "enum": [
+                                  "FIRE_DETECTION",
+                                  "FIRE_SUPPRESSION",
+                                  "COMPARTMENTATION",
+                                  "EXITS",
+                                  "EVACUATION_ROUTES"
+                                ]
+                              }
+                            },
+                            "required": {
+                              "type": "boolean"
+                            },
+                            "measures": {
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "enum": [
+                                  "INTERIM_MEASURES_LIST",
+                                  "FIRE_WATCH",
+                                  "EXTRA_DRILLS",
+                                  "NOTIFY_FIRE_OFFICER",
+                                  "TEMPORARY_DETECTION",
+                                  "TEMPORARY_SIGNAGE",
+                                  "ALTERNATIVE_EXIT_ROUTE"
+                                ]
+                              }
+                            },
+                            "fireOfficerNotifiedAt": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "triggers",
+                            "required",
+                            "measures",
+                            "fireOfficerNotifiedAt"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "contingencyPlanEl": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "DRAFT",
+                        "SUBMITTED",
+                        "CLINICAL_REVIEW",
+                        "APPROVED",
+                        "ACTIVE",
+                        "BREACH",
+                        "CLOSED",
+                        "REJECTED"
+                      ]
+                    },
+                    "approvals": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "permitId": {
+                            "type": "string"
+                          },
+                          "role": {
+                            "type": "string",
+                            "enum": [
+                              "INFECTION_CONTROL",
+                              "WARD_MANAGER",
+                              "NURSING",
+                              "TECHNICAL",
+                              "SAFETY",
+                              "HOSPITAL_DIRECTOR"
+                            ]
+                          },
+                          "reason": {
+                            "type": "string",
+                            "enum": [
+                              "classThreeOrAbove",
+                              "clinicalAreaTouched",
+                              "inpatientAreaTouched",
+                              "always",
+                              "ilsmRequired",
+                              "durationAboveThreshold",
+                              "classFive"
+                            ]
+                          },
+                          "areaId": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "areaNameEl": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "approverId": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "approverName": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "decision": {
+                            "type": "string",
+                            "enum": [
+                              "PENDING",
+                              "APPROVED",
+                              "RETURNED",
+                              "REJECTED"
+                            ]
+                          },
+                          "commentEl": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "decidedAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "dueAt": {
+                            "type": "string"
+                          },
+                          "slaState": {
+                            "type": "string",
+                            "enum": [
+                              "GREEN",
+                              "AMBER",
+                              "RED",
+                              "BREACHED"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "permitId",
+                          "role",
+                          "reason",
+                          "areaId",
+                          "areaNameEl",
+                          "approverId",
+                          "approverName",
+                          "decision",
+                          "commentEl",
+                          "decidedAt",
+                          "dueAt",
+                          "slaState"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "closeout": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "barriersRemoved": {
+                              "default": false,
+                              "type": "boolean"
+                            },
+                            "areaCleaned": {
+                              "default": false,
+                              "type": "boolean"
+                            },
+                            "airBalanceRestored": {
+                              "default": false,
+                              "type": "boolean"
+                            },
+                            "systemsTestedAndReturned": {
+                              "default": false,
+                              "type": "boolean"
+                            },
+                            "fireSystemsReenabled": {
+                              "default": false,
+                              "type": "boolean"
+                            },
+                            "noteEl": {
+                              "default": null,
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "clinicalAcceptanceById": {
+                              "default": null,
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "clinicalAcceptanceByName": {
+                              "default": null,
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "clinicalAcceptanceAt": {
+                              "default": null,
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "barriersRemoved",
+                            "areaCleaned",
+                            "airBalanceRestored",
+                            "systemsTestedAndReturned",
+                            "fireSystemsReenabled",
+                            "noteEl",
+                            "clinicalAcceptanceById",
+                            "clinicalAcceptanceByName",
+                            "clinicalAcceptanceAt"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "handback": {
+                      "type": "object",
+                      "properties": {
+                        "submittedAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "submittedById": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "submittedByName": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "returnedAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "returnedById": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "returnedByName": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "returnCommentEl": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "mayAccept": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "submittedAt",
+                        "submittedById",
+                        "submittedByName",
+                        "returnedAt",
+                        "returnedById",
+                        "returnedByName",
+                        "returnCommentEl",
+                        "mayAccept"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "requestedById": {
+                      "type": "string"
+                    },
+                    "requestedByName": {
+                      "type": "string"
+                    },
+                    "requestedAt": {
+                      "type": "string"
+                    },
+                    "submittedAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "approvedAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "closedById": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "closedAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "breachedAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "clashes": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "REDUNDANT_HALVES",
+                              "TWO_THEATRES",
+                              "SAME_AREA_OVERLAP"
+                            ]
+                          },
+                          "otherPermitId": {
+                            "type": "string"
+                          },
+                          "otherPermitRef": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "messageKey": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "otherPermitId",
+                          "otherPermitRef",
+                          "messageKey"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "createdAt": {
+                      "type": "string"
+                    },
+                    "updatedAt": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "ref",
+                    "orgUnitId",
+                    "projectId",
+                    "contractId",
+                    "titleEl",
+                    "descriptionEl",
+                    "workKind",
+                    "systems",
+                    "affectedAreas",
+                    "plannedStart",
+                    "plannedEnd",
+                    "actualStart",
+                    "actualEnd",
+                    "icra",
+                    "surrounding",
+                    "ilsm",
+                    "contingencyPlanEl",
+                    "status",
+                    "approvals",
+                    "closeout",
+                    "handback",
+                    "requestedById",
+                    "requestedByName",
+                    "requestedAt",
+                    "submittedAt",
+                    "approvedAt",
+                    "closedById",
+                    "closedAt",
+                    "breachedAt",
+                    "clashes",
+                    "createdAt",
+                    "updatedAt"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The body is not a valid closeout checklist",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "A role that does not run the works, or a read-only account",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such permit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Not running, a box unticked, or a handback already waiting",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Submit the finished works for the clinical owner's acceptance",
+        "tags": [
+          "permits"
+        ]
+      }
+    },
+    "/permits/{id}/closeout/return": {
+      "post": {
+        "operationId": "PermitsController_returnCloseout",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "el"
+            },
+            "description": "el or en. Greek when the header is absent."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "commentEl": {
+                    "type": "string",
+                    "maxLength": 2000
+                  }
+                },
+                "required": [
+                  "commentEl"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The permit, back with the works side",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "ref": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "orgUnitId": {
+                      "type": "string"
+                    },
+                    "projectId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "contractId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "titleEl": {
+                      "type": "string"
+                    },
+                    "descriptionEl": {
+                      "type": "string"
+                    },
+                    "workKind": {
+                      "type": "string",
+                      "enum": [
+                        "CONSTRUCTION",
+                        "RENOVATION",
+                        "MAINTENANCE",
+                        "INSPECTION",
+                        "OTHER"
+                      ]
+                    },
+                    "systems": {
+                      "minItems": 1,
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "enum": [
+                          "ELECTRICAL",
+                          "HVAC",
+                          "MEDICAL_GAS",
+                          "WATER",
+                          "FIRE",
+                          "IT",
+                          "STEAM",
+                          "DRAINAGE"
+                        ]
+                      }
+                    },
+                    "affectedAreas": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "areaId": {
+                            "type": "string"
+                          },
+                          "code": {
+                            "type": "string"
+                          },
+                          "nameEl": {
+                            "type": "string"
+                          },
+                          "areaType": {
+                            "type": "string",
+                            "enum": [
+                              "THEATRE",
+                              "ICU",
+                              "WARD",
+                              "OPD",
+                              "LAB",
+                              "PLANT",
+                              "OFFICE",
+                              "OTHER"
+                            ]
+                          },
+                          "patientRiskGroup": {
+                            "type": "string",
+                            "enum": [
+                              "LOW",
+                              "MEDIUM",
+                              "HIGH",
+                              "HIGHEST"
+                            ]
+                          },
+                          "buildingCode": {
+                            "type": "string"
+                          },
+                          "floorCode": {
+                            "type": "string"
+                          },
+                          "impact": {
+                            "type": "string",
+                            "enum": [
+                              "DIRECT",
+                              "INDIRECT"
+                            ]
+                          },
+                          "viaSystem": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "ELECTRICAL",
+                                  "HVAC",
+                                  "MEDICAL_GAS",
+                                  "WATER",
+                                  "FIRE",
+                                  "IT",
+                                  "STEAM",
+                                  "DRAINAGE"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "areaId",
+                          "code",
+                          "nameEl",
+                          "areaType",
+                          "patientRiskGroup",
+                          "buildingCode",
+                          "floorCode",
+                          "impact",
+                          "viaSystem"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "plannedStart": {
+                      "type": "string"
+                    },
+                    "plannedEnd": {
+                      "type": "string"
+                    },
+                    "actualStart": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "actualEnd": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "icra": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "matrixVersionId": {
+                              "type": "string"
+                            },
+                            "activityType": {
+                              "type": "string",
+                              "enum": [
+                                "A",
+                                "B",
+                                "C",
+                                "D"
+                              ]
+                            },
+                            "riskGroup": {
+                              "type": "string",
+                              "enum": [
+                                "LOW",
+                                "MEDIUM",
+                                "HIGH",
+                                "HIGHEST"
+                              ]
+                            },
+                            "riskGroupFromAreaId": {
+                              "type": "string"
+                            },
+                            "icraClass": {
+                              "type": "string",
+                              "enum": [
+                                "I",
+                                "II",
+                                "III",
+                                "IV",
+                                "V"
+                              ]
+                            },
+                            "controls": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string"
+                                  },
+                                  "textEl": {
+                                    "type": "string"
+                                  },
+                                  "textEn": {
+                                    "type": "string"
+                                  },
+                                  "phase": {
+                                    "type": "string",
+                                    "enum": [
+                                      "DURING",
+                                      "ON_COMPLETION"
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "textEl",
+                                  "textEn",
+                                  "phase"
+                                ],
+                                "additionalProperties": false
+                              }
+                            },
+                            "permitRequired": {
+                              "type": "boolean"
+                            },
+                            "refusalKey": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "enum": [
+                                    "classTwoInvalidForWorks"
+                                  ]
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            }
+                          },
+                          "required": [
+                            "matrixVersionId",
+                            "activityType",
+                            "riskGroup",
+                            "riskGroupFromAreaId",
+                            "icraClass",
+                            "controls",
+                            "permitRequired",
+                            "refusalKey"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "surrounding": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "side": {
+                            "type": "string",
+                            "enum": [
+                              "ABOVE",
+                              "BELOW",
+                              "LATERAL",
+                              "BEHIND",
+                              "IN_FRONT"
+                            ]
+                          },
+                          "areaId": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "patientRiskGroup": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "LOW",
+                                  "MEDIUM",
+                                  "HIGH",
+                                  "HIGHEST"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "noteEl": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "side",
+                          "areaId",
+                          "patientRiskGroup",
+                          "noteEl"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "ilsm": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "triggers": {
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "enum": [
+                                  "FIRE_DETECTION",
+                                  "FIRE_SUPPRESSION",
+                                  "COMPARTMENTATION",
+                                  "EXITS",
+                                  "EVACUATION_ROUTES"
+                                ]
+                              }
+                            },
+                            "required": {
+                              "type": "boolean"
+                            },
+                            "measures": {
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "enum": [
+                                  "INTERIM_MEASURES_LIST",
+                                  "FIRE_WATCH",
+                                  "EXTRA_DRILLS",
+                                  "NOTIFY_FIRE_OFFICER",
+                                  "TEMPORARY_DETECTION",
+                                  "TEMPORARY_SIGNAGE",
+                                  "ALTERNATIVE_EXIT_ROUTE"
+                                ]
+                              }
+                            },
+                            "fireOfficerNotifiedAt": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "triggers",
+                            "required",
+                            "measures",
+                            "fireOfficerNotifiedAt"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "contingencyPlanEl": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "DRAFT",
+                        "SUBMITTED",
+                        "CLINICAL_REVIEW",
+                        "APPROVED",
+                        "ACTIVE",
+                        "BREACH",
+                        "CLOSED",
+                        "REJECTED"
+                      ]
+                    },
+                    "approvals": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "permitId": {
+                            "type": "string"
+                          },
+                          "role": {
+                            "type": "string",
+                            "enum": [
+                              "INFECTION_CONTROL",
+                              "WARD_MANAGER",
+                              "NURSING",
+                              "TECHNICAL",
+                              "SAFETY",
+                              "HOSPITAL_DIRECTOR"
+                            ]
+                          },
+                          "reason": {
+                            "type": "string",
+                            "enum": [
+                              "classThreeOrAbove",
+                              "clinicalAreaTouched",
+                              "inpatientAreaTouched",
+                              "always",
+                              "ilsmRequired",
+                              "durationAboveThreshold",
+                              "classFive"
+                            ]
+                          },
+                          "areaId": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "areaNameEl": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "approverId": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "approverName": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "decision": {
+                            "type": "string",
+                            "enum": [
+                              "PENDING",
+                              "APPROVED",
+                              "RETURNED",
+                              "REJECTED"
+                            ]
+                          },
+                          "commentEl": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "decidedAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "dueAt": {
+                            "type": "string"
+                          },
+                          "slaState": {
+                            "type": "string",
+                            "enum": [
+                              "GREEN",
+                              "AMBER",
+                              "RED",
+                              "BREACHED"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "permitId",
+                          "role",
+                          "reason",
+                          "areaId",
+                          "areaNameEl",
+                          "approverId",
+                          "approverName",
+                          "decision",
+                          "commentEl",
+                          "decidedAt",
+                          "dueAt",
+                          "slaState"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "closeout": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "barriersRemoved": {
+                              "default": false,
+                              "type": "boolean"
+                            },
+                            "areaCleaned": {
+                              "default": false,
+                              "type": "boolean"
+                            },
+                            "airBalanceRestored": {
+                              "default": false,
+                              "type": "boolean"
+                            },
+                            "systemsTestedAndReturned": {
+                              "default": false,
+                              "type": "boolean"
+                            },
+                            "fireSystemsReenabled": {
+                              "default": false,
+                              "type": "boolean"
+                            },
+                            "noteEl": {
+                              "default": null,
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "clinicalAcceptanceById": {
+                              "default": null,
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "clinicalAcceptanceByName": {
+                              "default": null,
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "clinicalAcceptanceAt": {
+                              "default": null,
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "barriersRemoved",
+                            "areaCleaned",
+                            "airBalanceRestored",
+                            "systemsTestedAndReturned",
+                            "fireSystemsReenabled",
+                            "noteEl",
+                            "clinicalAcceptanceById",
+                            "clinicalAcceptanceByName",
+                            "clinicalAcceptanceAt"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "handback": {
+                      "type": "object",
+                      "properties": {
+                        "submittedAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "submittedById": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "submittedByName": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "returnedAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "returnedById": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "returnedByName": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "returnCommentEl": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "mayAccept": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "submittedAt",
+                        "submittedById",
+                        "submittedByName",
+                        "returnedAt",
+                        "returnedById",
+                        "returnedByName",
+                        "returnCommentEl",
+                        "mayAccept"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "requestedById": {
+                      "type": "string"
+                    },
+                    "requestedByName": {
+                      "type": "string"
+                    },
+                    "requestedAt": {
+                      "type": "string"
+                    },
+                    "submittedAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "approvedAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "closedById": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "closedAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "breachedAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "clashes": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "REDUNDANT_HALVES",
+                              "TWO_THEATRES",
+                              "SAME_AREA_OVERLAP"
+                            ]
+                          },
+                          "otherPermitId": {
+                            "type": "string"
+                          },
+                          "otherPermitRef": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "messageKey": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "otherPermitId",
+                          "otherPermitRef",
+                          "messageKey"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "createdAt": {
+                      "type": "string"
+                    },
+                    "updatedAt": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "ref",
+                    "orgUnitId",
+                    "projectId",
+                    "contractId",
+                    "titleEl",
+                    "descriptionEl",
+                    "workKind",
+                    "systems",
+                    "affectedAreas",
+                    "plannedStart",
+                    "plannedEnd",
+                    "actualStart",
+                    "actualEnd",
+                    "icra",
+                    "surrounding",
+                    "ilsm",
+                    "contingencyPlanEl",
+                    "status",
+                    "approvals",
+                    "closeout",
+                    "handback",
+                    "requestedById",
+                    "requestedByName",
+                    "requestedAt",
+                    "submittedAt",
+                    "approvedAt",
+                    "closedById",
+                    "closedAt",
+                    "breachedAt",
+                    "clashes",
+                    "createdAt",
+                    "updatedAt"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The body is not valid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not a clinical owner of the permit's areas, or a read-only account",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such permit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The caller submitted this handback themselves",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "No handback waiting, or no comment",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "The i18n key of the message, for the client to re-translate."
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "The message in the caller's language; Greek unless asked."
+                    },
+                    "requestId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "message",
+                    "requestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Return the handback to the works side with a comment",
         "tags": [
           "permits"
         ]
@@ -67197,6 +69494,67 @@
                         }
                       ]
                     },
+                    "handback": {
+                      "type": "object",
+                      "properties": {
+                        "submittedAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "submittedById": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "submittedByName": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "returnedAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "returnedById": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "returnedByName": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "returnCommentEl": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "mayAccept": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "submittedAt",
+                        "submittedById",
+                        "submittedByName",
+                        "returnedAt",
+                        "returnedById",
+                        "returnedByName",
+                        "returnCommentEl",
+                        "mayAccept"
+                      ],
+                      "additionalProperties": false
+                    },
                     "requestedById": {
                       "type": "string"
                     },
@@ -67300,6 +69658,7 @@
                     "status",
                     "approvals",
                     "closeout",
+                    "handback",
                     "requestedById",
                     "requestedByName",
                     "requestedAt",

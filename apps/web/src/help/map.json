@@ -451,6 +451,7 @@
     "persona": [
       "admin",
       "estates_head",
+      "project_engineer",
       "clinical_approver",
       "technical_approver"
     ]

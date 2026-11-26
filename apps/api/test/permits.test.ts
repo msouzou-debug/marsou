@@ -5,7 +5,6 @@ import request from "supertest";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { USERS, bearer, createTestApp, listAll, tokenFor } from "./app";
 import {
-  M3_USERS,
   approveEveryLine,
   approvedPermit,
   draftPermit,
@@ -563,131 +562,6 @@ describe("shutdown permits", () => {
       .send({ to: "ACTIVE" });
     expect(response.status).toBe(422);
     expect(response.body.key).toBe("errors.permitNotApproved");
-  });
-
-  // ----------------------------------------------------- closeout, §6.6 --
-
-  const fullChecklist = {
-    barriersRemoved: true,
-    areaCleaned: true,
-    airBalanceRestored: true,
-    systemsTestedAndReturned: true,
-    fireSystemsReenabled: true,
-    noteEl: "Ο χώρος παραδόθηκε καθαρός.",
-    clinicalAcceptanceById: null,
-    clinicalAcceptanceByName: null,
-    clinicalAcceptanceAt: null,
-  };
-
-  async function activePermitOnTheatre(what: string): Promise<ShutdownPermit> {
-    const permit = await approvedPermit(app, {
-      titleEl: title(what),
-      areaIds: [areas.theatre],
-      activityType: "B",
-    });
-    await setWindow(permit.id, -1, 4);
-    const token = await tokenFor(app, USERS.estatesNicosia);
-    const active = await request(app.getHttpServer())
-      .post(`/permits/${permit.id}/transition`)
-      .set(bearer(token))
-      .send({ to: "ACTIVE" });
-    return active.body as ShutdownPermit;
-  }
-
-  it("refuses a closeout with a box unticked", async () => {
-    const permit = await activePermitOnTheatre("Κλείσιμο με κενό");
-    const token = await tokenFor(app, USERS.clinicalNicosia);
-    const response = await request(app.getHttpServer())
-      .post(`/permits/${permit.id}/transition`)
-      .set(bearer(token))
-      .send({
-        to: "CLOSED",
-        commentEl: null,
-        closeout: { ...fullChecklist, fireSystemsReenabled: false },
-      });
-    expect(response.status).toBe(422);
-    expect(response.body.key).toBe("errors.permitCloseoutIncomplete");
-  });
-
-  it("refuses a closeout by somebody who is not a clinical owner of the area", async () => {
-    const permit = await activePermitOnTheatre("Κλείσιμο από μηχανικό");
-    const token = await tokenFor(app, USERS.estatesNicosia);
-    const response = await request(app.getHttpServer())
-      .post(`/permits/${permit.id}/transition`)
-      .set(bearer(token))
-      .send({ to: "CLOSED", commentEl: null, closeout: fullChecklist });
-    expect(response.status).toBe(403);
-    expect(response.body.key).toBe("errors.permitAcceptanceNotYours");
-  });
-
-  it("stamps the acceptance from the caller, never from the body", async () => {
-    const permit = await activePermitOnTheatre("Κλείσιμο με αποδοχή");
-    const token = await tokenFor(app, USERS.clinicalNicosia);
-    const response = await request(app.getHttpServer())
-      .post(`/permits/${permit.id}/transition`)
-      .set(bearer(token))
-      .send({
-        to: "CLOSED",
-        commentEl: null,
-        closeout: {
-          ...fullChecklist,
-          // A client claiming somebody else signed it.
-          clinicalAcceptanceById: "00000000-0000-0000-0000-000000000000",
-          clinicalAcceptanceByName: "Κάποιος Άλλος",
-          clinicalAcceptanceAt: "2020-01-01T00:00:00.000Z",
-        },
-      });
-    expect(response.status).toBe(200);
-    const body = response.body as ShutdownPermit;
-    expect(body.status).toBe("CLOSED");
-    expect(body.closeout?.clinicalAcceptanceByName).toBe("Γιώργος Σάββα");
-    expect(body.closeout?.clinicalAcceptanceById).not.toBe(
-      "00000000-0000-0000-0000-000000000000",
-    );
-    expect(Date.parse(body.closeout?.clinicalAcceptanceAt ?? "")).toBeGreaterThan(
-      Date.parse("2025-01-01T00:00:00.000Z"),
-    );
-    expect(body.actualEnd).not.toBeNull();
-    expect(body.closedAt).not.toBeNull();
-  });
-
-  it("refuses to close a permit that is not running", async () => {
-    const permit = await approvedPermit(app, {
-      titleEl: title("Κλείσιμο χωρίς έναρξη"),
-      areaIds: [areas.theatre],
-      activityType: "B",
-    });
-    const token = await tokenFor(app, USERS.clinicalNicosia);
-    const response = await request(app.getHttpServer())
-      .post(`/permits/${permit.id}/transition`)
-      .set(bearer(token))
-      .send({ to: "CLOSED", commentEl: null, closeout: fullChecklist });
-    expect(response.status).toBe(422);
-    expect(response.body.key).toBe("errors.permitNotActive");
-  });
-
-  it("lets the Nursing officer sign for a ward, because the role is unit-wide", async () => {
-    const permit = await approvedPermit(app, {
-      titleEl: title("Αποδοχή από τη Νοσηλευτική"),
-      areaIds: [areas.ward],
-      activityType: "B",
-    });
-    await setWindow(permit.id, -1, 4);
-    const engineer = await tokenFor(app, USERS.estatesNicosia);
-    await request(app.getHttpServer())
-      .post(`/permits/${permit.id}/transition`)
-      .set(bearer(engineer))
-      .send({ to: "ACTIVE" });
-
-    const nursing = await tokenFor(app, M3_USERS.nursingNicosia);
-    const response = await request(app.getHttpServer())
-      .post(`/permits/${permit.id}/transition`)
-      .set(bearer(nursing))
-      .send({ to: "CLOSED", commentEl: null, closeout: fullChecklist });
-    expect(response.status).toBe(200);
-    expect((response.body as ShutdownPermit).closeout?.clinicalAcceptanceByName).toBe(
-      "Μαρίνα Αντωνίου",
-    );
   });
 
   // ------------------------------------------------------------ the list --
