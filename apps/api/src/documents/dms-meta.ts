@@ -489,6 +489,67 @@ export function buildRfiDocumentMeta(
   });
 }
 
+/**
+ * Owner request 26/11/2026: a site instruction is sent the same way as an
+ * RFI — from Outlook — and the sent message or the letter is filed against
+ * it. Correspondence on a contract, so «Συμβάσεις» with the contractor as
+ * counterparty, the same as an RFI's.
+ */
+export const SITE_INSTRUCTION_DOC_TYPE = "Αλληλογραφία οδηγίας εργοταξίου";
+
+/** `site_instruction_doc:<instruction_id>:<n>`, the nth paper on this instruction. */
+export function siteInstructionDocumentSourceRef(instructionId: string, n: number): string {
+  return `site_instruction_doc:${instructionId}:${n}`;
+}
+
+export interface SiteInstructionDocumentFacts {
+  instructionId: string;
+  contractId: string;
+  contractRef: string | null;
+  number: number;
+  textEl: string;
+  recipientName: string | null;
+  n: number;
+  letterDate: string;
+  contractor: ContractorFacts | null;
+  unit: UnitFacts;
+  approvals: PersonAction[];
+}
+
+/**
+ * The subject leads with the instruction's number on the contract, then the
+ * contract's reference, the recipient and the instruction, cut to fit.
+ */
+export function buildSiteInstructionDocumentMeta(
+  facts: SiteInstructionDocumentFacts,
+  files: DmsFile[],
+  origin: string,
+): DmsMetaBody {
+  const label = `Οδηγία εργοταξίου ${facts.number}`;
+  return checked({
+    ...commonFacts(facts.unit),
+    source_module: "site_instruction_document",
+    source_ref: siteInstructionDocumentSourceRef(facts.instructionId, facts.n),
+    source_url: deepLink(origin, `/contracts/${facts.contractId}/instructions`),
+    doc_type: SITE_INSTRUCTION_DOC_TYPE,
+    subject: subject([
+      SITE_INSTRUCTION_DOC_TYPE,
+      label,
+      facts.contractRef ?? "",
+      facts.recipientName ?? "",
+      facts.textEl.slice(0, 200),
+    ]),
+    sender_ref: `${facts.contractRef ?? facts.contractId}/ΟΕ-${facts.number}`.slice(0, 120),
+    letter_date: facts.letterDate,
+    category: "Συμβάσεις",
+    counterparties: facts.contractor ? [vendorCounterparty(facts.contractor)] : [],
+    amount: 0,
+    related: [],
+    approvals: approvalsOf(facts.approvals),
+    files,
+  });
+}
+
 export function buildAssetDocumentMeta(
   facts: AssetDocumentFacts,
   files: DmsFile[],

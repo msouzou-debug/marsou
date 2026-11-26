@@ -235,7 +235,7 @@ export class WorkOrdersController {
   @Post(":id/documents")
   @HttpCode(201)
   @Needs("workOrderWork", "WRITE")
-  @UseInterceptors(FileInterceptor("file", { limits: { fileSize: MAX_FILE_BYTES, files: 1 } }))
+  @UseInterceptors(FileInterceptor("file", { limits: { fileSize: MAX_FILE_BYTES, files: 1 }, defParamCharset: "utf8" }))
   @ApiConsumes("multipart/form-data")
   @ApiOperation({ summary: "File a photograph or the contractor's report on the order" })
   @ApiParam({ name: "id", schema: { type: "string", format: "uuid" } })

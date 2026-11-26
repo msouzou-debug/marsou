@@ -15,6 +15,10 @@
  * | state        | InstructionsScreenState | The five states.                                                    |
  * | roles        | AppRole[]               | `canWriteSiteInstructions(roles)`.                                  |
  * | onUpdate     | (values) => Promise<boolean>? | UAT 25/11/2026: «Επεξεργασία» in the sheet; omitted or offline, none. |
+ * | documents / onUpload / uploading / uploadError / filingReport / onMarkSent | — | Owner request 26/11/2026: the open instruction's correspondence, its upload, what a save could not file, and the one-click «sent today»; wired by `InstructionsScreen`, none offline. |
+ *
+ * Owner request 26/11/2026: «Αποστολή» is a column, as on the RFI list, and a
+ * new instruction's recipient starts from the contractor's contact.
  *
  * A row opens the sheet's read view on a click or on Enter (UAT 25/11/2026).
  *
@@ -25,14 +29,16 @@
 import type { ReactNode } from "react";
 import { useTranslations } from "next-intl";
 import { Check, TriangleAlert, X as XIcon } from "lucide-react";
-import type { AppRole, ContractDetail, SiteInstruction } from "@ecapital/shared";
+import type { AppRole, ContractDetail, SiteInstruction, SiteInstructionDocument } from "@ecapital/shared";
 import { canWriteSiteInstructions } from "@/auth/roles";
 import { PageTitle } from "@/components/app-shell";
 import { Table, type TableColumn } from "@/components/table";
 import { formatDate } from "@/lib/format";
+import { contractFactsOf, recipientDefaultsOf } from "@/lib/contract-recipient";
+import type { FilingReport } from "@/lib/file-each";
 import { ContractTabs } from "@/screens/s07-contract/ContractTabs";
 import type { InstructionFormValues } from "./schema";
-import { InstructionSheet } from "./InstructionSheet";
+import { InstructionSheet, type InstructionSaveOptions } from "./InstructionSheet";
 
 export type InstructionsScreenState = "default" | "loading" | "empty" | "error" | "noPermission" | "offline";
 
@@ -48,9 +54,15 @@ export interface InstructionsProps {
   sheetSaving?: boolean;
   sheetApiError?: string;
   creatingVariationId?: string | null;
-  onCreate: (values: InstructionFormValues) => void;
+  onCreate: (values: InstructionFormValues, options: InstructionSaveOptions) => void;
   onCreateVariation: (instruction: SiteInstruction) => void;
   onUpdate?: (values: InstructionFormValues) => Promise<boolean>;
+  documents?: SiteInstructionDocument[];
+  onUpload?: (file: File, titleEl: string) => Promise<boolean>;
+  uploading?: boolean;
+  uploadError?: string;
+  filingReport?: FilingReport;
+  onMarkSent?: (sentOn: string) => Promise<boolean>;
 }
 
 export function Instructions({
@@ -68,6 +80,12 @@ export function Instructions({
   onCreate,
   onCreateVariation,
   onUpdate,
+  documents,
+  onUpload,
+  uploading = false,
+  uploadError,
+  filingReport,
+  onMarkSent,
 }: InstructionsProps) {
   const t = useTranslations();
 
@@ -92,6 +110,13 @@ export function Instructions({
     },
     { id: "issuedBy", headerKey: "screens.s07c.columns.issuedBy", accessor: (row) => row.issuedByName },
     { id: "issuedAt", headerKey: "screens.s07c.columns.issuedAt", accessor: (row) => row.issuedAt, numeric: true, cell: (row) => formatDate(row.issuedAt) },
+    {
+      id: "sentOn",
+      headerKey: "screens.s07c.columns.sentOn",
+      accessor: (row) => row.sentOn ?? "",
+      numeric: true,
+      cell: (row) => (row.sentOn ? formatDate(row.sentOn) : t("common.notAvailable")),
+    },
     {
       id: "costImpact",
       headerKey: "screens.s07c.columns.costImpact",
@@ -216,6 +241,14 @@ export function Instructions({
           onCreate={onCreate}
           onCreateVariation={() => selectedInstruction && onCreateVariation(selectedInstruction)}
           onUpdate={state === "offline" ? undefined : onUpdate}
+          recipientDefaults={recipientDefaultsOf(contract)}
+          contractFacts={contract ? contractFactsOf(contract) : undefined}
+          documents={documents}
+          onUpload={state === "offline" ? undefined : onUpload}
+          uploading={uploading}
+          uploadError={uploadError}
+          filingReport={filingReport}
+          onMarkSent={state === "offline" ? undefined : onMarkSent}
         />
       )}
     </>

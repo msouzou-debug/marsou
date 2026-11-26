@@ -792,11 +792,13 @@ describe("RFIs on a contract", () => {
       .post(`/contracts/${contractId}/rfis/${rfi.id}/documents`)
       .set(bearer(token))
       .attach("file", Buffer.from("%PDF-1.7\n%%EOF\n"), {
-        filename: "rfi.pdf",
+        filename: "Απάντηση αναδόχου 26-11.pdf",
         contentType: "application/pdf",
       });
+    // Owner request 26/11/2026: a Greek name with spaces is filed and kept.
     expect(pdf.status).toBe(201);
     expect(pdf.body.mime).toBe("application/pdf");
+    expect(RfiDocument.parse(pdf.body).filename).toBe("Απάντηση αναδόχου 26-11.pdf");
 
     const none = await request(app.getHttpServer())
       .post(`/contracts/${contractId}/rfis/${rfi.id}/documents`)

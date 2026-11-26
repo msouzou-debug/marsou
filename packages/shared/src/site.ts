@@ -152,27 +152,50 @@ export const SiteInstruction = z.object({
   // variation; the flag is what the variations list cross-checks.
   costImpactFlag: z.boolean(),
   variationId: z.string().nullable(),
+  // Owner request 26/11/2026 (migration 0034): the same e-mail facility as an
+  // RFI. eCapital sends no e-mail; the engineer sends the instruction from
+  // Outlook and records who it went to, the address and the day it left
+  // (yyyy-mm-dd). All three optional: an instruction goes to the contractor
+  // the contract already names. Optional here for the fixture reason
+  // `ContractDetail` gives; the API always sends them.
+  recipientName: z.string().nullable().optional(),
+  recipientEmail: z.string().nullable().optional(),
+  sentOn: z.string().nullable().optional(),
 });
 export type SiteInstruction = z.infer<typeof SiteInstruction>;
 
 // `issuedOn` is the day the instruction was given on site, which can be
 // before the day somebody typed it in; omitted, it is today. RULE (owner, UAT
 // 25/11/2026): a day that has already happened, so never after today.
+// RULE (owner, 26/11/2026): the day it was sent is not after today, here; not
+// before the day it was issued, in the service.
 export const SiteInstructionCreate = SiteInstruction.pick({ textEl: true, costImpactFlag: true }).extend({
   issuedOn: PastOrTodayDate.optional(),
+  recipientName: RecipientName.nullable().optional(),
+  recipientEmail: RecipientEmail.nullable().optional(),
+  sentOn: PastOrTodayDate.nullable().optional(),
 });
 export type SiteInstructionCreate = z.infer<typeof SiteInstructionCreate>;
 
 // UAT 25/11/2026: an instruction can be corrected until it has been turned
 // into a variation; after that the variation is the record of what it cost.
+// Owner request 26/11/2026: and who it went to and when; each can be cleared.
 export const SiteInstructionUpdate = z
   .object({
     textEl: z.string().min(1),
     costImpactFlag: z.boolean(),
     issuedOn: PastOrTodayDate,
+    recipientName: RecipientName.nullable(),
+    recipientEmail: RecipientEmail.nullable(),
+    sentOn: PastOrTodayDate.nullable(),
   })
   .partial();
 export type SiteInstructionUpdate = z.infer<typeof SiteInstructionUpdate>;
+
+// The correspondence filed against a site instruction (owner request
+// 26/11/2026): the sent e-mail or letter, the same shape as an RFI's.
+export const SiteInstructionDocument = RfiDocument;
+export type SiteInstructionDocument = RfiDocument;
 
 export const DefectSource = z.enum(["HANDOVER", "INSPECTION", "WORK_ORDER", "CONDITION_SURVEY"]);
 export type DefectSource = z.infer<typeof DefectSource>;

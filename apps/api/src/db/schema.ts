@@ -918,6 +918,12 @@ export const siteInstruction = ecapital.table(
     // RULE (R09): set once, only on an instruction that carries cost impact,
     // and only once. Both halves are CHECK constraints in migration 0006.
     variationId: uuid("variation_id").references(() => variation.id),
+    // 0034, owner request 26/11/2026: the same e-mail facility as an RFI.
+    // Who the instruction went to, the address used in Outlook and the day
+    // it left. All optional; null on every instruction before 0034.
+    recipientName: text("recipient_name"),
+    recipientEmail: text("recipient_email"),
+    sentOn: date("sent_on"),
     createdAt,
     updatedAt,
   },
@@ -1426,6 +1432,8 @@ export const documentKind = ecapital.enum("document_kind", [
   "CLAIM_LEGAL_LETTER",
   // 0030: an RFI's sent e-mail or the reply to it (owner decision 25/11/2026).
   "RFI_EVIDENCE",
+  // 0034: a site instruction's sent e-mail or letter (owner request 26/11/2026).
+  "SITE_INSTRUCTION_EVIDENCE",
 ]);
 export const dmsOutboxStatus = ecapital.enum("dms_outbox_status", [
   "QUEUED",

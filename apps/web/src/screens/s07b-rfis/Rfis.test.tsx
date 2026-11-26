@@ -224,7 +224,7 @@ describe("Rfis — recipient, sent day and correspondence (owner decision 25/11/
       recipientName: "Νίκος Γεωργίου, Μηχανολογικό γραφείο",
       recipientEmail: "n.georgiou@mep.example",
       sentOn: "",
-    });
+    }, { files: [], sendMail: false });
     // eCapital sends nothing: the form says so.
     expect(dialog.getByText(/Το eCapital δεν στέλνει μηνύματα/)).toBeInTheDocument();
   });
@@ -417,7 +417,7 @@ describe("RfiSheet — «Απάντηση» and «Κλείσιμο αιτήμα�
 
     fireEvent.change(day, { target: { value: nicosiaDateOf(openRfi.raisedAt) } });
     await user.click(dialog.getByRole("button", { name: "Αποθήκευση" }));
-    expect(onAnswer).toHaveBeenCalledWith({ answerEl: "Θύρες EI 60.", answeredOn: nicosiaDateOf(openRfi.raisedAt) });
+    expect(onAnswer).toHaveBeenCalledWith({ answerEl: "Θύρες EI 60.", answeredOn: nicosiaDateOf(openRfi.raisedAt) }, []);
     expect(await screen.findByRole("status")).toHaveTextContent("Η απάντηση καταχωρίστηκε.");
   });
 

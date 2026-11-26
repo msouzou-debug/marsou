@@ -2,6 +2,7 @@ import { Injectable } from "@nestjs/common";
 import type {
   SiteInstruction,
   SiteInstructionCreate,
+  SiteInstructionDocument,
   SiteInstructionUpdate,
   Variation,
 } from "@ecapital/shared";
@@ -13,10 +14,22 @@ import {
   CHECK_VIOLATION,
   INSUFFICIENT_PRIVILEGE,
   UNIQUE_VIOLATION,
+  constraintName,
   sqlState,
 } from "../common/sql-error";
 import { currentTx } from "../db/client";
 import * as schema from "../db/schema";
+import { DocumentsService, type UploadInput } from "../documents/documents.service";
+
+/**
+ * RULE (owner, 26/11/2026, the RFI's rule): the day an instruction was sent
+ * is not before the day it was issued. «Not after today» is the zod schema's.
+ * The CHECK `site_instruction_sent_not_before_issued` (0034) says the same to
+ * every code path.
+ */
+export function sentBeforeIssued(issuedOn: string, sentOn: string | null | undefined): boolean {
+  return typeof sentOn === "string" && sentOn < issuedOn;
+}
 
 /**
  * M1 — the site instruction log (R09). Οδηγία εργοταξίου: a written direction
@@ -32,6 +45,8 @@ import * as schema from "../db/schema";
  */
 @Injectable()
 export class SiteInstructionsService {
+  constructor(private readonly files: DocumentsService) {}
+
   /** Newest first, like the variation list, and for the same reason. */
   async list(contractId: string): Promise<SiteInstruction[]> {
     const tx = currentTx();
@@ -57,6 +72,10 @@ export class SiteInstructionsService {
     if (!tx) throw AppError.internal();
     await this.contractOf(contractId);
     const caller = await callerUserId();
+    // Owner request 26/11/2026: sent not before the day it was issued.
+    if (sentBeforeIssued(input.issuedOn ?? nicosiaDateOf(new Date()), input.sentOn)) {
+      throw AppError.unprocessable("errors.siteInstructionSentBeforeIssued");
+    }
 
     try {
       const [{ number }] = await tx.db
@@ -76,6 +95,9 @@ export class SiteInstructionsService {
           textEl: input.textEl,
           costImpactFlag: input.costImpactFlag,
           issuedBy: caller,
+          recipientName: input.recipientName?.trim() || null,
+          recipientEmail: input.recipientEmail?.trim() || null,
+          sentOn: input.sentOn ?? null,
           // Left to the column default (now) unless the instruction was given
           // on an earlier day than the one it is typed in on.
           ...(input.issuedOn !== undefined && input.issuedOn !== nicosiaDateOf(new Date())
@@ -117,13 +139,44 @@ export class SiteInstructionsService {
       throw AppError.unprocessable("errors.siteInstructionSettled");
     }
 
-    const values: { textEl?: string; costImpactFlag?: boolean; issuedAt?: SQL } = {};
+    const values: {
+      textEl?: string;
+      costImpactFlag?: boolean;
+      issuedAt?: SQL;
+      recipientName?: string | null;
+      recipientEmail?: string | null;
+      sentOn?: string | null;
+    } = {};
     if (input.textEl !== undefined && input.textEl !== existing.textEl) values.textEl = input.textEl;
     if (input.costImpactFlag !== undefined && input.costImpactFlag !== existing.costImpactFlag) {
       values.costImpactFlag = input.costImpactFlag;
     }
     if (input.issuedOn !== undefined && input.issuedOn !== nicosiaDateOf(existing.issuedAt)) {
       values.issuedAt = onDay(input.issuedOn);
+    }
+    // Owner request 26/11/2026: who it went to and when it left. A value sent
+    // unchanged is left alone, so saving the form writes no audit line for a
+    // field nobody touched.
+    if (input.recipientName !== undefined) {
+      const name = input.recipientName?.trim() || null;
+      if (name !== (existing.recipientName ?? null)) values.recipientName = name;
+    }
+    if (input.recipientEmail !== undefined) {
+      const email = input.recipientEmail?.trim() || null;
+      if (email !== (existing.recipientEmail ?? null)) values.recipientEmail = email;
+    }
+    if (input.sentOn !== undefined && input.sentOn !== (existing.sentOn ?? null)) {
+      values.sentOn = input.sentOn;
+    }
+    // RULE (owner, 26/11/2026): the sent day and the issue day as they will
+    // stand after this change — moving either can break the rule.
+    const issuedOn = input.issuedOn ?? nicosiaDateOf(existing.issuedAt);
+    const sentOn = input.sentOn !== undefined ? input.sentOn : (existing.sentOn ?? null);
+    if (
+      (values.sentOn !== undefined || values.issuedAt !== undefined) &&
+      sentBeforeIssued(issuedOn, sentOn)
+    ) {
+      throw AppError.unprocessable("errors.siteInstructionSentBeforeIssued");
     }
     if (Object.keys(values).length === 0) return existing;
 
@@ -215,6 +268,107 @@ export class SiteInstructionsService {
     return toVariation(rows[0]);
   }
 
+  // ------------------------------- correspondence (owner, 26/11/2026) --
+
+  /**
+   * The papers filed against an instruction: the sent e-mail, the letter, a
+   * reply. Newest first. Read through the caller's transaction, so
+   * `document_read` decides (ADR-0010); an instruction the caller may not see
+   * is a 404 before this runs.
+   */
+  async documents(contractId: string, instructionId: string): Promise<SiteInstructionDocument[]> {
+    const tx = currentTx();
+    if (!tx) throw AppError.internal();
+    await this.contractOf(contractId);
+    await this.one(contractId, instructionId);
+    const rows = await tx.db
+      .select({
+        id: schema.document.id,
+        titleEl: schema.document.titleEl,
+        filename: schema.document.filename,
+        mime: schema.document.mime,
+        size: schema.document.size,
+        protocolNumber: schema.document.protocolNumber,
+        uploadedByName: sql<string | null>`ecapital.user_display_name(${schema.document.uploadedBy})`,
+        createdAt: schema.document.createdAt,
+        deletedAt: schema.document.deletedAt,
+      })
+      .from(schema.document)
+      .where(
+        and(
+          eq(schema.document.entityType, "site_instruction"),
+          eq(schema.document.entityId, instructionId),
+        ),
+      )
+      .orderBy(desc(schema.document.createdAt), desc(schema.document.version));
+    // A tombstone (eArchive withdrew the protocol) has no bytes to show.
+    return rows
+      .filter((row) => !row.deletedAt)
+      .map((row) => ({
+        id: row.id,
+        titleEl: row.titleEl,
+        filename: row.filename,
+        mime: row.mime,
+        size: Number(row.size),
+        protocolNumber: row.protocolNumber,
+        uploadedByName: row.uploadedByName,
+        createdAt: row.createdAt.toISOString(),
+      }));
+  }
+
+  /**
+   * Owner request 26/11/2026: eCapital sends no e-mail; the engineer files the
+   * sent message or the letter here. Any number of papers, whether or not the
+   * instruction has become a variation — the correspondence is the record.
+   */
+  async addDocument(
+    contractId: string,
+    instructionId: string,
+    upload: UploadInput,
+  ): Promise<SiteInstructionDocument> {
+    const tx = currentTx();
+    if (!tx) throw AppError.internal();
+    await this.contractOf(contractId);
+    const instruction = await this.one(contractId, instructionId);
+
+    try {
+      const record = await this.files.fileSiteInstructionDocument(
+        {
+          id: instruction.id,
+          contractId: instruction.contractId,
+          number: instruction.number,
+          textEl: instruction.textEl,
+          recipientName: instruction.recipientName ?? null,
+          orgUnitId: instruction.orgUnitId,
+        },
+        upload,
+      );
+      const caller = await callerUserId();
+      const [person] = await tx.db
+        .select({ name: sql<string | null>`ecapital.user_display_name(${caller}::uuid)` })
+        .from(sql`(select 1) as one`);
+      return {
+        id: record.id,
+        titleEl: record.titleEl,
+        filename: record.filename,
+        mime: record.mime,
+        size: record.size,
+        protocolNumber: record.protocolNumber,
+        uploadedByName: person?.name ?? null,
+        createdAt: record.createdAt,
+      };
+    } catch (error) {
+      if (error instanceof AppError) throw error;
+      // The document row's policy said no (0034
+      // `document_insert_site_instruction`): a role that does not write the
+      // site instruction log, or a unit it may not write.
+      if (sqlState(error) === INSUFFICIENT_PRIVILEGE) {
+        throw AppError.forbidden("errors.readOnlyAccount");
+      }
+      throw error;
+    }
+  }
+
   // ------------------------------------------------------------- internals --
 
   private async one(contractId: string, instructionId: string): Promise<SiteInstruction> {
@@ -254,8 +408,22 @@ export class SiteInstructionsService {
     if (state === INSUFFICIENT_PRIVILEGE) throw AppError.forbidden("errors.readOnlyAccount");
     // The unique index on variation_id is the second statement of "once".
     if (state === UNIQUE_VIOLATION) throw AppError.unprocessable("errors.alreadyLinked");
-    // The only CHECK a caller reaches here is the cost-impact one.
-    if (state === CHECK_VIOLATION) throw AppError.unprocessable("errors.noCostImpact");
+    if (state === CHECK_VIOLATION) {
+      // 0034's recipient and sent-day rules, which the service checks first;
+      // reaching one means the service rule was bypassed somehow.
+      const constraint = constraintName(error);
+      if (constraint === "site_instruction_sent_not_before_issued") {
+        throw AppError.unprocessable("errors.siteInstructionSentBeforeIssued");
+      }
+      if (constraint === "site_instruction_recipient_name_length") {
+        throw AppError.badRequest("errors.siteInstructionRecipientNotValid");
+      }
+      if (constraint === "site_instruction_recipient_email_shape") {
+        throw AppError.badRequest("errors.siteInstructionRecipientEmailNotValid");
+      }
+      // Otherwise the cost-impact one.
+      throw AppError.unprocessable("errors.noCostImpact");
+    }
     throw error;
   }
 }
@@ -283,6 +451,9 @@ const INSTRUCTION_COLUMNS = {
   issuedAt: schema.siteInstruction.issuedAt,
   costImpactFlag: schema.siteInstruction.costImpactFlag,
   variationId: schema.siteInstruction.variationId,
+  recipientName: schema.siteInstruction.recipientName,
+  recipientEmail: schema.siteInstruction.recipientEmail,
+  sentOn: schema.siteInstruction.sentOn,
 };
 
 interface InstructionSelect {
@@ -296,6 +467,10 @@ interface InstructionSelect {
   issuedAt: Date;
   costImpactFlag: boolean;
   variationId: string | null;
+  recipientName: string | null;
+  recipientEmail: string | null;
+  /** A `date` column: drizzle hands it back as yyyy-mm-dd. */
+  sentOn: string | null;
 }
 
 function toSiteInstruction(row: InstructionSelect): SiteInstruction {
@@ -310,6 +485,9 @@ function toSiteInstruction(row: InstructionSelect): SiteInstruction {
     issuedAt: row.issuedAt.toISOString(),
     costImpactFlag: row.costImpactFlag,
     variationId: row.variationId,
+    recipientName: row.recipientName,
+    recipientEmail: row.recipientEmail,
+    sentOn: row.sentOn,
   };
 }
 

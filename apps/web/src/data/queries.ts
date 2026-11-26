@@ -40,6 +40,7 @@ import {
   SapAssetClass,
   ShutdownPermit,
   SiteInstruction,
+  SiteInstructionDocument,
   SystemFeed,
   UnmatchedQueue,
   BacklogItem,
@@ -255,6 +256,20 @@ export function useSiteInstructions(contractId: string) {
     queryFn: () =>
       proxyFetch(`/contracts/${encodeURIComponent(contractId)}/site-instructions`, z.array(SiteInstruction)),
     retry: false,
+  });
+}
+
+// S07c — owner request 26/11/2026: the open instruction's correspondence.
+export function useSiteInstructionDocuments(contractId: string, instructionId: string | null) {
+  return useQuery({
+    queryKey: ["site-instruction-documents", contractId, instructionId],
+    queryFn: () =>
+      proxyFetch(
+        `/contracts/${encodeURIComponent(contractId)}/site-instructions/${encodeURIComponent(instructionId ?? "")}/documents`,
+        z.array(SiteInstructionDocument),
+      ),
+    retry: false,
+    enabled: !!instructionId,
   });
 }
 

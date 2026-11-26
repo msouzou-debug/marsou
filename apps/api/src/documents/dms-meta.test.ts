@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildAwardMeta,
   buildBusinessCaseMeta,
+  buildSiteInstructionDocumentMeta,
   buildVariationMeta,
   vendorCounterparty,
 } from "./dms-meta";
@@ -265,6 +266,42 @@ describe("the variation's meta", () => {
       source_ref: "award:22222222-2222-2222-2222-222222222222",
       relation: "RELATED",
     });
+  });
+});
+
+// Owner request 26/11/2026: a site instruction's sent e-mail or letter.
+describe("the site instruction correspondence meta", () => {
+  const meta = buildSiteInstructionDocumentMeta(
+    {
+      instructionId: "33333333-3333-3333-3333-333333333333",
+      contractId: "22222222-2222-2222-2222-222222222222",
+      contractRef: "ΤΥ/2026/141",
+      number: 4,
+      textEl: "Προσθέστε δεύτερη σειρά ηχομονωτικών πάνελ.",
+      recipientName: "Μάριος Ανδρέου",
+      n: 2,
+      letterDate: "2026-11-26",
+      contractor: CONTRACTOR,
+      unit: UNIT,
+      approvals: [],
+    },
+    [MAIN],
+    ORIGIN,
+  );
+
+  it("files under its own module and source ref, as contract correspondence", () => {
+    expect(meta.source_module).toBe("site_instruction_document");
+    expect(meta.source_ref).toBe("site_instruction_doc:33333333-3333-3333-3333-333333333333:2");
+    expect(meta.source_url).toBe(`${ORIGIN}/contracts/22222222-2222-2222-2222-222222222222/instructions`);
+    expect(meta.category).toBe("Συμβάσεις");
+    expect(meta.amount).toBe(0);
+    expect(meta.counterparties).toHaveLength(1);
+  });
+
+  it("names the instruction by its number on the contract", () => {
+    expect(meta.subject).toContain("Οδηγία εργοταξίου 4");
+    expect(meta.subject).toContain("Μάριος Ανδρέου");
+    expect(meta.sender_ref).toBe("ΤΥ/2026/141/ΟΕ-4");
   });
 });
 

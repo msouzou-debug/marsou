@@ -70,6 +70,7 @@
     "dateEndBeforeStart": "The end date cannot be before the start date.",
     "emailInvalid": "The e-mail address is not valid.",
     "sentBeforeRaised": "The sent date cannot be before the day the RFI was raised.",
+    "sentBeforeIssued": "The sent date cannot be before the date issued.",
     "titleTooShort": "The title needs at least 3 characters.",
     "answeredBeforeRaised": "The day the answer arrived cannot be before the day the RFI was raised.",
     "closingNoteNeeded": "This RFI has no answer. Write why it is being closed.",
@@ -346,6 +347,38 @@
       "gross": "Total incl. VAT",
       "breakdown": "Net {net} · VAT {vat}",
       "allGross": "All amounts include VAT. SHSO cannot recover VAT, so VAT is a cost to the project."
+    },
+    "correspondence": {
+      "title": "Correspondence",
+      "empty": "No correspondence attached yet.",
+      "upload": "Attach a file",
+      "file": "File",
+      "titleLabel": "Title (optional)",
+      "pendingFiling": "Waiting for a protocol number",
+      "saving": "Saving…",
+      "failedTitle": "The record was saved, but the files below were not attached.",
+      "failedLine": "«{name}»: {reason}",
+      "failedRetry": "Attach them again with the «Attach a file» form here.",
+      "attachments": {
+        "limits": "One or more .msg, .eml or .pdf files, up to {limit} each.",
+        "chosen": "Files to attach",
+        "remove": "Remove",
+        "tooLarge": "The file «{name}» is larger than {limit} and was not added.",
+        "empty": "The file «{name}» is empty and was not added."
+      },
+      "mail": {
+        "button": "Send by e-mail",
+        "hint": "Opens your mail program (Outlook) with a message ready for the recipient. eCapital does not send e-mail itself.",
+        "noRecipient": "No recipient e-mail has been recorded. Add it with «Edit».",
+        "afterOpen": "Once you have sent the message from Outlook, record the day it was sent and attach the sent message under «Correspondence».",
+        "setSentToday": "Sent today, {date}",
+        "sentSaved": "The day it was sent has been recorded.",
+        "saveAndSend": "Save and send e-mail",
+        "saveAndSendHint": "Saves, records today as the day it was sent and downloads an .eml file with the attachments. Open the file: Outlook opens it as a new message. Check it and press «Send» in Outlook.",
+        "saveAndSendNoRecipient": "To send by e-mail, first fill in the recipient's e-mail.",
+        "draftDownloaded": "The message {file} has been downloaded. Open it: Outlook opens it as a new message with the attachments. Check it and press «Send» in Outlook.",
+        "draftFailed": "The record was saved, but the message for Outlook could not be prepared ({reason}). Use «Send by e-mail» and attach the files in Outlook."
+      }
     }
   },
   "nav": {
@@ -828,14 +861,7 @@
       "closedNoEdit": "This RFI is closed and can no longer be changed.",
       "notRecorded": "Not recorded",
       "evidence": {
-        "title": "Correspondence",
-        "empty": "No correspondence attached yet.",
-        "upload": "Attach a file",
-        "hint": "Attach the message you sent (.msg, .eml or .pdf) or the reply you received.",
-        "file": "File",
-        "titleLabel": "Title (optional)",
-        "pendingFiling": "Waiting for a protocol number",
-        "saving": "Saving…"
+        "hint": "Attach the message you sent (.msg, .eml or .pdf) or the reply you received."
       },
       "answerAction": "Answer",
       "answerTitle": "Answer RFI {number}",
@@ -847,12 +873,6 @@
       "closeSaved": "The RFI has been closed.",
       "recipientFromContractor": "The recipient comes from the contractor's contact details. You can change it.",
       "email": {
-        "button": "Send by e-mail",
-        "hint": "Opens your mail program (Outlook) with a message ready for the recipient. eCapital does not send e-mail itself.",
-        "noRecipient": "No recipient e-mail has been recorded. Add it with «Edit».",
-        "afterOpen": "Once you have sent the message from Outlook, record the day it was sent and attach the sent message under «Correspondence».",
-        "setSentToday": "Sent today, {date}",
-        "sentSaved": "The day it was sent has been recorded.",
         "subject": "Request for information {number} — {contract} — {question}",
         "rfiLine": "Request for information {number}",
         "contractLine": "Contract: {contract}",
@@ -860,7 +880,14 @@
         "dueLine": "Reply due by: {date}",
         "questionLine": "Question:",
         "quoteLine": "In your reply, quote «Request for information {number}» and contract {contract}."
-      }
+      },
+      "attachLabel": "Letter or e-mail of the RFI (optional)",
+      "attachHint": "The files are attached under the RFI's «Correspondence» and, with «Save and send e-mail», to the Outlook message.",
+      "attachTitle": "RFI letter",
+      "replyAttachLabel": "Contractor's letter or e-mail (optional)",
+      "replyAttachHint": "The reply as you received it: the e-mail (.msg or .eml) or the letter (.pdf). It is attached under the RFI's «Correspondence».",
+      "replyAttachTitle": "Contractor's reply",
+      "savedAndSent": "The RFI was saved with today as the day it was sent."
     },
     "s07c": {
       "title": "Site instructions",
@@ -872,7 +899,8 @@
         "issuedBy": "Issued by",
         "issuedAt": "Date",
         "costImpact": "Cost impact",
-        "variation": "Variation"
+        "variation": "Variation",
+        "sentOn": "Sent"
       },
       "fields": {
         "text": "Instruction",
@@ -880,13 +908,34 @@
         "number": "No.",
         "issuedBy": "Issued by",
         "issuedOn": "Date issued",
-        "variation": "Variation"
+        "variation": "Variation",
+        "recipientName": "Recipient",
+        "recipientNameHint": "Name and organisation, usually the contractor. Optional.",
+        "recipientEmail": "Recipient's e-mail",
+        "sentOn": "Sent on",
+        "sentOnHint": "eCapital sends no e-mail. Send the instruction from Outlook and record the day you sent it here: not before it was issued and not after today."
       },
       "createVariation": "Create variation",
       "variationLink": "Variation {number}",
       "sheetTitle": "Site instruction {number}",
       "editTitle": "Edit site instruction {number}",
-      "settledNoEdit": "This instruction has become a variation and can no longer be changed."
+      "settledNoEdit": "This instruction has become a variation and can no longer be changed.",
+      "notRecorded": "Not recorded",
+      "recipientFromContractor": "The recipient was filled in from the contractor's contact details. You can change it.",
+      "attachLabel": "Letter or e-mail of the instruction (optional)",
+      "attachHint": "The files are attached under the instruction's «Correspondence» and, with «Save and send e-mail», to the Outlook message.",
+      "attachTitle": "Instruction letter",
+      "evidenceHint": "Attach the message you sent (.msg, .eml or .pdf), the letter, or the reply you received.",
+      "savedAndSent": "The instruction was saved with today as the day it was sent.",
+      "email": {
+        "subject": "Site instruction {number} — {contract} — {text}",
+        "instructionLine": "Site instruction {number}",
+        "contractLine": "Contract: {contract}",
+        "projectLine": "Project: {project}",
+        "issuedLine": "Date issued: {date}",
+        "textLine": "Instruction:",
+        "quoteLine": "In your correspondence, quote «Site instruction {number}» and contract {contract}."
+      }
     },
     "s07d": {
       "title": "Defects",
